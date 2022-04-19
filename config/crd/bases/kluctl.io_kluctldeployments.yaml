@@ -35,10 +35,49 @@ spec:
           spec:
             description: KluctlDeploymentSpec defines the desired state of KluctlDeployment
             properties:
-              foo:
-                description: Foo is an example field of KluctlDeployment. Edit kluctldeployment_types.go
-                  to remove/update
+              interval:
+                description: The interval at which to reconcile the KluctlDeployment.
                 type: string
+              path:
+                description: Path to the directory containing the .kluctl.yaml file,
+                  or the Defaults to 'None', which translates to the root path of
+                  the SourceRef.
+                type: string
+              prune:
+                description: Prune enables garbage collection.
+                type: boolean
+              retryInterval:
+                description: The interval at which to retry a previously failed reconciliation.
+                  When not specified, the controller uses the KluctlDeploymentSpec.Interval
+                  value to retry failures.
+                type: string
+              sourceRef:
+                description: Reference of the source where the kluctl project is.
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  kind:
+                    description: Kind of the referent.
+                    enum:
+                    - GitRepository
+                    - Bucket
+                    type: string
+                  name:
+                    description: Name of the referent.
+                    type: string
+                  namespace:
+                    description: Namespace of the referent, defaults to the namespace
+                      of the Kubernetes resource object that contains the reference.
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+            required:
+            - interval
+            - prune
+            - sourceRef
             type: object
           status:
             description: KluctlDeploymentStatus defines the observed state of KluctlDeployment
