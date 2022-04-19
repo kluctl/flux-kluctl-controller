@@ -1,0 +1,24 @@
+# permissions for end users to edit kluctldeployments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kluctldeployment-editor-role
+rules:
+- apiGroups:
+  - kluctl.io
+  resources:
+  - kluctldeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kluctl.io
+  resources:
+  - kluctldeployments/status
+  verbs:
+  - get

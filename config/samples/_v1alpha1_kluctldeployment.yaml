@@ -1,0 +1,6 @@
+apiVersion: kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: kluctldeployment-sample
+spec:
+  # TODO(user): Add fields here
