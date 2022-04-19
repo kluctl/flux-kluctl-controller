@@ -1,0 +1,6 @@
+domain: kluctl.io
+layout:
+- go.kubebuilder.io/v3
+projectName: flux-kluctl-controller
+repo: github.com/kluctl/flux-kluctl-controller
+version: "3"
