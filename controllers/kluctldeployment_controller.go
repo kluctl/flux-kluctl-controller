@@ -566,6 +566,48 @@ func (r *KluctlDeploymentReconciler) writeKubeConfig(ctx context.Context, kluctl
 	return path, nil
 }
 
+func (r *KluctlDeploymentReconciler) runKluctlCommand(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, cmd *kluctlCaller, pp preparedProject, commandName string) (*kluctlv1.CommandResult, error) {
+	resultFile := filepath.Join(pp.tmpDir, "result.yaml")
+	renderOutputDir := filepath.Join(pp.tmpDir, "rendered")
+	cmd.args = append(cmd.args, "--output-format", "yaml="+resultFile)
+	cmd.args = append(cmd.args, "--render-output-dir", renderOutputDir)
+
+	var cmdResult types2.CommandResult
+	_, _, cmdErr := cmd.run(ctx)
+	yamlErr := yaml.ReadYamlFile(resultFile, &cmdResult)
+	if yamlErr != nil && !os.IsNotExist(yamlErr) {
+		return nil, yamlErr
+	}
+
+	if cmdErr != nil {
+		r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
+		return kluctlv1.ConvertCommandResult(&cmdResult), cmdErr
+	}
+	if os.IsNotExist(yamlErr) {
+		err := fmt.Errorf("%s did not write result", commandName)
+		r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityInfo, err.Error(), nil)
+		return nil, err
+	}
+
+	msg := fmt.Sprintf("%s succeeded.", commandName)
+	if len(cmdResult.NewObjects) != 0 {
+		msg += fmt.Sprintf(" %d new objects.", len(cmdResult.NewObjects))
+	}
+	if len(cmdResult.ChangedObjects) != 0 {
+		msg += fmt.Sprintf(" %d changed objects.", len(cmdResult.ChangedObjects))
+	}
+	if len(cmdResult.HookObjects) != 0 {
+		msg += fmt.Sprintf(" %d hooks run.", len(cmdResult.HookObjects))
+	}
+	if len(cmdResult.DeletedObjects) != 0 {
+		msg += fmt.Sprintf(" %d deleted objects.", len(cmdResult.DeletedObjects))
+	}
+
+	r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityInfo, msg, nil)
+
+	return kluctlv1.ConvertCommandResult(&cmdResult), nil
+}
+
 func (r *KluctlDeploymentReconciler) kluctlDeploy(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, pp preparedProject) (*kluctlv1.CommandResult, error) {
 	cmd := kluctlCaller{
 		workDir:     pp.sourceDir,
@@ -578,29 +620,9 @@ func (r *KluctlDeploymentReconciler) kluctlDeploy(ctx context.Context, kluctlDep
 	cmd.addApplyArgs(kluctlDeployment)
 	cmd.addInclusionArgs(kluctlDeployment)
 	cmd.addMiscArgs(kluctlDeployment, true, true)
-
-	resultFile := filepath.Join(pp.tmpDir, "result.yaml")
-	renderOutputDir := filepath.Join(pp.tmpDir, "rendered")
-	cmd.args = append(cmd.args, "--output", "yaml="+resultFile)
-	cmd.args = append(cmd.args, "--render-output-dir", renderOutputDir)
 	cmd.args = append(cmd.args, "--yes")
 
-	_, _, err := cmd.run()
-	if err != nil {
-		return nil, err
-	}
-
-	var cmdResult *types2.CommandResult
-	err = yaml.ReadYamlFile(resultFile, &cmdResult)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cmdResult.NewObjects) != 0 || len(cmdResult.ChangedObjects) != 0 || len(cmdResult.DeletedObjects) != 0 || len(cmdResult.HookObjects) != 0 {
-		r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityInfo, "deploy", nil)
-	}
-
-	return kluctlv1.ConvertCommandResult(cmdResult), nil
+	return r.runKluctlCommand(ctx, kluctlDeployment, &cmd, pp, "deploy")
 }
 
 func (r *KluctlDeploymentReconciler) kluctlPrune(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, pp preparedProject) (*kluctlv1.CommandResult, error) {
@@ -618,29 +640,9 @@ func (r *KluctlDeploymentReconciler) kluctlPrune(ctx context.Context, kluctlDepl
 	cmd.addImageArgs(kluctlDeployment)
 	cmd.addInclusionArgs(kluctlDeployment)
 	cmd.addMiscArgs(kluctlDeployment, true, false)
-
-	resultFile := filepath.Join(pp.tmpDir, "result.yaml")
-	renderOutputDir := filepath.Join(pp.tmpDir, "rendered")
-	cmd.args = append(cmd.args, "--output", "yaml="+resultFile)
-	cmd.args = append(cmd.args, "--render-output-dir", renderOutputDir)
 	cmd.args = append(cmd.args, "--yes")
 
-	_, _, err := cmd.run()
-	if err != nil {
-		return nil, err
-	}
-
-	var cmdResult *types2.CommandResult
-	err = yaml.ReadYamlFile(resultFile, &cmdResult)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cmdResult.DeletedObjects) != 0 {
-		r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityInfo, "prune", nil)
-	}
-
-	return kluctlv1.ConvertCommandResult(cmdResult), nil
+	return r.runKluctlCommand(ctx, kluctlDeployment, &cmd, pp, "prune")
 }
 
 func (r *KluctlDeploymentReconciler) kluctlDelete(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, pp preparedProject) (*kluctlv1.CommandResult, error) {
@@ -658,29 +660,9 @@ func (r *KluctlDeploymentReconciler) kluctlDelete(ctx context.Context, kluctlDep
 	cmd.addImageArgs(kluctlDeployment)
 	cmd.addInclusionArgs(kluctlDeployment)
 	cmd.addMiscArgs(kluctlDeployment, true, false)
-
-	resultFile := filepath.Join(pp.tmpDir, "result.yaml")
-	renderOutputDir := filepath.Join(pp.tmpDir, "rendered")
-	cmd.args = append(cmd.args, "--output", "yaml="+resultFile)
-	cmd.args = append(cmd.args, "--render-output-dir", renderOutputDir)
 	cmd.args = append(cmd.args, "--yes")
 
-	_, _, err := cmd.run()
-	if err != nil {
-		return nil, err
-	}
-
-	var cmdResult *types2.CommandResult
-	err = yaml.ReadYamlFile(resultFile, &cmdResult)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cmdResult.DeletedObjects) != 0 {
-		r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityInfo, "delete", nil)
-	}
-
-	return kluctlv1.ConvertCommandResult(cmdResult), nil
+	return r.runKluctlCommand(ctx, kluctlDeployment, &cmd, pp, "delete")
 }
 
 func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment) (ctrl.Result, error) {

@@ -3,6 +3,7 @@ package controllers
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/sirupsen/logrus"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 )
 
@@ -76,7 +78,9 @@ func (kc *kluctlCaller) addInclusionArgs(kluctlDeployment kluctlv1.KluctlDeploym
 	}
 }
 
-func (kc *kluctlCaller) run() (string, string, error) {
+func (kc *kluctlCaller) run(ctx context.Context) (string, string, error) {
+	log := ctrl.LoggerFrom(ctx)
+
 	var args []string
 	args = append(args, kc.args...)
 	args = append(args, "--no-update-check")
@@ -91,7 +95,13 @@ func (kc *kluctlCaller) run() (string, string, error) {
 		args = append(args, "--local-sealed-secrets", *kc.localSealedSecrets)
 	}
 
-	env := os.Environ()
+	var env []string
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "KUBECONFIG=") {
+			continue
+		}
+		env = append(env, e)
+	}
 	env = append(env, fmt.Sprintf("KUBECONFIG=%s", strings.Join(kc.kubeconfigs, string(os.PathListSeparator))))
 
 	kluctlExe := os.Getenv("KLUCTL_EXE")
@@ -111,6 +121,8 @@ func (kc *kluctlCaller) run() (string, string, error) {
 		}
 		kluctlExe = p
 	}
+
+	log.Info(fmt.Sprintf("calling kluctl with args: %s", strings.Join(args, " ")))
 
 	cmd := exec.Command(kluctlExe, args...)
 	cmd.Dir = kc.workDir
