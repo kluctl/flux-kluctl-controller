@@ -18,9 +18,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/kluctl/flux-kluctl-controller/controllers"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"os"
 	"time"
+
+	"github.com/kluctl/flux-kluctl-controller/controllers"
 
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,7 +42,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
-	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
+	kluctliov1alpha1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -52,10 +54,11 @@ var (
 )
 
 func init() {
-	_ = clientgoscheme.AddToScheme(scheme)
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	_ = sourcev1.AddToScheme(scheme)
-	_ = kluctlv1.AddToScheme(scheme)
+	utilruntime.Must(sourcev1.AddToScheme(scheme))
+	utilruntime.Must(kluctliov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(kluctliov1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -140,6 +143,13 @@ func main() {
 		HTTPRetry:                 httpRetry,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", controllerName)
+		os.Exit(1)
+	}
+	if err = (&controllers.KluctlProjectReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "KluctlProject")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
