@@ -63,22 +63,76 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
 
+	// Timeout for all operations.
+	// Defaults to 'Interval' duration.
+	// +optional
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
 	// Target specifies the kluctl target to deploy
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
 	// +required
 	Target string `json:"target"`
 
-	// Timeout for all operations.
-	// Defaults to 'Interval' duration.
+	// Args specifies dynamic target args
 	// +optional
-	Timeout *metav1.Duration `json:"timeout,omitempty"`
+	Args map[string]string `json:"args,omitempty"`
+
+	// UpdateImages instructs kluctl to update dynamic images.
+	// Equivalent to using '-u' when calling kluctl.
+	// +kubebuilder:default:=false
+	// +optional
+	UpdateImages bool `json:"updateImages,omitempty"`
+
+	// DryRun instructs kluctl to run everything in dry-run mode.
+	// Equivalent to using '--dry-run' when calling kluctl.
+	// +kubebuilder:default:=false
+	// +optional
+	DryRun bool `json:"dryRun,omitempty"`
+
+	// NoWait instructs kluctl to not wait for any resources to become ready, including hooks.
+	// Equivalent to using '--no-wait' when calling kluctl.
+	// +kubebuilder:default:=false
+	// +optional
+	NoWait bool `json:"noWait,omitempty"`
 
 	// ForceApply instructs kluctl to force-apply in case of SSA conflicts.
 	// Equivalent to using '--force-apply' when calling kluctl.
 	// +kubebuilder:default:=false
 	// +optional
 	ForceApply bool `json:"forceApply,omitempty"`
+
+	// ReplaceOnError instructs kluctl to replace resources on error.
+	// Equivalent to using '--replace-on-error' when calling kluctl.
+	// +kubebuilder:default:=false
+	// +optional
+	ReplaceOnError bool `json:"replaceOnError,omitempty"`
+
+	// ForceReplaceOnError instructs kluctl to force-replace resources in case a normal replace fails.
+	// Equivalent to using '--force-replace-on-error' when calling kluctl.
+	// +kubebuilder:default:=false
+	// +optional
+	ForceReplaceOnError bool `json:"forceReplaceOnError,omitempty"`
+
+	// IncludeTags instructs kluctl to only include deployments with given tags.
+	// Equivalent to using '--include-tag' when calling kluctl.
+	// +optional
+	IncludeTags []string `json:"includeTags,omitempty"`
+
+	// ExcludeTags instructs kluctl to only include deployments with given tags.
+	// Equivalent to using '--exclude-tag' when calling kluctl.
+	// +optional
+	ExcludeTags []string `json:"excludeTags,omitempty"`
+
+	// IncludeDeploymentDirs instructs kluctl to only include deployments with the given dir.
+	// Equivalent to using '--include-deployment-dir' when calling kluctl.
+	// +optional
+	IncludeDeploymentDirs []string `json:"includeDeploymentDirs,omitempty"`
+
+	// ExcludeDeploymentDirs instructs kluctl to only include deployments with the given dir.
+	// Equivalent to using '--exclude-deployment-dir' when calling kluctl.
+	// +optional
+	ExcludeDeploymentDirs []string `json:"excludeDeploymentDirs,omitempty"`
 
 	// Prune enables pruning after deploying.
 	// +kubebuilder:default:=false
@@ -105,6 +159,14 @@ type KluctlDeploymentStatus struct {
 	// LastAttemptedRevision is the revision of the last reconciliation attempt.
 	// +optional
 	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
+
+	// LastDeployResult is the last deploy command result
+	// +optional
+	LastDeployResult *CommandResult `json:"lastDeployResult,omitempty"`
+
+	// LastPruneResult is the last prune command result
+	// +optional
+	LastPruneResult *CommandResult `json:"lastPruneResult,omitempty"`
 }
 
 // KluctlDeploymentProgressing resets the conditions of the given KluctlDeployment to a single
@@ -151,6 +213,14 @@ func KluctlDeploymentNotReady(k KluctlDeployment, revision, reason, message stri
 	if revision != "" {
 		k.Status.LastAttemptedRevision = revision
 	}
+	return k
+}
+
+// KluctlDeploymentReady registers a successful deploy attempt of the given KluctlDeployment.
+func KluctlDeploymentReady(k KluctlDeployment, revision, reason, message string) KluctlDeployment {
+	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
+	SetKluctlDeploymentHealthiness(&k, metav1.ConditionTrue, reason, reason)
+	k.Status.LastDeployedRevision = revision
 	return k
 }
 
