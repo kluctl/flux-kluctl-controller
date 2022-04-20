@@ -107,6 +107,28 @@ spec:
               interval:
                 description: The interval at which to reconcile the KluctlDeployment.
                 type: string
+              kubeConfig:
+                description: The KubeConfig for deploying to the target cluster. Specifies
+                  the kubeconfig to be used when invoking kluctl. Contexts in this
+                  kubeconfig must match the cluster config found in the kluctl project.
+                properties:
+                  secretRef:
+                    description: SecretRef holds the name to a secret that contains
+                      a 'value' key with the kubeconfig file as the value. It must
+                      be in the same namespace as the Kustomization. It is recommended
+                      that the kubeconfig is self-contained, and the secret is regularly
+                      updated if credentials such as a cloud-access-token expire.
+                      Cloud specific `cmd-path` auth helpers will not function without
+                      adding binaries and credentials to the Pod that is responsible
+                      for reconciling the Kustomization.
+                    properties:
+                      name:
+                        description: Name of the referent.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
               noWait:
                 default: false
                 description: NoWait instructs kluctl to not wait for any resources
@@ -176,6 +198,7 @@ spec:
                 type: boolean
             required:
             - interval
+            - kubeConfig
             - sourceRef
             - target
             type: object

@@ -74,6 +74,12 @@ type KluctlDeploymentSpec struct {
 	// +required
 	Target string `json:"target"`
 
+	// The KubeConfig for deploying to the target cluster.
+	// Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
+	// the cluster config found in the kluctl project.
+	// +required
+	KubeConfig *KubeConfig `json:"kubeConfig"`
+
 	// Args specifies dynamic target args
 	// +optional
 	Args map[string]string `json:"args,omitempty"`
@@ -138,6 +144,20 @@ type KluctlDeploymentSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Prune bool `json:"prune,omitempty"`
+}
+
+// KubeConfig references a Kubernetes secret that contains a kubeconfig file.
+type KubeConfig struct {
+	// SecretRef holds the name to a secret that contains a 'value' key with
+	// the kubeconfig file as the value. It must be in the same namespace as
+	// the Kustomization.
+	// It is recommended that the kubeconfig is self-contained, and the secret
+	// is regularly updated if credentials such as a cloud-access-token expire.
+	// Cloud specific `cmd-path` auth helpers will not function without adding
+	// binaries and credentials to the Pod that is responsible for reconciling
+	// the Kustomization.
+	// +required
+	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // KluctlDeploymentStatus defines the observed state of KluctlDeployment
