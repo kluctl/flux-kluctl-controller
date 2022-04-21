@@ -278,6 +278,10 @@ spec:
                 description: LastAttemptedRevision is the revision of the last reconciliation
                   attempt.
                 type: string
+              lastAttemptedTargetHash:
+                description: LastAttemptedTargetHash is the hash of the last target
+                  configuration that was attempted.
+                type: string
               lastDeployResult:
                 description: LastDeployResult is the last deploy command result
                 properties:
@@ -474,8 +478,11 @@ spec:
                     type: array
                 type: object
               lastDeployedRevision:
-                description: The last successfully deployed revision. The revision
-                  format for Git sources is <branch|tag>/<commit-sha>.
+                description: The last successfully deployed revision.
+                type: string
+              lastDeployedTargetHash:
+                description: LastDeployedTargetHash is the last successfully deployed
+                  target configuration hash.
                 type: string
               lastHandledReconcileAt:
                 description: LastHandledReconcileAt holds the value of the most recent

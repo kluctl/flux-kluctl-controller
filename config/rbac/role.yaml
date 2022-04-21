@@ -49,6 +49,36 @@ rules:
   - patch
   - update
 - apiGroups:
+  - kluctl.io
+  resources:
+  - kluctlprojects
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kluctl.io
+  resources:
+  - kluctlprojects/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - kluctl.io
+  resources:
+  - kluctlprojects/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - source.toolkit.fluxcd.io
   resources:
   - buckets
@@ -64,33 +94,3 @@ rules:
   - gitrepositories/status
   verbs:
   - get
-- apiGroups:
-  - source.toolkit.fluxcd.io
-  resources:
-  - kluctlprojects
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - source.toolkit.fluxcd.io
-  resources:
-  - kluctlprojects/finalizers
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - source.toolkit.fluxcd.io
-  resources:
-  - kluctlprojects/status
-  verbs:
-  - get
-  - patch
-  - update

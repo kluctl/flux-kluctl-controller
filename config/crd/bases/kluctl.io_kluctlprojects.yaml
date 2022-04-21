@@ -77,6 +77,70 @@ spec:
           status:
             description: KluctlProjectStatus defines the observed state of KluctlProject
             properties:
+              archiveInfo:
+                description: ArchiveInfo holds infos about the archive
+                properties:
+                  archiveHash:
+                    description: ArchiveHash is the hash of archive.tar.gz
+                    type: string
+                  involvedRepos:
+                    description: InvolvedRepos is a list of repositories and refs
+                      involved with this KluctlProject
+                    items:
+                      description: InvolvedRepo represents a git repository and all
+                        involved refs
+                      properties:
+                        patterns:
+                          description: Patterns is a list of pattern+refs combinations
+                          items:
+                            description: InvolvedRepoPattern represents a ref pattern
+                              and the found refs
+                            properties:
+                              pattern:
+                                description: Pattern is a regex to filter refs
+                                type: string
+                              refs:
+                                additionalProperties:
+                                  type: string
+                                description: Refs is the filtered list of refs
+                                type: object
+                            required:
+                            - pattern
+                            - refs
+                            type: object
+                          type: array
+                        url:
+                          description: URL is the url of the involved git repository
+                          type: string
+                      required:
+                      - patterns
+                      - url
+                      type: object
+                    type: array
+                  metadataHash:
+                    description: MetdataHash is the hash of metadata.yml
+                    type: string
+                  targets:
+                    description: Targets is a list of targets found in the KluctlProject
+                    items:
+                      properties:
+                        name:
+                          description: Name is the name of the target
+                          type: string
+                        targetHash:
+                          description: TargetHash is the hash of the target configuration
+                          type: string
+                      required:
+                      - name
+                      - targetHash
+                      type: object
+                    type: array
+                required:
+                - archiveHash
+                - involvedRepos
+                - metadataHash
+                - targets
+                type: object
               artifact:
                 description: Artifact represents the last successful KluctlProject
                   reconciliation.
@@ -182,40 +246,6 @@ spec:
                   - type
                   type: object
                 type: array
-              involvedRepos:
-                description: InvolvedRepos is a list of repositories and refs involved
-                  with this KluctlProject
-                items:
-                  description: InvolvedRepo represents a git repository and all involved
-                    refs
-                  properties:
-                    patterns:
-                      description: Patterns is a list of pattern+refs combinations
-                      items:
-                        description: InvolvedRepoPattern represents a ref pattern
-                          and the found refs
-                        properties:
-                          pattern:
-                            description: Pattern is a regex to filter refs
-                            type: string
-                          refs:
-                            additionalProperties:
-                              type: string
-                            description: Refs is the filtered list of refs
-                            type: object
-                        required:
-                        - pattern
-                        - refs
-                        type: object
-                      type: array
-                    url:
-                      description: URL is the url of the involved git repository
-                      type: string
-                  required:
-                  - patterns
-                  - url
-                  type: object
-                type: array
               lastHandledReconcileAt:
                 description: LastHandledReconcileAt holds the value of the most recent
                   reconcile request value, so a change of the annotation value can
@@ -226,19 +256,11 @@ spec:
                   the KluctlProject object.
                 format: int64
                 type: integer
-              targets:
-                description: Targets is a list of targets found in the KluctlProject
-                items:
-                  type: string
-                type: array
               url:
                 description: URL is the dynamic fetch link for the latest Artifact.
                   It is provided on a "best effort" basis, and using the precise KluctlProjectStatus.Artifact
                   data is recommended.
                 type: string
-            required:
-            - involvedRepos
-            - targets
             type: object
         type: object
     served: true

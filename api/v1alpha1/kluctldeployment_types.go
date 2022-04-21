@@ -172,13 +172,20 @@ type KluctlDeploymentStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// The last successfully deployed revision.
-	// The revision format for Git sources is <branch|tag>/<commit-sha>.
 	// +optional
 	LastDeployedRevision string `json:"lastDeployedRevision,omitempty"`
+
+	// LastDeployedTargetHash is the last successfully deployed target configuration hash.
+	// +optional
+	LastDeployedTargetHash string `json:"lastDeployedTargetHash,omitempty"`
 
 	// LastAttemptedRevision is the revision of the last reconciliation attempt.
 	// +optional
 	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
+
+	// LastAttemptedTargetHash is the hash of the last target configuration that was attempted.
+	// +optional
+	LastAttemptedTargetHash string `json:"lastAttemptedTargetHash"`
 
 	// LastDeployResult is the last deploy command result
 	// +optional
@@ -214,7 +221,7 @@ func SetKluctlDeploymentHealthiness(k *KluctlDeployment, status metav1.Condition
 }
 
 // SetKluctlDeploymentReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision, on the KluctlDeployment.
-func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string) {
+func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string, targetHash string) {
 	newCondition := metav1.Condition{
 		Type:    meta.ReadyCondition,
 		Status:  status,
@@ -225,22 +232,27 @@ func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionSt
 
 	k.Status.ObservedGeneration = k.Generation
 	k.Status.LastAttemptedRevision = revision
+	k.Status.LastAttemptedTargetHash = targetHash
 }
 
 // KluctlDeploymentNotReady registers a failed apply attempt of the given KluctlDeployment.
-func KluctlDeploymentNotReady(k KluctlDeployment, revision, reason, message string) KluctlDeployment {
-	SetKluctlDeploymentReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision)
+func KluctlDeploymentNotReady(k KluctlDeployment, revision, targetHash, reason, message string) KluctlDeployment {
+	SetKluctlDeploymentReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision, targetHash)
 	if revision != "" {
 		k.Status.LastAttemptedRevision = revision
+	}
+	if targetHash != "" {
+		k.Status.LastAttemptedTargetHash = targetHash
 	}
 	return k
 }
 
 // KluctlDeploymentReady registers a successful deploy attempt of the given KluctlDeployment.
-func KluctlDeploymentReady(k KluctlDeployment, revision, reason, message string) KluctlDeployment {
-	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision)
+func KluctlDeploymentReady(k KluctlDeployment, revision, targetHash, reason, message string) KluctlDeployment {
+	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision, targetHash)
 	SetKluctlDeploymentHealthiness(&k, metav1.ConditionTrue, reason, reason)
 	k.Status.LastDeployedRevision = revision
+	k.Status.LastDeployedTargetHash = targetHash
 	return k
 }
 

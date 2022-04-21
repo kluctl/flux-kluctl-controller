@@ -34,6 +34,10 @@ const (
 	// source artifact download failed.
 	ArtifactFailedReason string = "ArtifactFailed"
 
+	// TargetNotFoundReason represents the fact that the
+	// target was not found.
+	TargetNotFoundReason string = "TargetNotFound"
+
 	// DeployFailedReason represents the fact that the
 	// kluctl deploy command failed.
 	DeployFailedReason string = "DeployFailed"
@@ -49,6 +53,10 @@ const (
 	// ReconciliationSucceededReason represents the fact that
 	// the reconciliation succeeded.
 	ReconciliationSucceededReason string = "ReconciliationSucceeded"
+
+	// ReconciliationSkippedReason represents the fact that
+	// the reconciliation was skipped due to an unchanged target.
+	ReconciliationSkippedReason string = "ReconciliationSkipped"
 
 	// ReconciliationFailedReason represents the fact that
 	// the reconciliation failed.

@@ -18,8 +18,6 @@ package controllers
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
@@ -406,11 +404,11 @@ func (r *KluctlProjectReconciler) reconcileArchive(ctx context.Context,
 		return handleError(fmt.Errorf("kluctl archive failed: %w", err), v1alpha1.ArchiveFailedReason)
 	}
 
-	archiveHash, err := r.calcHash(archivePath)
+	archiveHash, err := calcFileHash(archivePath)
 	if err != nil {
 		return handleError(fmt.Errorf("hashing %s failed: %w", archivePath, err), v1alpha1.ArchiveFailedReason)
 	}
-	metadataHash, err := r.calcHash(metadataPath)
+	metadataHash, err := calcFileHash(metadataPath)
 	if err != nil {
 		return handleError(fmt.Errorf("hashing %s failed: %w", metadataPath, err), v1alpha1.ArchiveFailedReason)
 	}
@@ -424,14 +422,9 @@ func (r *KluctlProjectReconciler) reconcileArchive(ctx context.Context,
 
 	archiveInfo.Targets = nil
 	for _, t := range metadata.Targets {
-		targetStr, err := yaml.WriteYamlString(t.Target)
-		if err != nil {
-			return handleError(fmt.Errorf("failed to write target %s: %w", t.Target.Name, err), v1alpha1.ArchiveFailedReason)
-		}
-		targetHash := sha256.Sum256([]byte(targetStr))
 		archiveInfo.Targets = append(archiveInfo.Targets, v1alpha1.TargetInfo{
 			Name:       t.Target.Name,
-			TargetHash: hex.EncodeToString(targetHash[:]),
+			TargetHash: calcTargetHash(archiveInfo.ArchiveHash, t.Target),
 		})
 	}
 
@@ -621,13 +614,4 @@ func (r *KluctlProjectReconciler) eventLogf(ctx context.Context, obj runtime.Obj
 		ctrl.LoggerFrom(ctx).Info(msg)
 	}
 	r.Eventf(obj, eventType, reason, msg)
-}
-
-func (r *KluctlProjectReconciler) calcHash(path string) (string, error) {
-	reader, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer reader.Close()
-	return r.Storage.Checksum(reader), nil
 }

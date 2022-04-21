@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	types2 "github.com/kluctl/kluctl/pkg/types"
 	"github.com/kluctl/kluctl/pkg/yaml"
@@ -75,9 +76,11 @@ type KluctlDeploymentReconciler struct {
 	NoCrossNamespaceRefs bool
 }
 
-//+kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=kluctl.io,resources=kluctlprojects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=kluctl.io,resources=kluctlprojects/status,verbs=get
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;gitrepositories,verbs=get;list;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;gitrepositories/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;serviceaccounts,verbs=get;list;watch
@@ -95,17 +98,24 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(mgr ctrl.Manager, opts Klu
 	const (
 		gitRepositoryIndexKey string = ".metadata.gitRepository"
 		bucketIndexKey        string = ".metadata.bucket"
+		kluctlProjectIndexKey string = ".metadata.kluctlProject"
 	)
 
-	// Index the Kustomizations by the GitRepository references they (may) point at.
+	// Index the KluctlDeployments by the GitRepository references they (may) point at.
 	if err := mgr.GetCache().IndexField(context.TODO(), &kluctlv1.KluctlDeployment{}, gitRepositoryIndexKey,
 		r.indexBy(sourcev1.GitRepositoryKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
-	// Index the Kustomizations by the Bucket references they (may) point at.
+	// Index the KluctlDeployments by the Bucket references they (may) point at.
 	if err := mgr.GetCache().IndexField(context.TODO(), &kluctlv1.KluctlDeployment{}, bucketIndexKey,
 		r.indexBy(sourcev1.BucketKind)); err != nil {
+		return fmt.Errorf("failed setting index fields: %w", err)
+	}
+
+	// Index the KluctlDeployments by the KluctlProject references they (may) point at.
+	if err := mgr.GetCache().IndexField(context.TODO(), &kluctlv1.KluctlDeployment{}, kluctlProjectIndexKey,
+		r.indexBy(kluctlv1.KluctlProjectKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
@@ -133,6 +143,11 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(mgr ctrl.Manager, opts Klu
 		Watches(
 			&source.Kind{Type: &sourcev1.Bucket{}},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
+			builder.WithPredicates(SourceRevisionChangePredicate{}),
+		).
+		Watches(
+			&source.Kind{Type: &kluctlv1.KluctlProject{}},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(kluctlProjectIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
@@ -177,7 +192,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("Source '%s' not found", kluctlDeployment.Spec.SourceRef.String())
-			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", kluctlv1.ArtifactFailedReason, msg)
+			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", kluctlv1.ArtifactFailedReason, msg)
 			if err := r.patchStatus(ctx, req, kluctlDeployment.Status); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
@@ -188,7 +203,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		if acl.IsAccessDenied(err) {
-			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", apiacl.AccessDeniedReason, err.Error())
+			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", apiacl.AccessDeniedReason, err.Error())
 			if err := r.patchStatus(ctx, req, kluctlDeployment.Status); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
@@ -204,7 +219,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if source.GetArtifact() == nil {
 		msg := "Source is not ready, artifact not found"
-		kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", kluctlv1.ArtifactFailedReason, msg)
+		kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", kluctlv1.ArtifactFailedReason, msg)
 		if err := r.patchStatus(ctx, req, kluctlDeployment.Status); err != nil {
 			log.Error(err, "unable to update status for artifact not found")
 			return ctrl.Result{Requeue: true}, err
@@ -219,7 +234,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if len(kluctlDeployment.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(source, kluctlDeployment); err != nil {
 			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(
-				kluctlDeployment, source.GetArtifact().Revision, kluctlv1.DependencyNotReadyReason, err.Error())
+				kluctlDeployment, source.GetArtifact().Revision, "", kluctlv1.DependencyNotReadyReason, err.Error())
 			if err := r.patchStatus(ctx, req, kluctlDeployment.Status); err != nil {
 				log.Error(err, "unable to update status for dependency not ready")
 				return ctrl.Result{Requeue: true}, err
@@ -294,11 +309,32 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		return kluctlv1.KluctlDeploymentNotReady(
 			kluctlDeployment,
 			pp.revision,
+			pp.targetHash,
 			pp.reason,
 			pp.err.Error(),
 		), pp.err
 	}
 	defer os.RemoveAll(pp.tmpDir)
+
+	if kluctlDeployment.Status.LastAttemptedTargetHash == pp.targetHash {
+		if kluctlDeployment.Status.LastDeployedTargetHash == pp.targetHash {
+			return kluctlv1.KluctlDeploymentReady(
+				kluctlDeployment,
+				pp.revision,
+				pp.targetHash,
+				kluctlv1.ReconciliationSkippedReason,
+				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
+			), nil
+		} else {
+			return kluctlv1.KluctlDeploymentNotReady(
+				kluctlDeployment,
+				pp.revision,
+				pp.targetHash,
+				kluctlv1.ReconciliationSkippedReason,
+				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
+			), nil
+		}
+	}
 
 	// deploy the kluctl project
 	deployResult, err := r.kluctlDeploy(ctx, kluctlDeployment, pp)
@@ -307,6 +343,7 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		return kluctlv1.KluctlDeploymentNotReady(
 			kluctlDeployment,
 			pp.revision,
+			pp.targetHash,
 			kluctlv1.DeployFailedReason,
 			err.Error(),
 		), err
@@ -319,6 +356,7 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		return kluctlv1.KluctlDeploymentNotReady(
 			kluctlDeployment,
 			pp.revision,
+			pp.targetHash,
 			kluctlv1.PruneFailedReason,
 			err.Error(),
 		), err
@@ -327,6 +365,7 @@ func (r *KluctlDeploymentReconciler) reconcile(
 	return kluctlv1.KluctlDeploymentReady(
 		kluctlDeployment,
 		pp.revision,
+		pp.targetHash,
 		kluctlv1.ReconciliationSucceededReason,
 		fmt.Sprintf("Deployed revision: %s", pp.revision),
 	), nil
@@ -337,8 +376,11 @@ type preparedProject struct {
 	sourceDir  string
 	err        error
 	reason     string
-	revision   string
 	kubeconfig string
+
+	revision   string
+	target     *types2.Target
+	targetHash string
 }
 
 func (r *KluctlDeploymentReconciler) prepareProject(ctx context.Context,
@@ -355,14 +397,28 @@ func (r *KluctlDeploymentReconciler) prepareProject(ctx context.Context,
 		ret.reason = sourcev1.DirCreationFailedReason
 		return ret
 	}
+	cleanup := true
+	defer func() {
+		if !cleanup {
+			return
+		}
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	// download artifact and extract files
-	err = r.download(source.GetArtifact(), tmpDir)
+	err = r.download(source, tmpDir)
 	if err != nil {
 		ret.err = err
 		ret.reason = kluctlv1.ArtifactFailedReason
-		_ = os.RemoveAll(tmpDir)
 		return ret
+	}
+
+	if source.GetObjectKind().GroupVersionKind().Kind == kluctlv1.KluctlProjectKind {
+		if kluctlDeployment.Spec.Path != "" {
+			ret.err = fmt.Errorf("kluctlDeployment path not allowed when source is a KluctlProject")
+			ret.reason = kluctlv1.ArtifactFailedReason
+			return ret
+		}
 	}
 
 	// check kluctl project path exists
@@ -370,7 +426,6 @@ func (r *KluctlDeploymentReconciler) prepareProject(ctx context.Context,
 	if err != nil {
 		ret.err = err
 		ret.reason = kluctlv1.ArtifactFailedReason
-		_ = os.RemoveAll(tmpDir)
 		return ret
 	}
 	if _, err := os.Stat(dirPath); err != nil {
@@ -383,15 +438,73 @@ func (r *KluctlDeploymentReconciler) prepareProject(ctx context.Context,
 	kubeconfig, err := r.writeKubeConfig(ctx, kluctlDeployment, tmpDir)
 	if err != nil {
 		ret.err = fmt.Errorf("failed to write kubeconfig: %w", err)
-		ret.reason = kluctlv1.DeployFailedReason
-		_ = os.RemoveAll(tmpDir)
+		ret.reason = kluctlv1.ArtifactFailedReason
+		return ret
+	}
+
+	projectHash, targets, err := r.listTargets(ctx, kluctlDeployment, tmpDir, dirPath)
+	if err != nil {
+		ret.err = err
+		ret.reason = kluctlv1.ArtifactFailedReason
+		return ret
+	}
+
+	for _, t := range targets {
+		if t.Name == kluctlDeployment.Spec.Target {
+			ret.target = t
+			break
+		}
+	}
+	if ret.target == nil {
+		ret.err = fmt.Errorf("target %s not found in kluctl project", kluctlDeployment.Spec.Target)
+		ret.reason = kluctlv1.TargetNotFoundReason
 		return ret
 	}
 
 	ret.tmpDir = tmpDir
 	ret.sourceDir = dirPath
 	ret.kubeconfig = kubeconfig
+	ret.targetHash = calcTargetHash(projectHash, ret.target)
+
+	cleanup = false
 	return ret
+}
+
+func (r *KluctlDeploymentReconciler) listTargets(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, tmpDir string, dirPath string) (string, []*types2.Target, error) {
+	resultFile := filepath.Join(tmpDir, "targets.yaml")
+	cmd := kluctlCaller{workDir: dirPath}
+	cmd.args = append(cmd.args, "list-targets")
+	cmd.args = append(cmd.args, "--output", resultFile)
+
+	var err error
+	var projectHash string
+	if kluctlDeployment.Spec.SourceRef.Kind == kluctlv1.KluctlProjectKind {
+		archivePath := filepath.Join(dirPath, "archive.tar.gz")
+		projectHash, err = calcFileHash(archivePath)
+		if err != nil {
+			return "", nil, err
+		}
+		cmd.args = append(cmd.args, "--from-archive", archivePath)
+		cmd.args = append(cmd.args, "--from-archive-metadata", filepath.Join(dirPath, "metadata.yaml"))
+	} else {
+		projectHash, err = calcDirHash(dirPath)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
+	_, _, err = cmd.run(ctx)
+	if err != nil {
+		return "", nil, fmt.Errorf("kluctl list-targets failed: %w", err)
+	}
+
+	var ret []*types2.Target
+	err = yaml.ReadYamlFile(resultFile, &ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to read list-targets result: %w", err)
+	}
+
+	return projectHash, ret, nil
 }
 
 func (r *KluctlDeploymentReconciler) checkDependencies(source sourcev1.Source, kluctlDeployment kluctlv1.KluctlDeployment) error {
@@ -425,15 +538,18 @@ func (r *KluctlDeploymentReconciler) checkDependencies(source sourcev1.Source, k
 	return nil
 }
 
-func (r *KluctlDeploymentReconciler) download(artifact *sourcev1.Artifact, tmpDir string) error {
+func (r *KluctlDeploymentReconciler) download(source sourcev1.Source, tmpDir string) error {
+	artifact := source.GetArtifact()
 	artifactURL := artifact.URL
-	if hostname := os.Getenv("SOURCE_CONTROLLER_LOCALHOST"); hostname != "" {
-		u, err := url.Parse(artifactURL)
-		if err != nil {
-			return err
+	if source.GetObjectKind().GroupVersionKind().Kind != kluctlv1.KluctlProjectKind {
+		if hostname := os.Getenv("SOURCE_CONTROLLER_LOCALHOST"); hostname != "" {
+			u, err := url.Parse(artifactURL)
+			if err != nil {
+				return err
+			}
+			u.Host = hostname
+			artifactURL = u.String()
 		}
-		u.Host = hostname
-		artifactURL = u.String()
 	}
 
 	req, err := retryablehttp.NewRequest(http.MethodGet, artifactURL, nil)
@@ -527,6 +643,16 @@ func (r *KluctlDeploymentReconciler) getSource(ctx context.Context, kluctlDeploy
 			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
 		source = &bucket
+	case kluctlv1.KluctlProjectKind:
+		var kluctlProject kluctlv1.KluctlProject
+		err := r.Client.Get(ctx, namespacedName, &kluctlProject)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return source, err
+			}
+			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
+		}
+		source = &kluctlProject
 	default:
 		return source, fmt.Errorf("source `%s` kind '%s' not supported",
 			kluctlDeployment.Spec.SourceRef.Name, kluctlDeployment.Spec.SourceRef.Kind)
@@ -572,10 +698,15 @@ func (r *KluctlDeploymentReconciler) runKluctlCommand(ctx context.Context, kluct
 	cmd.args = append(cmd.args, "--output-format", "yaml="+resultFile)
 	cmd.args = append(cmd.args, "--render-output-dir", renderOutputDir)
 
+	if kluctlDeployment.Spec.SourceRef.Kind == kluctlv1.KluctlProjectKind {
+		cmd.args = append(cmd.args, "--from-archive", filepath.Join(cmd.workDir, "archive.tar.gz"))
+		cmd.args = append(cmd.args, "--from-archive-metadata", filepath.Join(cmd.workDir, "metadata.yaml"))
+	}
+
 	var cmdResult types2.CommandResult
 	_, _, cmdErr := cmd.run(ctx)
 	yamlErr := yaml.ReadYamlFile(resultFile, &cmdResult)
-	if yamlErr != nil && !os.IsNotExist(yamlErr) {
+	if yamlErr != nil && !os.IsNotExist(errors.Unwrap(yamlErr)) {
 		return nil, yamlErr
 	}
 
@@ -601,6 +732,9 @@ func (r *KluctlDeploymentReconciler) runKluctlCommand(ctx context.Context, kluct
 	}
 	if len(cmdResult.DeletedObjects) != 0 {
 		msg += fmt.Sprintf(" %d deleted objects.", len(cmdResult.DeletedObjects))
+	}
+	if len(cmdResult.OrphanObjects) != 0 {
+		msg += fmt.Sprintf(" %d orphan objects.", len(cmdResult.OrphanObjects))
 	}
 
 	r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityInfo, msg, nil)
