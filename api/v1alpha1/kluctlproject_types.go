@@ -113,15 +113,9 @@ type KluctlProjectStatus struct {
 	// ArchiveInfo holds infos about the archive
 	// +optional
 	ArchiveInfo *ArchiveInfo `json:"archiveInfo,omitempty"`
-
-	// InvolvedRepos is a list of repositories and refs involved with this KluctlProject
-	InvolvedRepos []InvolvedRepo `json:"involvedRepos"`
-
-	// Targets is a list of targets found in the KluctlProject
-	Targets []string `json:"targets"`
 }
 
-// ArchiveInfo holds hashes related to the project archive
+// ArchiveInfo holds infos related to the project archive
 type ArchiveInfo struct {
 	// ArchiveHash is the hash of archive.tar.gz
 	// +required
@@ -130,10 +124,26 @@ type ArchiveInfo struct {
 	// MetdataHash is the hash of metadata.yml
 	// +required
 	MetadataHash string `json:"metadataHash"`
+
+	// InvolvedRepos is a list of repositories and refs involved with this KluctlProject
+	InvolvedRepos []InvolvedRepo `json:"involvedRepos"`
+
+	// Targets is a list of targets found in the KluctlProject
+	Targets []TargetInfo `json:"targets"`
 }
 
-func (a ArchiveInfo) String() string {
+func (a ArchiveInfo) Revision() string {
 	return fmt.Sprintf("%s-%s", a.ArchiveHash, a.MetadataHash)
+}
+
+type TargetInfo struct {
+	// Name is the name of the target
+	// +required
+	Name string `json:"name"`
+
+	// TargetHash is the hash of the target configuration
+	// +required
+	TargetHash string `json:"targetHash"`
 }
 
 // InvolvedRepo represents a git repository and all involved refs

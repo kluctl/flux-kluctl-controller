@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
@@ -243,7 +245,7 @@ func (r *KluctlProjectReconciler) reconcile(ctx context.Context, obj *v1alpha1.K
 	// Run the sub-reconcilers and build the result of reconciliation.
 	var (
 		archiveInfo v1alpha1.ArchiveInfo
-		metadata types2.ArchiveMetadata
+		metadata    types2.ArchiveMetadata
 
 		res    sreconcile.Result
 		resErr error
@@ -285,7 +287,7 @@ func (r *KluctlProjectReconciler) notify(oldObj, newObj *v1alpha1.KluctlProject,
 			oldChecksum = oldObj.GetArtifact().Checksum
 		}
 
-		message := fmt.Sprintf("stored artifact with revision '%s'", archiveInfo.String())
+		message := fmt.Sprintf("stored artifact with revision '%s'", archiveInfo.Revision())
 
 		// Notify on new artifact and failure recovery.
 		if oldChecksum != newObj.GetArtifact().Checksum {
@@ -420,12 +422,41 @@ func (r *KluctlProjectReconciler) reconcileArchive(ctx context.Context,
 		return handleError(fmt.Errorf("reading %s failed: %w", metadataPath, err), v1alpha1.ArchiveFailedReason)
 	}
 
-	ctrl.LoggerFrom(ctx).V(logger.DebugLevel).Info("kluctl archive created", "url", obj.Spec.URL, "revision", archiveInfo.String())
+	archiveInfo.Targets = nil
+	for _, t := range metadata.Targets {
+		targetStr, err := yaml.WriteYamlString(t.Target)
+		if err != nil {
+			return handleError(fmt.Errorf("failed to write target %s: %w", t.Target.Name, err), v1alpha1.ArchiveFailedReason)
+		}
+		targetHash := sha256.Sum256([]byte(targetStr))
+		archiveInfo.Targets = append(archiveInfo.Targets, v1alpha1.TargetInfo{
+			Name:       t.Target.Name,
+			TargetHash: hex.EncodeToString(targetHash[:]),
+		})
+	}
+
+	archiveInfo.InvolvedRepos = nil
+	for u, repo := range metadata.InvolvedRepos {
+		ir2 := v1alpha1.InvolvedRepo{
+			URL: u,
+		}
+
+		for _, ir := range repo {
+			ir2.Patterns = append(ir2.Patterns, v1alpha1.InvolvedRepoPattern{
+				Pattern: ir.RefPattern,
+				Refs:    ir.Refs,
+			})
+		}
+
+		archiveInfo.InvolvedRepos = append(archiveInfo.InvolvedRepos, ir2)
+	}
+
+	ctrl.LoggerFrom(ctx).V(logger.DebugLevel).Info("kluctl archive created", "url", obj.Spec.URL, "revision", archiveInfo.Revision())
 	conditions.Delete(obj, v1alpha1.ArchiveFailedCondition)
 
 	// Mark observations about the revision on the object
-	if !obj.GetArtifact().HasRevision(archiveInfo.String()) {
-		message := fmt.Sprintf("new upstream revision '%s'", archiveInfo.String())
+	if !obj.GetArtifact().HasRevision(archiveInfo.Revision()) {
+		message := fmt.Sprintf("new upstream revision '%s'", archiveInfo.Revision())
 		conditions.MarkTrue(obj, sourcev1.ArtifactOutdatedCondition, "NewRevision", message)
 		conditions.MarkReconciling(obj, "NewRevision", message)
 	}
@@ -444,7 +475,7 @@ func (r *KluctlProjectReconciler) reconcileArchive(ctx context.Context,
 func (r *KluctlProjectReconciler) reconcileArtifact(ctx context.Context,
 	obj *v1alpha1.KluctlProject, archiveInfo *v1alpha1.ArchiveInfo, metadata *types2.ArchiveMetadata, dir string) (sreconcile.Result, error) {
 	// Create potential new artifact with current available metadata
-	artifact := r.Storage.NewArtifactFor(obj.Kind, obj.GetObjectMeta(), archiveInfo.String(), fmt.Sprintf("%s.tar.gz", archiveInfo.String()))
+	artifact := r.Storage.NewArtifactFor(obj.Kind, obj.GetObjectMeta(), archiveInfo.Revision(), fmt.Sprintf("%s.tar.gz", archiveInfo.Revision()))
 
 	// Set the ArtifactInStorageCondition if there's no drift.
 	defer func() {
@@ -509,27 +540,6 @@ func (r *KluctlProjectReconciler) reconcileArtifact(ctx context.Context,
 	// Record it on the object
 	obj.Status.Artifact = artifact.DeepCopy()
 	obj.Status.ArchiveInfo = archiveInfo
-
-	obj.Status.Targets = nil
-	for _, t := range metadata.Targets {
-		obj.Status.Targets = append(obj.Status.Targets, t.Target.Name)
-	}
-
-	obj.Status.InvolvedRepos = nil
-	for u, repo := range metadata.InvolvedRepos {
-		ir2 := v1alpha1.InvolvedRepo{
-			URL: u,
-		}
-
-		for _, ir := range repo {
-			ir2.Patterns = append(ir2.Patterns, v1alpha1.InvolvedRepoPattern{
-				Pattern: ir.RefPattern,
-				Refs:    ir.Refs,
-			})
-		}
-
-		obj.Status.InvolvedRepos = append(obj.Status.InvolvedRepos, ir2)
-	}
 
 	// Update symlink on a "best effort" basis
 	url, err := r.Storage.Symlink(artifact, "latest.tar.gz")
