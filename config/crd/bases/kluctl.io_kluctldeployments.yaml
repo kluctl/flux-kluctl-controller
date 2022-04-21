@@ -166,6 +166,7 @@ spec:
                     enum:
                     - GitRepository
                     - Bucket
+                    - KluctlProject
                     type: string
                   name:
                     description: Name of the referent.

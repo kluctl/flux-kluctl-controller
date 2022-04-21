@@ -18,8 +18,14 @@ package main
 
 import (
 	"fmt"
+	helper "github.com/fluxcd/pkg/runtime/controller"
+	"github.com/go-logr/logr"
+	"github.com/kluctl/flux-kluctl-controller/controllers/source-controller"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"net"
+	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/kluctl/flux-kluctl-controller/controllers"
@@ -30,14 +36,12 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/azure"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/fluxcd/pkg/runtime/acl"
 	"github.com/fluxcd/pkg/runtime/client"
 	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/leaderelection"
 	"github.com/fluxcd/pkg/runtime/logger"
-	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/fluxcd/pkg/runtime/pprof"
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -75,6 +79,13 @@ func main() {
 		aclOptions            acl.Options
 		watchAllNamespaces    bool
 		httpRetry             int
+
+		rateLimiterOptions       helper.RateLimiterOptions
+		storagePath              string
+		storageAddr              string
+		storageAdvAddr           string
+		artifactRetentionTTL     time.Duration
+		artifactRetentionRecords int
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -85,16 +96,26 @@ func main() {
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
+
+	flag.StringVar(&storagePath, "storage-path", envOrDefault("STORAGE_PATH", ""),
+		"The local storage path.")
+	flag.StringVar(&storageAddr, "storage-addr", envOrDefault("STORAGE_ADDR", ":9090"),
+		"The address the static file server binds to.")
+	flag.StringVar(&storageAdvAddr, "storage-adv-addr", envOrDefault("STORAGE_ADV_ADDR", ""),
+		"The advertised address of the static file server.")
+	flag.DurationVar(&artifactRetentionTTL, "artifact-retention-ttl", 60*time.Second,
+		"The duration of time that artifacts will be kept in storage before being garbage collected.")
+	flag.IntVar(&artifactRetentionRecords, "artifact-retention-records", 2,
+		"The maximum number of artifacts to be kept in storage after a garbage collection.")
+
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
 	leaderElectionOptions.BindFlags(flag.CommandLine)
 	aclOptions.BindFlags(flag.CommandLine)
+	rateLimiterOptions.BindFlags(flag.CommandLine)
 	flag.Parse()
 
 	ctrl.SetLogger(logger.NewLogger(logOptions))
-
-	metricsRecorder := metrics.NewRecorder()
-	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
 
 	watchNamespace := ""
 	if !watchAllNamespaces {
@@ -130,33 +151,115 @@ func main() {
 		os.Exit(1)
 	}
 
+	metricsH := helper.MustMakeMetrics(mgr)
+
+	if storageAdvAddr == "" {
+		storageAdvAddr = determineAdvStorageAddr(storageAddr, setupLog)
+	}
+	storage := mustInitStorage(storagePath, storageAdvAddr, artifactRetentionTTL, artifactRetentionRecords, setupLog)
+
+	if err = (&controllers.KluctlProjectReconciler{
+		Client:         mgr.GetClient(),
+		EventRecorder:  eventRecorder,
+		Metrics:        metricsH,
+		Storage:        storage,
+		ControllerName: controllerName,
+	}).SetupWithManagerAndOptions(mgr, controllers.KluctlProjectReconcilerOptions{
+		MaxConcurrentReconciles:   concurrent,
+		DependencyRequeueInterval: requeueDependency,
+		RateLimiter:               helper.GetRateLimiter(rateLimiterOptions),
+	}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlProjectKind)
+		os.Exit(1)
+	}
+
 	if err = (&controllers.KluctlDeploymentReconciler{
 		ControllerName:       controllerName,
 		Client:               mgr.GetClient(),
 		Scheme:               mgr.GetScheme(),
 		EventRecorder:        eventRecorder,
-		MetricsRecorder:      metricsRecorder,
+		MetricsRecorder:      metricsH.MetricsRecorder,
 		NoCrossNamespaceRefs: aclOptions.NoCrossNamespaceRefs,
 	}).SetupWithManager(mgr, controllers.KluctlDeploymentReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,
 	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", controllerName)
-		os.Exit(1)
-	}
-	if err = (&controllers.KluctlProjectReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "KluctlProject")
+		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlDeploymentKind)
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	go func() {
+		// Block until our controller manager is elected leader. We presume our
+		// entire process will terminate if we lose leadership, so we don't need
+		// to handle that.
+		<-mgr.Elected()
+
+		startFileServer(storage.BasePath, storageAddr, setupLog)
+	}()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func startFileServer(path string, address string, l logr.Logger) {
+	l.Info("starting file server")
+	fs := http.FileServer(http.Dir(path))
+	http.Handle("/", fs)
+	err := http.ListenAndServe(address, nil)
+	if err != nil {
+		l.Error(err, "file server error")
+	}
+}
+
+func mustInitStorage(path string, storageAdvAddr string, artifactRetentionTTL time.Duration, artifactRetentionRecords int, l logr.Logger) *source_controller.Storage {
+	if path == "" {
+		p, _ := os.Getwd()
+		path = filepath.Join(p, "bin")
+		os.MkdirAll(path, 0o770)
+	}
+
+	storage, err := source_controller.NewStorage(path, storageAdvAddr, artifactRetentionTTL, artifactRetentionRecords)
+	if err != nil {
+		l.Error(err, "unable to initialise storage")
+		os.Exit(1)
+	}
+
+	return storage
+}
+
+func determineAdvStorageAddr(storageAddr string, l logr.Logger) string {
+	host, port, err := net.SplitHostPort(storageAddr)
+	if err != nil {
+		l.Error(err, "unable to parse storage address")
+		os.Exit(1)
+	}
+	switch host {
+	case "":
+		host = "localhost"
+	case "0.0.0.0":
+		host = os.Getenv("HOSTNAME")
+		if host == "" {
+			hn, err := os.Hostname()
+			if err != nil {
+				l.Error(err, "0.0.0.0 specified in storage addr but hostname is invalid")
+				os.Exit(1)
+			}
+			host = hn
+		}
+	}
+	return net.JoinHostPort(host, port)
+}
+
+func envOrDefault(envName, defaultValue string) string {
+	ret := os.Getenv(envName)
+	if ret != "" {
+		return ret
+	}
+
+	return defaultValue
 }

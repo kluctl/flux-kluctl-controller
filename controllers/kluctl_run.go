@@ -8,6 +8,8 @@ import (
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"io"
+	corev1 "k8s.io/api/core/v1"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,6 +25,16 @@ type kluctlCaller struct {
 	kubeconfigs        []string
 
 	args []string
+	env  []string
+
+	tmpFiles []string
+}
+
+func (kc *kluctlCaller) deleteTmpFiles() {
+	for _, f := range kc.tmpFiles {
+		_ = os.Remove(f)
+	}
+	kc.tmpFiles = nil
 }
 
 func (kc *kluctlCaller) addTargetArgs(kluctlDeployment kluctlv1.KluctlDeployment) {
@@ -78,6 +90,51 @@ func (kc *kluctlCaller) addInclusionArgs(kluctlDeployment kluctlv1.KluctlDeploym
 	}
 }
 
+func (kc *kluctlCaller) addGitEnv(tmpDir string, u url.URL, secret *corev1.Secret) error {
+	writeEnvFile := func(secretKey string, envName string) error {
+		x, ok := secret.Data[secretKey]
+		if !ok {
+			return nil
+		}
+
+		tmpFile, err := os.CreateTemp(tmpDir, fmt.Sprintf("ssh-%s-", secretKey))
+		if err != nil {
+			return err
+		}
+		_, err = tmpFile.Write(x)
+		if err != nil {
+			return fmt.Errorf("failed to write temporary file: %w", err)
+		}
+		_ = tmpFile.Close()
+		kc.tmpFiles = append(kc.tmpFiles, tmpFile.Name())
+		kc.env = append(kc.env, fmt.Sprintf("%s=%s", envName, tmpFile.Name()))
+		return nil
+	}
+
+	kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_HOST=%s", u.Hostname()))
+	if x, ok := secret.Data["username"]; ok {
+		kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_USERNAME=%s", string(x)))
+	} else if u.User != nil && u.User.Username() != "" {
+		kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_USERNAME=%s", u.User.Username()))
+	}
+	if x, ok := secret.Data["password"]; ok {
+		kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_PASSWORD=%s", string(x)))
+	}
+	err := writeEnvFile("caFile", "KLUCTL_GIT_CA_FILE")
+	if err != nil {
+		return err
+	}
+	err = writeEnvFile("identity", "KLUCTL_GIT_SSH_KEY")
+	if err != nil {
+		return err
+	}
+	err = writeEnvFile("known_hosts", "SSH_KNOWN_HOSTS")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (kc *kluctlCaller) run(ctx context.Context) (string, string, error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -103,6 +160,7 @@ func (kc *kluctlCaller) run(ctx context.Context) (string, string, error) {
 		env = append(env, e)
 	}
 	env = append(env, fmt.Sprintf("KUBECONFIG=%s", strings.Join(kc.kubeconfigs, string(os.PathListSeparator))))
+	env = append(env, kc.env...)
 
 	kluctlExe := os.Getenv("KLUCTL_EXE")
 	if kluctlExe == "" {

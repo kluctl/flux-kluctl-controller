@@ -21,6 +21,11 @@ const (
 	// health assessment result.
 	HealthyCondition string = "Healthy"
 
+	ArchiveFailedCondition string = "ArchiveFailed"
+)
+
+const (
+
 	// PruneFailedReason represents the fact that the
 	// pruning of the Kustomization failed.
 	PruneFailedReason string = "PruneFailed"
@@ -48,4 +53,7 @@ const (
 	// ReconciliationFailedReason represents the fact that
 	// the reconciliation failed.
 	ReconciliationFailedReason string = "ReconciliationFailed"
+
+	// ArchiveFailedReason represents a failed call to kluctl archive
+	ArchiveFailedReason string = "ArchiveFailed"
 )
