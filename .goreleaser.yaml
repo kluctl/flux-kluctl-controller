@@ -1,0 +1,23 @@
+project_name: flux-kluctl-controller
+
+builds:
+  - skip: true
+
+release:
+  prerelease: "true"
+  extra_files:
+    - glob: config/release/*.yaml
+
+checksum:
+  extra_files:
+    - glob: config/release/*.yaml
+
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_v{{ .Version }}_source_code"
+
+sboms:
+  - id: source
+    artifacts: source
+    documents:
+      - "{{ .ProjectName }}_v{{ .Version }}_sbom.spdx.json"
