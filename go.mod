@@ -6,7 +6,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/fluxcd/pkg/apis/acl v0.0.3
 	github.com/fluxcd/pkg/apis/meta v0.12.2
-	github.com/fluxcd/pkg/runtime v0.14.1
+	github.com/fluxcd/pkg/runtime v0.14.2-0.20220414145442-395b280a83c3
 	github.com/fluxcd/pkg/untar v0.1.0
 	github.com/fluxcd/source-controller/api v0.24.0
 	github.com/hashicorp/go-retryablehttp v0.7.0

@@ -49,10 +49,10 @@ import (
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/fluxcd/pkg/runtime/predicates"
 
+	serror "github.com/fluxcd/pkg/runtime/errors"
+	sreconcile "github.com/fluxcd/pkg/runtime/reconcile"
+	"github.com/fluxcd/pkg/runtime/reconcile/summarize"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
-	serror "github.com/kluctl/flux-kluctl-controller/controllers/source-controller/error"
-	sreconcile "github.com/kluctl/flux-kluctl-controller/controllers/source-controller/reconcile"
-	"github.com/kluctl/flux-kluctl-controller/controllers/source-controller/reconcile/summarize"
 	"github.com/kluctl/flux-kluctl-controller/controllers/source-controller/util"
 )
 
