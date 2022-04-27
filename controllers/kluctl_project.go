@@ -8,12 +8,20 @@ import (
 	"github.com/fluxcd/pkg/runtime/events"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
-	types2 "github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"path/filepath"
+
+	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/v2/pkg/git/auth"
+	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	types2 "github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 type preparedProject struct {
@@ -171,31 +179,131 @@ func (pp *preparedProject) getGitSecret(ctx context.Context) (*v1.Secret, error)
 	return nil, nil
 }
 
-func (pp *preparedProject) kluctlArchive(ctx context.Context) error {
-	cmd := kluctlCaller{
-		workDir:     pp.sourceDir,
-		kubeconfigs: []string{pp.kubeconfig},
-	}
-	if pp.gitSecret != nil {
-		err := cmd.addGitEnv(pp.tmpDir, pp.gitSecret)
-		if err != nil {
-			return err
-		}
+func (pp *preparedProject) buildGitAuth() (*auth.GitAuthProviders, error) {
+	ga := auth.NewDefaultAuthProviders()
+	if pp.gitSecret == nil {
+		return ga, nil
 	}
 
-	archivePath := filepath.Join(pp.tmpDir, "archive.tar.gz")
-	metadataPath := filepath.Join(pp.tmpDir, "metadata.yaml")
+	e := auth.AuthEntry{
+		Host:     "*",
+		Username: "*",
+	}
 
-	cmd.args = append(cmd.args, "archive")
-	cmd.args = append(cmd.args, "--output-archive", archivePath)
-	cmd.args = append(cmd.args, "--output-metadata", metadataPath)
+	if x, ok := pp.gitSecret.Data["username"]; ok {
+		e.Username = string(x)
+	}
+	if x, ok := pp.gitSecret.Data["password"]; ok {
+		e.Password = string(x)
+	}
+	if x, ok := pp.gitSecret.Data["caFile"]; ok {
+		e.CABundle = x
+	}
+	if x, ok := pp.gitSecret.Data["known_hosts"]; ok {
+		e.KnownHosts = x
+	}
+	if x, ok := pp.gitSecret.Data["identity"]; ok {
+		e.SshKey = x
+	}
 
-	_, _, err := cmd.run(ctx)
+	var la auth.ListAuthProvider
+	la.AddEntry(e)
+	ga.RegisterAuthProvider(&la, false)
+	return ga, nil
+}
+
+func (pp *preparedProject) buildImages() (*deployment.Images, error) {
+	images, err := deployment.NewImages(pp.d.Spec.UpdateImages)
+	if err != nil {
+		return nil, err
+	}
+	for _, fi := range kluctlv1.ConvertFixedImagesToKluctl(pp.d.Spec.Images) {
+		images.AddFixedImage(fi)
+	}
+	return images, nil
+}
+
+func (pp *preparedProject) buildInclusion() *utils.Inclusion {
+	inc := utils.NewInclusion()
+	for _, x := range pp.d.Spec.IncludeTags {
+		inc.AddInclude("tag", x)
+	}
+	for _, x := range pp.d.Spec.ExcludeTags {
+		inc.AddExclude("tag", x)
+	}
+	for _, x := range pp.d.Spec.IncludeDeploymentDirs {
+		inc.AddInclude("deploymentItemDir", x)
+	}
+	for _, x := range pp.d.Spec.ExcludeDeploymentDirs {
+		inc.AddExclude("deploymentItemDir", x)
+	}
+	return inc
+}
+
+func (pp *preparedProject) withKluctlProject(fromArchive bool, cb func(p *kluctl_project.KluctlProjectContext) error) error {
+	j2, err := jinja2.NewJinja2()
+	if err != nil {
+		return err
+	}
+	defer j2.Close()
+
+	ga, err := pp.buildGitAuth()
 	if err != nil {
 		return err
 	}
 
-	return nil
+	loadArgs := kluctl_project.LoadKluctlProjectArgs{
+		GitAuthProviders: ga,
+	}
+	if fromArchive {
+		loadArgs.FromArchive = filepath.Join(pp.tmpDir, "archive.tar.gz")
+		loadArgs.FromArchiveMetadata = filepath.Join(pp.tmpDir, "metadata.yaml")
+	}
+	p, err := kluctl_project.LoadKluctlProject(loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
+	if err != nil {
+		return err
+	}
+
+	return cb(p)
+}
+
+func (pp *preparedProject) withKluctlProjectTarget(fromArchive bool, cb func(targetContext *kluctl_project.TargetContext) error) error {
+	return pp.withKluctlProject(fromArchive, func(p *kluctl_project.KluctlProjectContext) error {
+		renderOutputDir, err := os.MkdirTemp(pp.tmpDir, "render-")
+		if err != nil {
+			return err
+		}
+		images, err := pp.buildImages()
+		if err != nil {
+			return err
+		}
+		inclusion := pp.buildInclusion()
+
+		targetContext, err := p.NewTargetContext(pp.d.Spec.Target, "", pp.d.Spec.DryRun, pp.d.Spec.Args, false, images, inclusion, renderOutputDir)
+		if err != nil {
+			return err
+		}
+		return cb(targetContext)
+	})
+}
+
+func (pp *preparedProject) kluctlArchive(ctx context.Context) error {
+	err := pp.withKluctlProject(false, func(p *kluctl_project.KluctlProjectContext) error {
+		archivePath := filepath.Join(pp.tmpDir, "archive.tar.gz")
+		metadataPath := filepath.Join(pp.tmpDir, "metadata.yaml")
+		err := p.CreateTGZArchive(archivePath, false)
+		if err != nil {
+			return err
+		}
+
+		metadata := p.GetMetadata()
+		err = yaml.WriteYamlFile(metadataPath, &metadata)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return err
 }
 
 func (pp *preparedProject) runKluctlCommandWithResult(ctx context.Context, cmd *kluctlCaller, commandName string) (*kluctlv1.CommandResult, error) {
@@ -251,20 +359,21 @@ func (pp *preparedProject) runKluctlCommandWithResult(ctx context.Context, cmd *
 }
 
 func (pp *preparedProject) kluctlDeploy(ctx context.Context) (*kluctlv1.CommandResult, error) {
-	cmd := kluctlCaller{
-		workDir:     pp.sourceDir,
-		kubeconfigs: []string{pp.kubeconfig},
-	}
+	var retCmdResult *kluctlv1.CommandResult
+	err := pp.withKluctlProjectTarget(true, func(targetContext *kluctl_project.TargetContext) error {
+		cmd := commands.NewDeployCommand(targetContext.DeploymentCollection)
+		cmd.ForceApply = pp.d.Spec.ForceApply
+		cmd.ReplaceOnError = pp.d.Spec.ReplaceOnError
+		cmd.ForceReplaceOnError = pp.d.Spec.ForceReplaceOnError
+		cmd.AbortOnError = pp.d.Spec.AbortOnError
+		cmd.HookTimeout = pp.d.GetTimeout()
+		cmd.NoWait = pp.d.Spec.NoWait
 
-	cmd.args = append(cmd.args, "deploy")
-	cmd.addTargetArgs(pp.d)
-	cmd.addImageArgs(pp.d)
-	cmd.addApplyArgs(pp.d)
-	cmd.addInclusionArgs(pp.d)
-	cmd.addMiscArgs(pp.d, true, true)
-	cmd.args = append(cmd.args, "--yes")
-
-	return pp.runKluctlCommandWithResult(ctx, &cmd, "deploy")
+		cmdResult, err := cmd.Run(targetContext.K, nil)
+		retCmdResult = kluctlv1.ConvertCommandResult(cmdResult)
+		return err
+	})
+	return retCmdResult, err
 }
 
 func (pp *preparedProject) kluctlPrune(ctx context.Context) (*kluctlv1.CommandResult, error) {
@@ -272,19 +381,18 @@ func (pp *preparedProject) kluctlPrune(ctx context.Context) (*kluctlv1.CommandRe
 		return nil, nil
 	}
 
-	cmd := kluctlCaller{
-		workDir:     pp.sourceDir,
-		kubeconfigs: []string{pp.kubeconfig},
-	}
-
-	cmd.args = append(cmd.args, "prune")
-	cmd.addTargetArgs(pp.d)
-	cmd.addImageArgs(pp.d)
-	cmd.addInclusionArgs(pp.d)
-	cmd.addMiscArgs(pp.d, true, false)
-	cmd.args = append(cmd.args, "--yes")
-
-	return pp.runKluctlCommandWithResult(ctx, &cmd, "prune")
+	var retCmdResult *kluctlv1.CommandResult
+	err := pp.withKluctlProjectTarget(true, func(targetContext *kluctl_project.TargetContext) error {
+		cmd := commands.NewPruneCommand(targetContext.DeploymentCollection)
+		refs, err := cmd.Run(targetContext.K)
+		if err != nil {
+			return err
+		}
+		cmdResult, err := utils2.DeleteObjects(targetContext.K, refs, true)
+		retCmdResult = kluctlv1.ConvertCommandResult(cmdResult)
+		return err
+	})
+	return retCmdResult, err
 }
 
 func (pp *preparedProject) kluctlDelete(ctx context.Context) (*kluctlv1.CommandResult, error) {
@@ -292,17 +400,16 @@ func (pp *preparedProject) kluctlDelete(ctx context.Context) (*kluctlv1.CommandR
 		return nil, nil
 	}
 
-	cmd := kluctlCaller{
-		workDir:     pp.sourceDir,
-		kubeconfigs: []string{pp.kubeconfig},
-	}
-
-	cmd.args = append(cmd.args, "delete")
-	cmd.addTargetArgs(pp.d)
-	cmd.addImageArgs(pp.d)
-	cmd.addInclusionArgs(pp.d)
-	cmd.addMiscArgs(pp.d, true, false)
-	cmd.args = append(cmd.args, "--yes")
-
-	return pp.runKluctlCommandWithResult(ctx, &cmd, "delete")
+	var retCmdResult *kluctlv1.CommandResult
+	err := pp.withKluctlProjectTarget(true, func(targetContext *kluctl_project.TargetContext) error {
+		cmd := commands.NewDeleteCommand(targetContext.DeploymentCollection)
+		refs, err := cmd.Run(targetContext.K)
+		if err != nil {
+			return err
+		}
+		cmdResult, err := utils2.DeleteObjects(targetContext.K, refs, true)
+		retCmdResult = kluctlv1.ConvertCommandResult(cmdResult)
+		return err
+	})
+	return retCmdResult, err
 }

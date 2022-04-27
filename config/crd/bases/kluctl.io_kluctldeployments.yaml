@@ -35,6 +35,12 @@ spec:
           spec:
             description: KluctlDeploymentSpec defines the desired state of KluctlDeployment
             properties:
+              abortOnError:
+                default: false
+                description: ForceReplaceOnError instructs kluctl to abort deployments
+                  immediately when something fails. Equivalent to using '--abort-on-error'
+                  when calling kluctl.
+                type: boolean
               args:
                 additionalProperties:
                   type: string
@@ -90,6 +96,54 @@ spec:
                   resources in case a normal replace fails. Equivalent to using '--force-replace-on-error'
                   when calling kluctl.
                 type: boolean
+              images:
+                description: UpdateImages contains a list of image overrides. Equivalent
+                  to using '--fixed-images-file' when calling kluctl.
+                items:
+                  properties:
+                    container:
+                      type: string
+                    deployTags:
+                      items:
+                        type: string
+                      type: array
+                    deployedImage:
+                      type: string
+                    deployment:
+                      type: string
+                    deploymentDir:
+                      type: string
+                    image:
+                      type: string
+                    namespace:
+                      type: string
+                    object:
+                      description: ResourceRef contains the information necessary
+                        to locate a resource within a cluster.
+                      properties:
+                        id:
+                          description: ID is the string representation of the Kubernetes
+                            resource object's metadata, in the format '<namespace>_<name>_<group>_<kind>'.
+                          type: string
+                        v:
+                          description: Version is the API version of the Kubernetes
+                            resource object's kind.
+                          type: string
+                      required:
+                      - id
+                      - v
+                      type: object
+                    registryImage:
+                      type: string
+                    resultImage:
+                      type: string
+                    versionFilter:
+                      type: string
+                  required:
+                  - image
+                  - resultImage
+                  type: object
+                type: array
               includeDeploymentDirs:
                 description: IncludeDeploymentDirs instructs kluctl to only include
                   deployments with the given dir. Equivalent to using '--include-deployment-dir'

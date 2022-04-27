@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"strings"
 )
 
 // ResourceRef contains the information necessary to locate a resource within a cluster.
@@ -25,6 +26,22 @@ func ConvertResourceRef(ref *k8s.ObjectRef) *ResourceRef {
 		id = fmt.Sprintf("%s_%s", id, ref.Namespace)
 	}
 	return &ResourceRef{ID: id, Version: ref.GVK.Version}
+}
+
+func ConvertResourceRefToKluctl(ref *ResourceRef) *k8s.ObjectRef {
+	if ref == nil {
+		return nil
+	}
+	a := strings.Split(ref.ID, "_")
+	var ret k8s.ObjectRef
+	ret.Name = a[0]
+	ret.GVK.Group = a[1]
+	ret.GVK.Kind = a[2]
+	ret.GVK.Version = ref.Version
+	if len(a) > 3 {
+		ret.Namespace = a[3]
+	}
+	return &ret
 }
 
 type FixedImage struct {
@@ -55,6 +72,30 @@ func ConvertFixedImage(fi types.FixedImage) *FixedImage {
 		DeployTags:    fi.DeployTags,
 		DeploymentDir: fi.DeploymentDir,
 	}
+}
+
+func ConvertFixedImageToKluctl(fi FixedImage) types.FixedImage {
+	return types.FixedImage{
+		Image:         fi.Image,
+		ResultImage:   fi.ResultImage,
+		DeployedImage: fi.DeployedImage,
+		RegistryImage: fi.RegistryImage,
+		Namespace:     fi.Namespace,
+		Object:        ConvertResourceRefToKluctl(fi.Object),
+		Deployment:    fi.Deployment,
+		Container:     fi.Container,
+		VersionFilter: fi.VersionFilter,
+		DeployTags:    fi.DeployTags,
+		DeploymentDir: fi.DeploymentDir,
+	}
+}
+
+func ConvertFixedImagesToKluctl(fi []FixedImage) []types.FixedImage {
+	var ret []types.FixedImage
+	for _, x := range fi {
+		ret = append(ret, ConvertFixedImageToKluctl(x))
+	}
+	return ret
 }
 
 type Change struct {

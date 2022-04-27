@@ -92,6 +92,11 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	UpdateImages bool `json:"updateImages,omitempty"`
 
+	// UpdateImages contains a list of image overrides.
+	// Equivalent to using '--fixed-images-file' when calling kluctl.
+	// +optional
+	Images []FixedImage `json:"images,omitempty"`
+
 	// DryRun instructs kluctl to run everything in dry-run mode.
 	// Equivalent to using '--dry-run' when calling kluctl.
 	// +kubebuilder:default:=false
@@ -121,6 +126,12 @@ type KluctlDeploymentSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	ForceReplaceOnError bool `json:"forceReplaceOnError,omitempty"`
+
+	// ForceReplaceOnError instructs kluctl to abort deployments immediately when something fails.
+	// Equivalent to using '--abort-on-error' when calling kluctl.
+	// +kubebuilder:default:=false
+	// +optional
+	AbortOnError bool `json:"abortOnError,omitempty"`
 
 	// IncludeTags instructs kluctl to only include deployments with given tags.
 	// Equivalent to using '--include-tag' when calling kluctl.

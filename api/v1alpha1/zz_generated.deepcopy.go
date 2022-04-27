@@ -325,6 +325,13 @@ func (in *KluctlDeploymentSpec) DeepCopyInto(out *KluctlDeploymentSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.Images != nil {
+		in, out := &in.Images, &out.Images
+		*out = make([]FixedImage, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.IncludeTags != nil {
 		in, out := &in.IncludeTags, &out.IncludeTags
 		*out = make([]string, len(*in))
