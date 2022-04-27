@@ -158,21 +158,6 @@ func main() {
 	}
 	storage := mustInitStorage(storagePath, storageAdvAddr, artifactRetentionTTL, artifactRetentionRecords, setupLog)
 
-	if err = (&controllers.KluctlProjectReconciler{
-		Client:         mgr.GetClient(),
-		EventRecorder:  eventRecorder,
-		Metrics:        metricsH,
-		Storage:        storage,
-		ControllerName: controllerName,
-	}).SetupWithManagerAndOptions(mgr, controllers.KluctlProjectReconcilerOptions{
-		MaxConcurrentReconciles:   concurrent,
-		DependencyRequeueInterval: requeueDependency,
-		RateLimiter:               helper.GetRateLimiter(rateLimiterOptions),
-	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlProjectKind)
-		os.Exit(1)
-	}
-
 	if err = (&controllers.KluctlDeploymentReconciler{
 		ControllerName:       controllerName,
 		Client:               mgr.GetClient(),
