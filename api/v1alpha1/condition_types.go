@@ -20,8 +20,6 @@ const (
 	// HealthyCondition represents the last recorded
 	// health assessment result.
 	HealthyCondition string = "Healthy"
-
-	ArchiveFailedCondition string = "ArchiveFailed"
 )
 
 const (
@@ -34,9 +32,8 @@ const (
 	// source artifact download failed.
 	ArtifactFailedReason string = "ArtifactFailed"
 
-	// TargetNotFoundReason represents the fact that the
-	// target was not found.
-	TargetNotFoundReason string = "TargetNotFound"
+	// PrepareFailedReason represents failure in the kluctl preparation phase
+	PrepareFailedReason string = "PrepareFailed"
 
 	// DeployFailedReason represents the fact that the
 	// kluctl deploy command failed.
@@ -57,11 +54,4 @@ const (
 	// ReconciliationSkippedReason represents the fact that
 	// the reconciliation was skipped due to an unchanged target.
 	ReconciliationSkippedReason string = "ReconciliationSkipped"
-
-	// ReconciliationFailedReason represents the fact that
-	// the reconciliation failed.
-	ReconciliationFailedReason string = "ReconciliationFailed"
-
-	// ArchiveFailedReason represents a failed call to kluctl archive
-	ArchiveFailedReason string = "ArchiveFailed"
 )

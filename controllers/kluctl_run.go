@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	corev1 "k8s.io/api/core/v1"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -90,7 +89,7 @@ func (kc *kluctlCaller) addInclusionArgs(kluctlDeployment kluctlv1.KluctlDeploym
 	}
 }
 
-func (kc *kluctlCaller) addGitEnv(tmpDir string, u url.URL, secret *corev1.Secret) error {
+func (kc *kluctlCaller) addGitEnv(tmpDir string, secret *corev1.Secret) error {
 	writeEnvFile := func(secretKey string, envName string) error {
 		x, ok := secret.Data[secretKey]
 		if !ok {
@@ -111,12 +110,16 @@ func (kc *kluctlCaller) addGitEnv(tmpDir string, u url.URL, secret *corev1.Secre
 		return nil
 	}
 
-	kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_HOST=%s", u.Hostname()))
+	host := "*"
+	username := "*"
+
 	if x, ok := secret.Data["username"]; ok {
-		kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_USERNAME=%s", string(x)))
-	} else if u.User != nil && u.User.Username() != "" {
-		kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_USERNAME=%s", u.User.Username()))
+		username = string(x)
 	}
+
+	kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_HOST=%s", host))
+	kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_USERNAME=%s", username))
+
 	if x, ok := secret.Data["password"]; ok {
 		kc.env = append(kc.env, fmt.Sprintf("KLUCTL_GIT_PASSWORD=%s", string(x)))
 	}

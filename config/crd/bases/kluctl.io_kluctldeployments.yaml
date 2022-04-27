@@ -157,6 +157,9 @@ spec:
                 type: string
               sourceRef:
                 description: Reference of the source where the kluctl project is.
+                  The authentication secrets from the source are also used to authenticate
+                  dependent git repositories which are clones while deploying the
+                  kluctl project.
                 properties:
                   apiVersion:
                     description: API version of the referent.
@@ -273,14 +276,58 @@ spec:
                   - type
                   type: object
                 type: array
+              involvedRepos:
+                description: InvolvedRepos is a list of repositories and refs involved
+                  with this kluctl project
+                items:
+                  description: InvolvedRepo represents a git repository and all involved
+                    refs
+                  properties:
+                    patterns:
+                      description: Patterns is a list of pattern+refs combinations
+                      items:
+                        description: InvolvedRepoPattern represents a ref pattern
+                          and the found refs
+                        properties:
+                          pattern:
+                            description: Pattern is a regex to filter refs
+                            type: string
+                          refs:
+                            additionalProperties:
+                              type: string
+                            description: Refs is the filtered list of refs
+                            type: object
+                        required:
+                        - pattern
+                        - refs
+                        type: object
+                      type: array
+                    url:
+                      description: URL is the url of the involved git repository
+                      type: string
+                  required:
+                  - patterns
+                  - url
+                  type: object
+                type: array
               lastAttemptedRevision:
                 description: LastAttemptedRevision is the revision of the last reconciliation
                   attempt.
                 type: string
-              lastAttemptedTargetHash:
-                description: LastAttemptedTargetHash is the hash of the last target
-                  configuration that was attempted.
-                type: string
+              lastAttemptedTarget:
+                description: LastAttemptedTarget contains information about the last
+                  deployed target
+                properties:
+                  name:
+                    description: Name is the name of the target
+                    type: string
+                  targetHash:
+                    description: TargetHash is the hash of the target configuration
+                    type: string
+                required:
+                - name
+                - targetHash
+                type: object
               lastDeployResult:
                 description: LastDeployResult is the last deploy command result
                 properties:
@@ -477,12 +524,24 @@ spec:
                     type: array
                 type: object
               lastDeployedRevision:
-                description: The last successfully deployed revision.
+                description: The last successfully deployed revision. Please note
+                  that kluctl projects have dependent git repositories which are not
+                  considered in the source revision
                 type: string
-              lastDeployedTargetHash:
-                description: LastDeployedTargetHash is the last successfully deployed
-                  target configuration hash.
-                type: string
+              lastDeployedTarget:
+                description: LastDeployedTarget contains information about the last
+                  deployed target
+                properties:
+                  name:
+                    description: Name is the name of the target
+                    type: string
+                  targetHash:
+                    description: TargetHash is the hash of the target configuration
+                    type: string
+                required:
+                - name
+                - targetHash
+                type: object
               lastHandledReconcileAt:
                 description: LastHandledReconcileAt holds the value of the most recent
                   reconcile request value, so a change of the annotation value can

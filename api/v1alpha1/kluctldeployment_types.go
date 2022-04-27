@@ -55,6 +55,8 @@ type KluctlDeploymentSpec struct {
 	Path string `json:"path,omitempty"`
 
 	// Reference of the source where the kluctl project is.
+	// The authentication secrets from the source are also used to authenticate
+	// dependent git repositories which are clones while deploying the kluctl project.
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
 
@@ -171,21 +173,22 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// The last successfully deployed revision.
+	// The last successfully deployed revision. Please note that kluctl projects have
+	// dependent git repositories which are not considered in the source revision
 	// +optional
 	LastDeployedRevision string `json:"lastDeployedRevision,omitempty"`
-
-	// LastDeployedTargetHash is the last successfully deployed target configuration hash.
-	// +optional
-	LastDeployedTargetHash string `json:"lastDeployedTargetHash,omitempty"`
 
 	// LastAttemptedRevision is the revision of the last reconciliation attempt.
 	// +optional
 	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
 
-	// LastAttemptedTargetHash is the hash of the last target configuration that was attempted.
+	// LastAttemptedTarget contains information about the last deployed target
 	// +optional
-	LastAttemptedTargetHash string `json:"lastAttemptedTargetHash"`
+	LastAttemptedTarget *TargetInfo `json:"lastAttemptedTarget,omitempty"`
+
+	// LastDeployedTarget contains information about the last deployed target
+	// +optional
+	LastDeployedTarget *TargetInfo `json:"lastDeployedTarget,omitempty"`
 
 	// LastDeployResult is the last deploy command result
 	// +optional
@@ -194,6 +197,39 @@ type KluctlDeploymentStatus struct {
 	// LastPruneResult is the last prune command result
 	// +optional
 	LastPruneResult *CommandResult `json:"lastPruneResult,omitempty"`
+
+	// InvolvedRepos is a list of repositories and refs involved with this kluctl project
+	// +optional
+	InvolvedRepos []InvolvedRepo `json:"involvedRepos,omitempty"`
+}
+
+// InvolvedRepo represents a git repository and all involved refs
+type InvolvedRepo struct {
+	// URL is the url of the involved git repository
+	URL string `json:"url"`
+
+	// Patterns is a list of pattern+refs combinations
+	Patterns []InvolvedRepoPattern `json:"patterns"`
+}
+
+// InvolvedRepoPattern represents a ref pattern and the found refs
+type InvolvedRepoPattern struct {
+	// Pattern is a regex to filter refs
+	Pattern string `json:"pattern"`
+
+	// Refs is the filtered list of refs
+	Refs map[string]string `json:"refs"`
+}
+
+// TargetInfo contains information about a target
+type TargetInfo struct {
+	// Name is the name of the target
+	// +required
+	Name string `json:"name"`
+
+	// TargetHash is the hash of the target configuration
+	// +required
+	TargetHash string `json:"targetHash"`
 }
 
 // KluctlDeploymentProgressing resets the conditions of the given KluctlDeployment to a single
@@ -232,7 +268,10 @@ func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionSt
 
 	k.Status.ObservedGeneration = k.Generation
 	k.Status.LastAttemptedRevision = revision
-	k.Status.LastAttemptedTargetHash = targetHash
+	k.Status.LastAttemptedTarget = &TargetInfo{
+		Name:       k.Spec.Target,
+		TargetHash: targetHash,
+	}
 }
 
 // KluctlDeploymentNotReady registers a failed apply attempt of the given KluctlDeployment.
@@ -242,7 +281,10 @@ func KluctlDeploymentNotReady(k KluctlDeployment, revision, targetHash, reason, 
 		k.Status.LastAttemptedRevision = revision
 	}
 	if targetHash != "" {
-		k.Status.LastAttemptedTargetHash = targetHash
+		k.Status.LastAttemptedTarget = &TargetInfo{
+			Name:       k.Spec.Target,
+			TargetHash: targetHash,
+		}
 	}
 	return k
 }
@@ -252,7 +294,10 @@ func KluctlDeploymentReady(k KluctlDeployment, revision, targetHash, reason, mes
 	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision, targetHash)
 	SetKluctlDeploymentHealthiness(&k, metav1.ConditionTrue, reason, reason)
 	k.Status.LastDeployedRevision = revision
-	k.Status.LastDeployedTargetHash = targetHash
+	k.Status.LastDeployedTarget = &TargetInfo{
+		Name:       k.Spec.Target,
+		TargetHash: targetHash,
+	}
 	return k
 }
 

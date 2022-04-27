@@ -21,19 +21,14 @@ import (
 	"context"
 	"crypto/sha1"
 	"crypto/sha256"
-	"errors"
 	"fmt"
-	types2 "github.com/kluctl/kluctl/pkg/types"
-	"github.com/kluctl/kluctl/pkg/yaml"
 	"io"
-	v1 "k8s.io/api/core/v1"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"time"
 
-	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/hashicorp/go-retryablehttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -61,6 +56,8 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
+
+	_ "github.com/kluctl/kluctl/v2/pkg/jinja2"
 )
 
 // KluctlDeploymentReconciler reconciles a KluctlDeployment object
@@ -79,8 +76,6 @@ type KluctlDeploymentReconciler struct {
 // +kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kluctl.io,resources=kluctldeployments/finalizers,verbs=update
-// +kubebuilder:rbac:groups=kluctl.io,resources=kluctlprojects,verbs=get;list;watch
-// +kubebuilder:rbac:groups=kluctl.io,resources=kluctlprojects/status,verbs=get
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;gitrepositories,verbs=get;list;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;gitrepositories/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;serviceaccounts,verbs=get;list;watch
@@ -98,7 +93,6 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(mgr ctrl.Manager, opts Klu
 	const (
 		gitRepositoryIndexKey string = ".metadata.gitRepository"
 		bucketIndexKey        string = ".metadata.bucket"
-		kluctlProjectIndexKey string = ".metadata.kluctlProject"
 	)
 
 	// Index the KluctlDeployments by the GitRepository references they (may) point at.
@@ -110,12 +104,6 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(mgr ctrl.Manager, opts Klu
 	// Index the KluctlDeployments by the Bucket references they (may) point at.
 	if err := mgr.GetCache().IndexField(context.TODO(), &kluctlv1.KluctlDeployment{}, bucketIndexKey,
 		r.indexBy(sourcev1.BucketKind)); err != nil {
-		return fmt.Errorf("failed setting index fields: %w", err)
-	}
-
-	// Index the KluctlDeployments by the KluctlProject references they (may) point at.
-	if err := mgr.GetCache().IndexField(context.TODO(), &kluctlv1.KluctlDeployment{}, kluctlProjectIndexKey,
-		r.indexBy(kluctlv1.KluctlProjectKind)); err != nil {
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
@@ -143,11 +131,6 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(mgr ctrl.Manager, opts Klu
 		Watches(
 			&source.Kind{Type: &sourcev1.Bucket{}},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(bucketIndexKey)),
-			builder.WithPredicates(SourceRevisionChangePredicate{}),
-		).
-		Watches(
-			&source.Kind{Type: &kluctlv1.KluctlProject{}},
-			handler.EnqueueRequestsFromMapFunc(r.requestsForRevisionChangeOf(kluctlProjectIndexKey)),
 			builder.WithPredicates(SourceRevisionChangePredicate{}),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
@@ -267,11 +250,11 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.recordReadiness(ctx, kluctlDeployment)
 
 	// reconcile kluctlDeployment by applying the latest revision
-	reconciledKluctlProject, reconcileErr := r.reconcile(ctx, *kluctlDeployment.DeepCopy(), source)
-	if err := r.patchStatus(ctx, req, reconciledKluctlProject.Status); err != nil {
+	reconciledKluctlDeployment, reconcileErr := r.reconcile(ctx, *kluctlDeployment.DeepCopy(), source)
+	if err := r.patchStatus(ctx, req, reconciledKluctlDeployment.Status); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-	r.recordReadiness(ctx, reconciledKluctlProject)
+	r.recordReadiness(ctx, reconciledKluctlDeployment)
 
 	// broadcast the reconciliation failure and requeue at the specified retry interval
 	if reconcileErr != nil {
@@ -280,7 +263,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			kluctlDeployment.GetRetryInterval().String()),
 			"revision",
 			source.GetArtifact().Revision)
-		r.event(ctx, reconciledKluctlProject, source.GetArtifact().Revision, events.EventSeverityError,
+		r.event(ctx, reconciledKluctlDeployment, source.GetArtifact().Revision, events.EventSeverityError,
 			reconcileErr.Error(), nil)
 		return ctrl.Result{RequeueAfter: kluctlDeployment.GetRetryInterval()}, nil
 	}
@@ -290,7 +273,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		time.Since(reconcileStart).String(),
 		kluctlDeployment.Spec.Interval.Duration.String())
 	log.Info(msg, "revision", source.GetArtifact().Revision)
-	r.event(ctx, reconciledKluctlProject, source.GetArtifact().Revision, events.EventSeverityInfo,
+	r.event(ctx, reconciledKluctlDeployment, source.GetArtifact().Revision, events.EventSeverityInfo,
 		msg, map[string]string{kluctlv1.GroupVersion.Group + "/commit_status": "update"})
 	return ctrl.Result{RequeueAfter: kluctlDeployment.Spec.Interval.Duration}, nil
 }
@@ -304,23 +287,39 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		kluctlDeployment.Status.SetLastHandledReconcileRequest(v)
 	}
 
-	pp := r.prepareProject(ctx, kluctlDeployment, source)
-	if pp.err != nil {
+	pp, err := prepareProject(ctx, r, kluctlDeployment, source)
+	if err != nil {
 		return kluctlv1.KluctlDeploymentNotReady(
 			kluctlDeployment,
-			pp.revision,
+			pp.source.GetArtifact().Revision,
 			pp.targetHash,
-			pp.reason,
-			pp.err.Error(),
-		), pp.err
+			kluctlv1.PrepareFailedReason,
+			err.Error(),
+		), err
 	}
-	defer os.RemoveAll(pp.tmpDir)
+	defer pp.cleanup()
 
-	if kluctlDeployment.Status.LastAttemptedTargetHash == pp.targetHash {
-		if kluctlDeployment.Status.LastDeployedTargetHash == pp.targetHash {
+	kluctlDeployment.Status.InvolvedRepos = nil
+	for u, repo := range pp.metadata.InvolvedRepos {
+		ir2 := kluctlv1.InvolvedRepo{
+			URL: u,
+		}
+
+		for _, ir := range repo {
+			ir2.Patterns = append(ir2.Patterns, kluctlv1.InvolvedRepoPattern{
+				Pattern: ir.RefPattern,
+				Refs:    ir.Refs,
+			})
+		}
+
+		kluctlDeployment.Status.InvolvedRepos = append(kluctlDeployment.Status.InvolvedRepos, ir2)
+	}
+
+	if kluctlDeployment.Status.LastAttemptedTarget != nil && kluctlDeployment.Status.LastAttemptedTarget.TargetHash == pp.targetHash {
+		if kluctlDeployment.Status.LastDeployedTarget != nil && kluctlDeployment.Status.LastDeployedTarget.TargetHash == pp.targetHash {
 			return kluctlv1.KluctlDeploymentReady(
 				kluctlDeployment,
-				pp.revision,
+				pp.source.GetArtifact().Revision,
 				pp.targetHash,
 				kluctlv1.ReconciliationSkippedReason,
 				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
@@ -328,7 +327,7 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		} else {
 			return kluctlv1.KluctlDeploymentNotReady(
 				kluctlDeployment,
-				pp.revision,
+				pp.source.GetArtifact().Revision,
 				pp.targetHash,
 				kluctlv1.ReconciliationSkippedReason,
 				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
@@ -337,12 +336,12 @@ func (r *KluctlDeploymentReconciler) reconcile(
 	}
 
 	// deploy the kluctl project
-	deployResult, err := r.kluctlDeploy(ctx, kluctlDeployment, pp)
+	deployResult, err := pp.kluctlDeploy(ctx)
 	kluctlDeployment.Status.LastDeployResult = deployResult
 	if err != nil {
 		return kluctlv1.KluctlDeploymentNotReady(
 			kluctlDeployment,
-			pp.revision,
+			pp.source.GetArtifact().Revision,
 			pp.targetHash,
 			kluctlv1.DeployFailedReason,
 			err.Error(),
@@ -350,12 +349,12 @@ func (r *KluctlDeploymentReconciler) reconcile(
 	}
 
 	// run garbage collection for stale objects that do not have pruning disabled
-	pruneResult, err := r.kluctlPrune(ctx, kluctlDeployment, pp)
+	pruneResult, err := pp.kluctlPrune(ctx)
 	kluctlDeployment.Status.LastPruneResult = pruneResult
 	if err != nil {
 		return kluctlv1.KluctlDeploymentNotReady(
 			kluctlDeployment,
-			pp.revision,
+			pp.source.GetArtifact().Revision,
 			pp.targetHash,
 			kluctlv1.PruneFailedReason,
 			err.Error(),
@@ -364,147 +363,11 @@ func (r *KluctlDeploymentReconciler) reconcile(
 
 	return kluctlv1.KluctlDeploymentReady(
 		kluctlDeployment,
-		pp.revision,
+		pp.source.GetArtifact().Revision,
 		pp.targetHash,
 		kluctlv1.ReconciliationSucceededReason,
-		fmt.Sprintf("Deployed revision: %s", pp.revision),
+		fmt.Sprintf("Deployed revision: %s", pp.source.GetArtifact().Revision),
 	), nil
-}
-
-type preparedProject struct {
-	tmpDir     string
-	sourceDir  string
-	err        error
-	reason     string
-	kubeconfig string
-
-	revision   string
-	target     *types2.Target
-	targetHash string
-}
-
-func (r *KluctlDeploymentReconciler) prepareProject(ctx context.Context,
-	kluctlDeployment kluctlv1.KluctlDeployment,
-	source sourcev1.Source) preparedProject {
-
-	var ret preparedProject
-	ret.revision = source.GetArtifact().Revision
-
-	// create tmp dir
-	tmpDir, err := os.MkdirTemp("", kluctlDeployment.Name)
-	if err != nil {
-		ret.err = err
-		ret.reason = sourcev1.DirCreationFailedReason
-		return ret
-	}
-	cleanup := true
-	defer func() {
-		if !cleanup {
-			return
-		}
-		_ = os.RemoveAll(tmpDir)
-	}()
-
-	// download artifact and extract files
-	err = r.download(source, tmpDir)
-	if err != nil {
-		ret.err = err
-		ret.reason = kluctlv1.ArtifactFailedReason
-		return ret
-	}
-
-	if source.GetObjectKind().GroupVersionKind().Kind == kluctlv1.KluctlProjectKind {
-		if kluctlDeployment.Spec.Path != "" {
-			ret.err = fmt.Errorf("kluctlDeployment path not allowed when source is a KluctlProject")
-			ret.reason = kluctlv1.ArtifactFailedReason
-			return ret
-		}
-	}
-
-	// check kluctl project path exists
-	dirPath, err := securejoin.SecureJoin(tmpDir, filepath.Join("source", kluctlDeployment.Spec.Path))
-	if err != nil {
-		ret.err = err
-		ret.reason = kluctlv1.ArtifactFailedReason
-		return ret
-	}
-	if _, err := os.Stat(dirPath); err != nil {
-		ret.err = fmt.Errorf("kluctlDeployment path not found: %w", err)
-		ret.reason = kluctlv1.ArtifactFailedReason
-		_ = os.RemoveAll(tmpDir)
-		return ret
-	}
-
-	kubeconfig, err := r.writeKubeConfig(ctx, kluctlDeployment, tmpDir)
-	if err != nil {
-		ret.err = fmt.Errorf("failed to write kubeconfig: %w", err)
-		ret.reason = kluctlv1.ArtifactFailedReason
-		return ret
-	}
-
-	projectHash, targets, err := r.listTargets(ctx, kluctlDeployment, tmpDir, dirPath)
-	if err != nil {
-		ret.err = err
-		ret.reason = kluctlv1.ArtifactFailedReason
-		return ret
-	}
-
-	for _, t := range targets {
-		if t.Name == kluctlDeployment.Spec.Target {
-			ret.target = t
-			break
-		}
-	}
-	if ret.target == nil {
-		ret.err = fmt.Errorf("target %s not found in kluctl project", kluctlDeployment.Spec.Target)
-		ret.reason = kluctlv1.TargetNotFoundReason
-		return ret
-	}
-
-	ret.tmpDir = tmpDir
-	ret.sourceDir = dirPath
-	ret.kubeconfig = kubeconfig
-	ret.targetHash = calcTargetHash(projectHash, ret.target)
-
-	cleanup = false
-	return ret
-}
-
-func (r *KluctlDeploymentReconciler) listTargets(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, tmpDir string, dirPath string) (string, []*types2.Target, error) {
-	resultFile := filepath.Join(tmpDir, "targets.yaml")
-	cmd := kluctlCaller{workDir: dirPath}
-	cmd.args = append(cmd.args, "list-targets")
-	cmd.args = append(cmd.args, "--output", resultFile)
-
-	var err error
-	var projectHash string
-	if kluctlDeployment.Spec.SourceRef.Kind == kluctlv1.KluctlProjectKind {
-		archivePath := filepath.Join(dirPath, "archive.tar.gz")
-		projectHash, err = calcFileHash(archivePath)
-		if err != nil {
-			return "", nil, err
-		}
-		cmd.args = append(cmd.args, "--from-archive", archivePath)
-		cmd.args = append(cmd.args, "--from-archive-metadata", filepath.Join(dirPath, "metadata.yaml"))
-	} else {
-		projectHash, err = calcDirHash(dirPath)
-		if err != nil {
-			return "", nil, err
-		}
-	}
-
-	_, _, err = cmd.run(ctx)
-	if err != nil {
-		return "", nil, fmt.Errorf("kluctl list-targets failed: %w", err)
-	}
-
-	var ret []*types2.Target
-	err = yaml.ReadYamlFile(resultFile, &ret)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to read list-targets result: %w", err)
-	}
-
-	return projectHash, ret, nil
 }
 
 func (r *KluctlDeploymentReconciler) checkDependencies(source sourcev1.Source, kluctlDeployment kluctlv1.KluctlDeployment) error {
@@ -541,15 +404,13 @@ func (r *KluctlDeploymentReconciler) checkDependencies(source sourcev1.Source, k
 func (r *KluctlDeploymentReconciler) download(source sourcev1.Source, tmpDir string) error {
 	artifact := source.GetArtifact()
 	artifactURL := artifact.URL
-	if source.GetObjectKind().GroupVersionKind().Kind != kluctlv1.KluctlProjectKind {
-		if hostname := os.Getenv("SOURCE_CONTROLLER_LOCALHOST"); hostname != "" {
-			u, err := url.Parse(artifactURL)
-			if err != nil {
-				return err
-			}
-			u.Host = hostname
-			artifactURL = u.String()
+	if hostname := os.Getenv("SOURCE_CONTROLLER_LOCALHOST"); hostname != "" {
+		u, err := url.Parse(artifactURL)
+		if err != nil {
+			return err
 		}
+		u.Host = hostname
+		artifactURL = u.String()
 	}
 
 	req, err := retryablehttp.NewRequest(http.MethodGet, artifactURL, nil)
@@ -643,160 +504,11 @@ func (r *KluctlDeploymentReconciler) getSource(ctx context.Context, kluctlDeploy
 			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
 		}
 		source = &bucket
-	case kluctlv1.KluctlProjectKind:
-		var kluctlProject kluctlv1.KluctlProject
-		err := r.Client.Get(ctx, namespacedName, &kluctlProject)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return source, err
-			}
-			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
-		}
-		source = &kluctlProject
 	default:
 		return source, fmt.Errorf("source `%s` kind '%s' not supported",
 			kluctlDeployment.Spec.SourceRef.Name, kluctlDeployment.Spec.SourceRef.Kind)
 	}
 	return source, nil
-}
-
-func (r *KluctlDeploymentReconciler) writeKubeConfig(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, workDir string) (string, error) {
-	secretName := types.NamespacedName{
-		Namespace: kluctlDeployment.GetNamespace(),
-		Name:      kluctlDeployment.Spec.KubeConfig.SecretRef.Name,
-	}
-
-	var secret v1.Secret
-	if err := r.Get(ctx, secretName, &secret); err != nil {
-		return "", fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
-	}
-
-	var kubeConfig []byte
-	for k := range secret.Data {
-		if k == "value" || k == "value.yaml" {
-			kubeConfig = secret.Data[k]
-			break
-		}
-	}
-
-	if len(kubeConfig) == 0 {
-		return "", fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
-	}
-
-	path := filepath.Join(workDir, "kubeconfig.yaml")
-	err := os.WriteFile(path, kubeConfig, 0o600)
-	if err != nil {
-		return "", err
-	}
-
-	return path, nil
-}
-
-func (r *KluctlDeploymentReconciler) runKluctlCommand(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, cmd *kluctlCaller, pp preparedProject, commandName string) (*kluctlv1.CommandResult, error) {
-	resultFile := filepath.Join(pp.tmpDir, "result.yaml")
-	renderOutputDir := filepath.Join(pp.tmpDir, "rendered")
-	cmd.args = append(cmd.args, "--output-format", "yaml="+resultFile)
-	cmd.args = append(cmd.args, "--render-output-dir", renderOutputDir)
-
-	if kluctlDeployment.Spec.SourceRef.Kind == kluctlv1.KluctlProjectKind {
-		cmd.args = append(cmd.args, "--from-archive", filepath.Join(cmd.workDir, "archive.tar.gz"))
-		cmd.args = append(cmd.args, "--from-archive-metadata", filepath.Join(cmd.workDir, "metadata.yaml"))
-	}
-
-	var cmdResult types2.CommandResult
-	_, _, cmdErr := cmd.run(ctx)
-	yamlErr := yaml.ReadYamlFile(resultFile, &cmdResult)
-	if yamlErr != nil && !os.IsNotExist(errors.Unwrap(yamlErr)) {
-		return nil, yamlErr
-	}
-
-	if cmdErr != nil {
-		r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
-		return kluctlv1.ConvertCommandResult(&cmdResult), cmdErr
-	}
-	if os.IsNotExist(yamlErr) {
-		err := fmt.Errorf("%s did not write result", commandName)
-		r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityInfo, err.Error(), nil)
-		return nil, err
-	}
-
-	msg := fmt.Sprintf("%s succeeded.", commandName)
-	if len(cmdResult.NewObjects) != 0 {
-		msg += fmt.Sprintf(" %d new objects.", len(cmdResult.NewObjects))
-	}
-	if len(cmdResult.ChangedObjects) != 0 {
-		msg += fmt.Sprintf(" %d changed objects.", len(cmdResult.ChangedObjects))
-	}
-	if len(cmdResult.HookObjects) != 0 {
-		msg += fmt.Sprintf(" %d hooks run.", len(cmdResult.HookObjects))
-	}
-	if len(cmdResult.DeletedObjects) != 0 {
-		msg += fmt.Sprintf(" %d deleted objects.", len(cmdResult.DeletedObjects))
-	}
-	if len(cmdResult.OrphanObjects) != 0 {
-		msg += fmt.Sprintf(" %d orphan objects.", len(cmdResult.OrphanObjects))
-	}
-
-	r.event(ctx, kluctlDeployment, pp.revision, events.EventSeverityInfo, msg, nil)
-
-	return kluctlv1.ConvertCommandResult(&cmdResult), nil
-}
-
-func (r *KluctlDeploymentReconciler) kluctlDeploy(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, pp preparedProject) (*kluctlv1.CommandResult, error) {
-	cmd := kluctlCaller{
-		workDir:     pp.sourceDir,
-		kubeconfigs: []string{pp.kubeconfig},
-	}
-
-	cmd.args = append(cmd.args, "deploy")
-	cmd.addTargetArgs(kluctlDeployment)
-	cmd.addImageArgs(kluctlDeployment)
-	cmd.addApplyArgs(kluctlDeployment)
-	cmd.addInclusionArgs(kluctlDeployment)
-	cmd.addMiscArgs(kluctlDeployment, true, true)
-	cmd.args = append(cmd.args, "--yes")
-
-	return r.runKluctlCommand(ctx, kluctlDeployment, &cmd, pp, "deploy")
-}
-
-func (r *KluctlDeploymentReconciler) kluctlPrune(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, pp preparedProject) (*kluctlv1.CommandResult, error) {
-	if !kluctlDeployment.Spec.Prune {
-		return nil, nil
-	}
-
-	cmd := kluctlCaller{
-		workDir:     pp.sourceDir,
-		kubeconfigs: []string{pp.kubeconfig},
-	}
-
-	cmd.args = append(cmd.args, "prune")
-	cmd.addTargetArgs(kluctlDeployment)
-	cmd.addImageArgs(kluctlDeployment)
-	cmd.addInclusionArgs(kluctlDeployment)
-	cmd.addMiscArgs(kluctlDeployment, true, false)
-	cmd.args = append(cmd.args, "--yes")
-
-	return r.runKluctlCommand(ctx, kluctlDeployment, &cmd, pp, "prune")
-}
-
-func (r *KluctlDeploymentReconciler) kluctlDelete(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment, pp preparedProject) (*kluctlv1.CommandResult, error) {
-	if !kluctlDeployment.Spec.Prune {
-		return nil, nil
-	}
-
-	cmd := kluctlCaller{
-		workDir:     pp.sourceDir,
-		kubeconfigs: []string{pp.kubeconfig},
-	}
-
-	cmd.args = append(cmd.args, "delete")
-	cmd.addTargetArgs(kluctlDeployment)
-	cmd.addImageArgs(kluctlDeployment)
-	cmd.addInclusionArgs(kluctlDeployment)
-	cmd.addMiscArgs(kluctlDeployment, true, false)
-	cmd.args = append(cmd.args, "--yes")
-
-	return r.runKluctlCommand(ctx, kluctlDeployment, &cmd, pp, "delete")
 }
 
 func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, kluctlDeployment kluctlv1.KluctlDeployment) (ctrl.Result, error) {
@@ -805,10 +517,10 @@ func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, kluctlDeploym
 
 		source, err := r.getSource(ctx, kluctlDeployment)
 		if err == nil {
-			pp := r.prepareProject(ctx, kluctlDeployment, source)
-			if pp.err == nil {
-				defer os.RemoveAll(pp.tmpDir)
-				_, _ = r.kluctlDelete(ctx, kluctlDeployment, pp)
+			pp, err := prepareProject(ctx, r, kluctlDeployment, source)
+			if err == nil {
+				defer pp.cleanup()
+				_, _ = pp.kluctlDelete(ctx)
 			}
 		}
 	}

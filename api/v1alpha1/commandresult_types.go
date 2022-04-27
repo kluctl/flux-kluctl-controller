@@ -2,8 +2,8 @@ package v1alpha1
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/types"
-	"github.com/kluctl/kluctl/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 )
 
 // ResourceRef contains the information necessary to locate a resource within a cluster.
