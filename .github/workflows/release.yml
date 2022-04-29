@@ -45,9 +45,6 @@ jobs:
           registry: ghcr.io
           username: kluctlbot
           password: ${{ secrets.GHCR_TOKEN }}
-      - name: Generate vendor stuff
-        run: |
-          make vendor-gen
       - name: Generate images meta
         id: meta
         uses: docker/metadata-action@v3
