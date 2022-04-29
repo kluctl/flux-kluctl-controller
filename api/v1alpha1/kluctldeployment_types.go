@@ -17,9 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"github.com/fluxcd/pkg/apis/meta"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"time"
 )
 
@@ -204,6 +208,11 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// LastForceReconcileHash contains a hash of all values from the spec that must cause a forced
+	// reconcile.
+	// +optional
+	LastForceReconcileHash string `json:"lastForceReconcileHash,omitempty"`
+
 	// InvolvedRepos is a list of repositories and refs involved with this kluctl project
 	// +optional
 	InvolvedRepos []InvolvedRepo `json:"involvedRepos,omitempty"`
@@ -320,6 +329,22 @@ func KluctlDeploymentReady(k KluctlDeployment, revision string, targetHash strin
 	SetKluctlDeploymentHealthiness(&k, metav1.ConditionTrue, reason, reason)
 	k.Status.LastSuccessfulReconcile = k.Status.LastAttemptedReconcile.DeepCopy()
 	return k
+}
+
+// CalcForceReconcileHash calculates a hash from all values of the spec that must cause a forced reconciliation
+func (in KluctlDeployment) CalcForceReconcileHash(scheme *runtime.Scheme) (string, error) {
+	onlySpec := KluctlDeployment{
+		Spec: in.Spec,
+	}
+
+	h := sha256.New()
+	s := json.NewSerializerWithOptions(nil, scheme, scheme, json.SerializerOptions{})
+	err := s.Encode(&onlySpec, h)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(h.Sum(nil)[:]), nil
 }
 
 // GetTimeout returns the timeout with default.

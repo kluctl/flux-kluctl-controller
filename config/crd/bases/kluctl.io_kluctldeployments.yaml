@@ -809,6 +809,10 @@ spec:
                 - targetName
                 - time
                 type: object
+              lastForceReconcileHash:
+                description: LastForceReconcileHash contains a hash of all values
+                  from the spec that must cause a forced reconcile.
+                type: string
               lastHandledReconcileAt:
                 description: LastHandledReconcileAt holds the value of the most recent
                   reconcile request value, so a change of the annotation value can

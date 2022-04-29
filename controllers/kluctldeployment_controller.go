@@ -301,6 +301,23 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		kluctlDeployment.Status.SetLastHandledReconcileRequest(v)
 	}
 
+	forceReconcileHash, err := kluctlDeployment.CalcForceReconcileHash(r.Scheme)
+	if err != nil {
+		return kluctlv1.KluctlDeploymentNotReady(
+			kluctlDeployment,
+			"",
+			"",
+			nil,
+			nil,
+			kluctlv1.PrepareFailedReason,
+			err.Error(),
+		), err
+	}
+	if forceReconcileHash != kluctlDeployment.Status.LastForceReconcileHash {
+		forceReconcile = true
+		kluctlDeployment.Status.LastForceReconcileHash = forceReconcileHash
+	}
+
 	pp, err := prepareProject(ctx, r, kluctlDeployment, source)
 	if err != nil {
 		return kluctlv1.KluctlDeploymentNotReady(
