@@ -78,9 +78,18 @@ type KluctlDeploymentSpec struct {
 
 	// The KubeConfig for deploying to the target cluster.
 	// Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
-	// the cluster config found in the kluctl project.
-	// +required
+	// the cluster config found in the kluctl project. As alternative, RenameContexts can be used to fix
+	// non-matching context names. If KubeConfig is not specified, the service account of the controller is
+	// used to generate a kubeconfig.
+	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig"`
+
+	// RenameContexts specifies a list of context rename operations.
+	// This is useful when the kluctl project's cluster configs specify contexts that do not match with the
+	// contexts found in the kubeconfig while deploying. This is the case when re-using the in-cluster kubeconfig
+	// of the controller which always has the name "default"
+	// +optional
+	RenameContexts []RenameContext `json:"renameContexts,omitempty"`
 
 	// Args specifies dynamic target args
 	// +optional
@@ -171,6 +180,17 @@ type KubeConfig struct {
 	// the Kustomization.
 	// +required
 	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
+}
+
+// RenameContext specifies a single rename of a context
+type RenameContext struct {
+	// OldContext is the name of the context to be renamed
+	// +required
+	OldContext string `json:"oldContext"`
+
+	// NewContext is the new name of the context
+	// +required
+	NewContext string `json:"newContext"`
 }
 
 // KluctlDeploymentStatus defines the observed state of KluctlDeployment

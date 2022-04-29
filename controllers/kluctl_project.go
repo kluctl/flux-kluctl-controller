@@ -3,6 +3,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/fluxcd/pkg/runtime/events"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -18,8 +22,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"os"
-	"path/filepath"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 type preparedProject struct {
@@ -27,11 +32,10 @@ type preparedProject struct {
 	d      kluctlv1.KluctlDeployment
 	source sourcev1.Source
 
-	tmpDir     string
-	sourceDir  string
-	kubeconfig string
-	gitRepo    *sourcev1.GitRepository
-	gitSecret  *v1.Secret
+	tmpDir    string
+	sourceDir string
+	gitRepo   *sourcev1.GitRepository
+	gitSecret *v1.Secret
 
 	metadata   types2.ProjectMetadata
 	target     *types2.Target
@@ -52,7 +56,7 @@ func prepareProject(ctx context.Context,
 	// create tmp dir
 	tmpDir, err := os.MkdirTemp("", kluctlDeployment.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp dir for kluctl project: %w", err)
+		return pp, fmt.Errorf("failed to create temp dir for kluctl project: %w", err)
 	}
 	cleanup := true
 	defer func() {
@@ -62,44 +66,39 @@ func prepareProject(ctx context.Context,
 		_ = os.RemoveAll(tmpDir)
 	}()
 
+	pp.tmpDir = tmpDir
+
 	// download artifact and extract files
 	err = pp.r.download(source, tmpDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed download of artifact: %w", err)
+		return pp, fmt.Errorf("failed download of artifact: %w", err)
 	}
 
 	// check kluctl project path exists
 	dirPath, err := securejoin.SecureJoin(tmpDir, filepath.Join("source", kluctlDeployment.Spec.Path))
 	if err != nil {
-		return nil, err
+		return pp, err
 	}
 	if _, err := os.Stat(dirPath); err != nil {
-		return nil, fmt.Errorf("kluctlDeployment path not found: %w", err)
-	}
-
-	kubeconfig, err := pp.writeKubeConfig(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write kubeconfig: %w", err)
+		return pp, fmt.Errorf("kluctlDeployment path not found: %w", err)
 	}
 
 	gitSecret, err := pp.getGitSecret(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get git secret: %w", err)
+		return pp, fmt.Errorf("failed to get git secret: %w", err)
 	}
 
-	pp.tmpDir = tmpDir
 	pp.sourceDir = dirPath
-	pp.kubeconfig = kubeconfig
 	pp.gitSecret = gitSecret
 
 	err = pp.kluctlArchive(ctx)
 	if err != nil {
-		return nil, err
+		return pp, err
 	}
 
 	err = yaml.ReadYamlFile(filepath.Join(pp.tmpDir, "metadata.yaml"), &pp.metadata)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read metadata.yaml: %w", err)
+		return pp, fmt.Errorf("failed to read metadata.yaml: %w", err)
 	}
 
 	for _, t := range pp.metadata.Targets {
@@ -109,12 +108,12 @@ func prepareProject(ctx context.Context,
 		}
 	}
 	if pp.target == nil {
-		return nil, fmt.Errorf("target %s not found in kluctl project", kluctlDeployment.Spec.Target)
+		return pp, fmt.Errorf("target %s not found in kluctl project", kluctlDeployment.Spec.Target)
 	}
 
 	archiveHash, err := calcFileHash(filepath.Join(pp.tmpDir, "archive.tar.gz"))
 	if err != nil {
-		return nil, err
+		return pp, err
 	}
 	pp.targetHash = calcTargetHash(archiveHash, pp.target)
 
@@ -126,7 +125,7 @@ func (pp *preparedProject) cleanup() {
 	_ = os.RemoveAll(pp.tmpDir)
 }
 
-func (pp *preparedProject) writeKubeConfig(ctx context.Context) (string, error) {
+func (pp *preparedProject) getKubeconfigFromSecret(ctx context.Context) (*api.Config, error) {
 	secretName := types.NamespacedName{
 		Namespace: pp.d.GetNamespace(),
 		Name:      pp.d.Spec.KubeConfig.SecretRef.Name,
@@ -134,7 +133,7 @@ func (pp *preparedProject) writeKubeConfig(ctx context.Context) (string, error) 
 
 	var secret v1.Secret
 	if err := pp.r.Get(ctx, secretName, &secret); err != nil {
-		return "", fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
+		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
 	}
 
 	var kubeConfig []byte
@@ -146,16 +145,97 @@ func (pp *preparedProject) writeKubeConfig(ctx context.Context) (string, error) 
 	}
 
 	if len(kubeConfig) == 0 {
-		return "", fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
+		return nil, fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
 	}
 
-	path := filepath.Join(pp.tmpDir, "kubeconfig.yaml")
-	err := os.WriteFile(path, kubeConfig, 0o600)
+	return clientcmd.Load(kubeConfig)
+}
+
+func (pp *preparedProject) getDefaultKubeconfig(ctx context.Context) (*api.Config, error) {
+	var err error
+	var restConfig *rest.Config
+	if host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORt"); host != "" && port != "" {
+		restConfig, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		configOverrides := &clientcmd.ConfigOverrides{}
+
+		restConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides).ClientConfig()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	cfg := api.NewConfig()
+	cluster := api.NewCluster()
+	cluster.Server = restConfig.Host
+	cluster.CertificateAuthority = restConfig.TLSClientConfig.CAFile
+	cluster.CertificateAuthorityData = restConfig.TLSClientConfig.CAData
+	cluster.InsecureSkipTLSVerify = restConfig.TLSClientConfig.Insecure
+	cfg.Clusters["default"] = cluster
+
+	user := api.NewAuthInfo()
+	user.ClientKey = restConfig.KeyFile
+	user.ClientKeyData = restConfig.KeyData
+	user.ClientCertificate = restConfig.CertFile
+	user.ClientCertificateData = restConfig.CertData
+	user.TokenFile = restConfig.BearerTokenFile
+	user.Token = restConfig.BearerToken
+	user.Impersonate = restConfig.Impersonate.UserName
+	user.ImpersonateUID = restConfig.Impersonate.UID
+	user.ImpersonateUserExtra = restConfig.Impersonate.Extra
+	user.ImpersonateGroups = restConfig.Impersonate.Groups
+	user.Username = restConfig.Username
+	user.Password = restConfig.Password
+	user.AuthProvider = restConfig.AuthProvider
+	cfg.AuthInfos["default"] = user
+
+	kctx := api.NewContext()
+	kctx.Cluster = "default"
+	kctx.AuthInfo = "default"
+	cfg.Contexts["default"] = kctx
+
+	return cfg, nil
+}
+
+func (pp *preparedProject) getKubeconfig(ctx context.Context) (*api.Config, error) {
+	var kc *api.Config
+	var err error
+	if pp.d.Spec.KubeConfig != nil {
+		kc, err = pp.getKubeconfigFromSecret(ctx)
+	} else {
+		kc, err = pp.getDefaultKubeconfig(ctx)
+	}
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	err = pp.renameContexts(kc)
+	if err != nil {
+		return nil, err
+	}
+	return kc, nil
+}
 
-	return path, nil
+func (pp *preparedProject) renameContexts(cfg *api.Config) error {
+	for _, r := range pp.d.Spec.RenameContexts {
+		ctx, ok := cfg.Contexts[r.OldContext]
+		if !ok {
+			return fmt.Errorf("failed to rename context %s -> %s. Old context not found in kubeconfig", r.OldContext, r.NewContext)
+		}
+		if _, ok := cfg.Contexts[r.NewContext]; ok {
+			return fmt.Errorf("failed to rename context %s -> %s. New context already present in kubeconfig", r.OldContext, r.NewContext)
+		}
+		cfg.Contexts[r.NewContext] = ctx
+		delete(cfg.Contexts, r.OldContext)
+
+		if cfg.CurrentContext == r.OldContext {
+			cfg.CurrentContext = r.NewContext
+		}
+	}
+	return nil
 }
 
 func (pp *preparedProject) getGitSecret(ctx context.Context) (*v1.Secret, error) {
@@ -251,13 +331,18 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bo
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
+		ProjectDir:       pp.sourceDir,
 		GitAuthProviders: ga,
 	}
 	if fromArchive {
 		loadArgs.FromArchive = filepath.Join(pp.tmpDir, "archive.tar.gz")
 		loadArgs.FromArchiveMetadata = filepath.Join(pp.tmpDir, "metadata.yaml")
 	}
-	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
+
+	loadCtx, cancel := context.WithDeadline(ctx, time.Now().Add(pp.d.GetTimeout()))
+	defer cancel()
+
+	p, err := kluctl_project.LoadKluctlProject(loadCtx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
 	if err != nil {
 		return err
 	}
@@ -277,7 +362,20 @@ func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArch
 		}
 		inclusion := pp.buildInclusion()
 
-		targetContext, err := p.NewTargetContext(pp.d.Spec.Target, "", pp.d.Spec.DryRun, pp.d.Spec.Args, false, images, inclusion, renderOutputDir)
+		clientConfigGetter := func(context string) (*rest.Config, error) {
+			kubeConfig, err := pp.getKubeconfig(ctx)
+			if err != nil {
+				return nil, err
+			}
+			configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
+			return clientcmd.NewDefaultClientConfig(*kubeConfig, configOverrides).ClientConfig()
+		}
+
+		targetContext, err := p.NewTargetContext(clientConfigGetter, pp.d.Spec.Target, "", pp.d.Spec.DryRun, pp.d.Spec.Args, false, images, inclusion, renderOutputDir)
+		if err != nil {
+			return err
+		}
+		err = targetContext.DeploymentCollection.Prepare(targetContext.K)
 		if err != nil {
 			return err
 		}

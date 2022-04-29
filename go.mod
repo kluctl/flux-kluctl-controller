@@ -10,10 +10,9 @@ require (
 	github.com/fluxcd/pkg/untar v0.1.0
 	github.com/fluxcd/source-controller/api v0.24.0
 	github.com/hashicorp/go-retryablehttp v0.7.0
-	github.com/kluctl/kluctl/v2 v2.8.0
+	github.com/kluctl/kluctl/v2 v2.8.1-0.20220428134353-f99211ba0cce
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
-	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.25.0-alpha.0
 	k8s.io/apimachinery v0.25.0-alpha.0
@@ -218,5 +217,6 @@ require (
 require (
 	github.com/go-git/go-git/v5 v5.4.2 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/sirupsen/logrus v1.8.1 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 )
