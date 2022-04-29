@@ -64,6 +64,12 @@ type KluctlDeploymentSpec struct {
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
 
+	// RegistrySecrets is a list of secret references to be used for image registry authentication.
+	// The secrets must either have ".dockerconfigjson" included or "registry", "username" and "password".
+	// Additionally, "caFile" and "insecure" can be specified.
+	// +optional
+	RegistrySecrets []meta.LocalObjectReference `json:"registrySecrets,omitempty"`
+
 	// This flag tells the controller to suspend subsequent kluctl executions,
 	// it does not apply to already started executions. Defaults to false.
 	// +optional

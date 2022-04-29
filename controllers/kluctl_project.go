@@ -1,15 +1,24 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/docker/cli/cli/config/configfile"
 	"github.com/fluxcd/pkg/runtime/events"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
+
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
@@ -17,14 +26,10 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/registries"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 type preparedProject struct {
@@ -290,8 +295,96 @@ func (pp *preparedProject) buildGitAuth() (*auth.GitAuthProviders, error) {
 	return ga, nil
 }
 
-func (pp *preparedProject) buildImages() (*deployment.Images, error) {
-	images, err := deployment.NewImages(pp.d.Spec.UpdateImages)
+func (pp *preparedProject) getRegistrySecrets(ctx context.Context) ([]*v1.Secret, error) {
+	var ret []*v1.Secret
+	for _, ref := range pp.d.Spec.RegistrySecrets {
+		name := types.NamespacedName{
+			Namespace: pp.d.GetNamespace(),
+			Name:      ref.Name,
+		}
+		var secret v1.Secret
+		if err := pp.r.Client.Get(ctx, name, &secret); err != nil {
+			return nil, fmt.Errorf("failed to get secret '%s': %w", name.String(), err)
+		}
+		ret = append(ret, &secret)
+	}
+	return ret, nil
+}
+
+func (pp *preparedProject) buildRegistryHelper(ctx context.Context) (*registries.RegistryHelper, error) {
+	secrets, err := pp.getRegistrySecrets(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rh := registries.NewRegistryHelper()
+	err = rh.ParseAuthEntriesFromEnv()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range secrets {
+		caFile := s.Data["caFile"]
+		insecure := false
+		if x, ok := s.Data["insecure"]; ok {
+			insecure, err = strconv.ParseBool(string(x))
+			if err != nil {
+				return nil, fmt.Errorf("failed parsing insecure flag from secret %s: %w", s.Name, err)
+			}
+		}
+
+		if dockerConfig, ok := s.Data[".dockerconfigjson"]; ok {
+			maxFields := 1
+			if _, ok := s.Data["caFile"]; ok {
+				maxFields++
+			}
+			if _, ok := s.Data["insecure"]; ok {
+				maxFields++
+			}
+			if len(s.Data) != maxFields {
+				return nil, fmt.Errorf("when using .dockerconfigjson in registry secret, only caFile and insecure fields are allowed additionally")
+			}
+
+			c := configfile.New(".dockerconfigjson")
+			err = c.LoadFromReader(bytes.NewReader(dockerConfig))
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse .dockerconfigjson from secret %s: %w", s.Name, err)
+			}
+			for registry, ac := range c.GetAuthConfigs() {
+				var e registries.AuthEntry
+				e.Registry = registry
+				e.Username = ac.Username
+				e.Password = ac.Password
+				e.Auth = ac.Auth
+				e.CABundle = caFile
+				e.Insecure = insecure
+
+				rh.AddAuthEntry(e)
+			}
+		} else {
+			var e registries.AuthEntry
+			e.Registry = string(s.Data["registry"])
+			e.Username = string(s.Data["username"])
+			e.Password = string(s.Data["password"])
+			e.Auth = string(s.Data["auth"])
+			e.CABundle = caFile
+			e.Insecure = insecure
+
+			if e.Registry == "" || (e.Username == "" && e.Auth == "") {
+				return nil, fmt.Errorf("registry secret is incomplete")
+			}
+			rh.AddAuthEntry(e)
+		}
+	}
+	return rh, nil
+}
+
+func (pp *preparedProject) buildImages(ctx context.Context) (*deployment.Images, error) {
+	rh, err := pp.buildRegistryHelper(ctx)
+	if err != nil {
+		return nil, err
+	}
+	images, err := deployment.NewImages(rh, pp.d.Spec.UpdateImages)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +449,7 @@ func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArch
 		if err != nil {
 			return err
 		}
-		images, err := pp.buildImages()
+		images, err := pp.buildImages(ctx)
 		if err != nil {
 			return err
 		}

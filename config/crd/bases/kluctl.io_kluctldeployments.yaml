@@ -201,6 +201,20 @@ spec:
                 default: false
                 description: Prune enables pruning after deploying.
                 type: boolean
+              registrySecrets:
+                description: RegistrySecrets is a list of secret references to be
+                  used for image registry authentication
+                items:
+                  description: LocalObjectReference contains enough information to
+                    locate the referenced Kubernetes resource object.
+                  properties:
+                    name:
+                      description: Name of the referent.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               renameContexts:
                 description: RenameContexts specifies a list of context rename operations.
                   This is useful when the kluctl project's cluster configs specify

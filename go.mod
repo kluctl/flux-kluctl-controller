@@ -10,7 +10,7 @@ require (
 	github.com/fluxcd/pkg/untar v0.1.0
 	github.com/fluxcd/source-controller/api v0.24.0
 	github.com/hashicorp/go-retryablehttp v0.7.0
-	github.com/kluctl/kluctl/v2 v2.8.1-0.20220428134353-f99211ba0cce
+	github.com/kluctl/kluctl/v2 v2.8.1-0.20220429163150-df53812fcb12
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	github.com/spf13/pflag v1.0.5
@@ -61,7 +61,7 @@ require (
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
 	github.com/containerd/containerd v1.6.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/docker/cli v20.10.14+incompatible // indirect
+	github.com/docker/cli v20.10.14+incompatible
 	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/docker/docker v20.10.14+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
