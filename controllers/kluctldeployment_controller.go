@@ -282,8 +282,22 @@ func (r *KluctlDeploymentReconciler) reconcile(
 	ctx context.Context,
 	kluctlDeployment kluctlv1.KluctlDeployment,
 	source sourcev1.Source) (kluctlv1.KluctlDeployment, error) {
+	log := ctrl.LoggerFrom(ctx)
+
+	forceReconcile := false
+
 	// record the value of the reconciliation request, if any
 	if v, ok := meta.ReconcileAnnotationValue(kluctlDeployment.GetAnnotations()); ok {
+		oldTime, err1 := time.Parse(time.RFC3339Nano, kluctlDeployment.Status.GetLastHandledReconcileRequest())
+		newTime, err2 := time.Parse(time.RFC3339Nano, v)
+		if err1 == nil && err2 == nil {
+			if newTime.Before(oldTime) {
+				forceReconcile = true
+			}
+		} else if kluctlDeployment.Status.GetLastHandledReconcileRequest() != v {
+			// let's not be too harsh
+			forceReconcile = true
+		}
 		kluctlDeployment.Status.SetLastHandledReconcileRequest(v)
 	}
 
@@ -318,29 +332,12 @@ func (r *KluctlDeploymentReconciler) reconcile(
 	}
 
 	// did the target not change since the last attempt?
-	if kluctlDeployment.Status.LastAttemptedReconcile != nil && kluctlDeployment.Status.LastSuccessfulReconcile.TargetHash == pp.targetHash {
-		// was it actually successful?
-		if kluctlDeployment.Status.LastSuccessfulReconcile != nil && kluctlDeployment.Status.LastSuccessfulReconcile.TargetHash == pp.targetHash {
-			return kluctlv1.KluctlDeploymentReady(
-				kluctlDeployment,
-				pp.source.GetArtifact().Revision,
-				pp.targetHash,
-				kluctlDeployment.Status.LastSuccessfulReconcile.DeployResult,
-				kluctlDeployment.Status.LastSuccessfulReconcile.PruneResult,
-				kluctlv1.ReconciliationSkippedReason,
-				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
-			), nil
-		} else {
-			// TODO implement periodic retry on error.
-			return kluctlv1.KluctlDeploymentNotReady(
-				kluctlDeployment,
-				pp.source.GetArtifact().Revision,
-				pp.targetHash,
-				kluctlDeployment.Status.LastAttemptedReconcile.DeployResult,
-				kluctlDeployment.Status.LastAttemptedReconcile.PruneResult,
-				kluctlv1.ReconciliationSkippedReason,
-				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
-			), nil
+	if !forceReconcile {
+		var unchanged bool
+		unchanged, kluctlDeployment = r.checkUnchanged(kluctlDeployment, pp)
+		if unchanged {
+			log.Info("Skipping reconcile as it did not change")
+			return kluctlDeployment, nil
 		}
 	}
 
@@ -381,6 +378,35 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		kluctlv1.ReconciliationSucceededReason,
 		fmt.Sprintf("Deployed revision: %s", pp.source.GetArtifact().Revision),
 	), nil
+}
+
+func (r *KluctlDeploymentReconciler) checkUnchanged(kluctlDeployment kluctlv1.KluctlDeployment, pp *preparedProject) (bool, kluctlv1.KluctlDeployment) {
+	if kluctlDeployment.Status.LastAttemptedReconcile != nil && kluctlDeployment.Status.LastSuccessfulReconcile.TargetHash == pp.targetHash {
+		// was it actually successful?
+		if kluctlDeployment.Status.LastSuccessfulReconcile != nil && kluctlDeployment.Status.LastSuccessfulReconcile.TargetHash == pp.targetHash {
+			return true, kluctlv1.KluctlDeploymentReady(
+				kluctlDeployment,
+				pp.source.GetArtifact().Revision,
+				pp.targetHash,
+				kluctlDeployment.Status.LastSuccessfulReconcile.DeployResult,
+				kluctlDeployment.Status.LastSuccessfulReconcile.PruneResult,
+				kluctlv1.ReconciliationSkippedReason,
+				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
+			)
+		} else {
+			// TODO implement periodic retry on error.
+			return true, kluctlv1.KluctlDeploymentNotReady(
+				kluctlDeployment,
+				pp.source.GetArtifact().Revision,
+				pp.targetHash,
+				kluctlDeployment.Status.LastAttemptedReconcile.DeployResult,
+				kluctlDeployment.Status.LastAttemptedReconcile.PruneResult,
+				kluctlv1.ReconciliationSkippedReason,
+				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
+			)
+		}
+	}
+	return false, kluctlDeployment
 }
 
 func (r *KluctlDeploymentReconciler) checkDependencies(source sourcev1.Source, kluctlDeployment kluctlv1.KluctlDeployment) error {
