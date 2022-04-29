@@ -175,7 +175,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("Source '%s' not found", kluctlDeployment.Spec.SourceRef.String())
-			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", kluctlv1.ArtifactFailedReason, msg)
+			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", nil, nil, kluctlv1.ArtifactFailedReason, msg)
 			if err := r.patchStatus(ctx, req, kluctlDeployment.Status); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
@@ -186,7 +186,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		if acl.IsAccessDenied(err) {
-			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", apiacl.AccessDeniedReason, err.Error())
+			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", nil, nil, apiacl.AccessDeniedReason, err.Error())
 			if err := r.patchStatus(ctx, req, kluctlDeployment.Status); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
@@ -202,7 +202,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if source.GetArtifact() == nil {
 		msg := "Source is not ready, artifact not found"
-		kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", kluctlv1.ArtifactFailedReason, msg)
+		kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(kluctlDeployment, "", "", nil, nil, kluctlv1.ArtifactFailedReason, msg)
 		if err := r.patchStatus(ctx, req, kluctlDeployment.Status); err != nil {
 			log.Error(err, "unable to update status for artifact not found")
 			return ctrl.Result{Requeue: true}, err
@@ -217,7 +217,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if len(kluctlDeployment.Spec.DependsOn) > 0 {
 		if err := r.checkDependencies(source, kluctlDeployment); err != nil {
 			kluctlDeployment = kluctlv1.KluctlDeploymentNotReady(
-				kluctlDeployment, source.GetArtifact().Revision, "", kluctlv1.DependencyNotReadyReason, err.Error())
+				kluctlDeployment, source.GetArtifact().Revision, "", nil, nil, kluctlv1.DependencyNotReadyReason, err.Error())
 			if err := r.patchStatus(ctx, req, kluctlDeployment.Status); err != nil {
 				log.Error(err, "unable to update status for dependency not ready")
 				return ctrl.Result{Requeue: true}, err
@@ -293,6 +293,8 @@ func (r *KluctlDeploymentReconciler) reconcile(
 			kluctlDeployment,
 			pp.source.GetArtifact().Revision,
 			pp.targetHash,
+			nil,
+			nil,
 			kluctlv1.PrepareFailedReason,
 			err.Error(),
 		), err
@@ -315,20 +317,27 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		kluctlDeployment.Status.InvolvedRepos = append(kluctlDeployment.Status.InvolvedRepos, ir2)
 	}
 
-	if kluctlDeployment.Status.LastAttemptedTarget != nil && kluctlDeployment.Status.LastAttemptedTarget.TargetHash == pp.targetHash {
-		if kluctlDeployment.Status.LastDeployedTarget != nil && kluctlDeployment.Status.LastDeployedTarget.TargetHash == pp.targetHash {
+	// did the target not change since the last attempt?
+	if kluctlDeployment.Status.LastAttemptedReconcile != nil && kluctlDeployment.Status.LastSuccessfulReconcile.TargetHash == pp.targetHash {
+		// was it actually successful?
+		if kluctlDeployment.Status.LastSuccessfulReconcile != nil && kluctlDeployment.Status.LastSuccessfulReconcile.TargetHash == pp.targetHash {
 			return kluctlv1.KluctlDeploymentReady(
 				kluctlDeployment,
 				pp.source.GetArtifact().Revision,
 				pp.targetHash,
+				kluctlDeployment.Status.LastSuccessfulReconcile.DeployResult,
+				kluctlDeployment.Status.LastSuccessfulReconcile.PruneResult,
 				kluctlv1.ReconciliationSkippedReason,
 				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
 			), nil
 		} else {
+			// TODO implement periodic retry on error.
 			return kluctlv1.KluctlDeploymentNotReady(
 				kluctlDeployment,
 				pp.source.GetArtifact().Revision,
 				pp.targetHash,
+				kluctlDeployment.Status.LastAttemptedReconcile.DeployResult,
+				kluctlDeployment.Status.LastAttemptedReconcile.PruneResult,
 				kluctlv1.ReconciliationSkippedReason,
 				fmt.Sprintf("Skipped revision as target did not change: %s", pp.targetHash),
 			), nil
@@ -337,12 +346,13 @@ func (r *KluctlDeploymentReconciler) reconcile(
 
 	// deploy the kluctl project
 	deployResult, err := pp.kluctlDeploy(ctx)
-	kluctlDeployment.Status.LastDeployResult = deployResult
 	if err != nil {
 		return kluctlv1.KluctlDeploymentNotReady(
 			kluctlDeployment,
 			pp.source.GetArtifact().Revision,
 			pp.targetHash,
+			deployResult,
+			nil,
 			kluctlv1.DeployFailedReason,
 			err.Error(),
 		), err
@@ -350,12 +360,13 @@ func (r *KluctlDeploymentReconciler) reconcile(
 
 	// run garbage collection for stale objects that do not have pruning disabled
 	pruneResult, err := pp.kluctlPrune(ctx)
-	kluctlDeployment.Status.LastPruneResult = pruneResult
 	if err != nil {
 		return kluctlv1.KluctlDeploymentNotReady(
 			kluctlDeployment,
 			pp.source.GetArtifact().Revision,
 			pp.targetHash,
+			deployResult,
+			pruneResult,
 			kluctlv1.PruneFailedReason,
 			err.Error(),
 		), err
@@ -365,6 +376,8 @@ func (r *KluctlDeploymentReconciler) reconcile(
 		kluctlDeployment,
 		pp.source.GetArtifact().Revision,
 		pp.targetHash,
+		deployResult,
+		pruneResult,
 		kluctlv1.ReconciliationSucceededReason,
 		fmt.Sprintf("Deployed revision: %s", pp.source.GetArtifact().Revision),
 	), nil
@@ -393,7 +406,11 @@ func (r *KluctlDeploymentReconciler) checkDependencies(source sourcev1.Source, k
 			return fmt.Errorf("dependency '%s' is not ready", dName)
 		}
 
-		if k.Spec.SourceRef.Name == kluctlDeployment.Spec.SourceRef.Name && k.Spec.SourceRef.Namespace == kluctlDeployment.Spec.SourceRef.Namespace && k.Spec.SourceRef.Kind == kluctlDeployment.Spec.SourceRef.Kind && source.GetArtifact().Revision != k.Status.LastDeployedRevision {
+		if k.Spec.SourceRef.Name == kluctlDeployment.Spec.SourceRef.Name &&
+			k.Spec.SourceRef.Namespace == kluctlDeployment.Spec.SourceRef.Namespace &&
+			k.Spec.SourceRef.Kind == kluctlDeployment.Spec.SourceRef.Kind &&
+			k.Status.LastSuccessfulReconcile != nil &&
+			source.GetArtifact().Revision != k.Status.LastSuccessfulReconcile.Revision {
 			return fmt.Errorf("dependency '%s' is not updated yet", dName)
 		}
 	}

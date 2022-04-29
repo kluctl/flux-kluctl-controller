@@ -204,34 +204,17 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// The last successfully deployed revision. Please note that kluctl projects have
-	// dependent git repositories which are not considered in the source revision
-	// +optional
-	LastDeployedRevision string `json:"lastDeployedRevision,omitempty"`
-
-	// LastAttemptedRevision is the revision of the last reconciliation attempt.
-	// +optional
-	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
-
-	// LastAttemptedTarget contains information about the last deployed target
-	// +optional
-	LastAttemptedTarget *TargetInfo `json:"lastAttemptedTarget,omitempty"`
-
-	// LastDeployedTarget contains information about the last deployed target
-	// +optional
-	LastDeployedTarget *TargetInfo `json:"lastDeployedTarget,omitempty"`
-
-	// LastDeployResult is the last deploy command result
-	// +optional
-	LastDeployResult *CommandResult `json:"lastDeployResult,omitempty"`
-
-	// LastPruneResult is the last prune command result
-	// +optional
-	LastPruneResult *CommandResult `json:"lastPruneResult,omitempty"`
-
 	// InvolvedRepos is a list of repositories and refs involved with this kluctl project
 	// +optional
 	InvolvedRepos []InvolvedRepo `json:"involvedRepos,omitempty"`
+
+	// The last attempted reconcile.
+	// +optional
+	LastAttemptedReconcile *ReconcileAttempt `json:"lastAttemptedReconcile,omitempty"`
+
+	// The last successfully reconcile attempt.
+	// +optional
+	LastSuccessfulReconcile *ReconcileAttempt `json:"lastSuccessfulReconcile,omitempty"`
 }
 
 // InvolvedRepo represents a git repository and all involved refs
@@ -252,15 +235,32 @@ type InvolvedRepoPattern struct {
 	Refs map[string]string `json:"refs"`
 }
 
-// TargetInfo contains information about a target
-type TargetInfo struct {
-	// Name is the name of the target
+// ReconcileAttempt describes an attempt to reconcile
+type ReconcileAttempt struct {
+	// AttemptedAt is the time when the attempt was performed
 	// +required
-	Name string `json:"name"`
+	AttemptedAt metav1.Time `json:"time"`
+
+	// Revision is the source revision. Please note that kluctl projects have
+	// dependent git repositories which are not considered in the source revision
+	// +optional
+	Revision string `json:"revision,omitempty"`
+
+	// TargetName is the name of the target
+	// +required
+	TargetName string `json:"targetName"`
 
 	// TargetHash is the hash of the target configuration
-	// +required
-	TargetHash string `json:"targetHash"`
+	// +optional
+	TargetHash string `json:"targetHash,omitempty"`
+
+	// DeployResult is the command result of the deploy command
+	// +optional
+	DeployResult *CommandResult `json:"deployResult,omitempty"`
+
+	// PruneResult is the command result of the prune command
+	// +optional
+	PruneResult *CommandResult `json:"pruneResult,omitempty"`
 }
 
 // KluctlDeploymentProgressing resets the conditions of the given KluctlDeployment to a single
@@ -287,8 +287,8 @@ func SetKluctlDeploymentHealthiness(k *KluctlDeployment, status metav1.Condition
 	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
 }
 
-// SetKluctlDeploymentReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedRevision, on the KluctlDeployment.
-func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string, targetHash string) {
+// SetKluctlDeploymentReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedReconcile, on the KluctlDeployment.
+func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string, targetHash string, deployResult *CommandResult, pruneResult *CommandResult) {
 	newCondition := metav1.Condition{
 		Type:    meta.ReadyCondition,
 		Status:  status,
@@ -298,37 +298,27 @@ func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionSt
 	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
 
 	k.Status.ObservedGeneration = k.Generation
-	k.Status.LastAttemptedRevision = revision
-	k.Status.LastAttemptedTarget = &TargetInfo{
-		Name:       k.Spec.Target,
-		TargetHash: targetHash,
+	k.Status.LastAttemptedReconcile = &ReconcileAttempt{
+		AttemptedAt:  metav1.Now(),
+		Revision:     revision,
+		TargetName:   k.Spec.Target,
+		TargetHash:   targetHash,
+		DeployResult: deployResult,
+		PruneResult:  pruneResult,
 	}
 }
 
 // KluctlDeploymentNotReady registers a failed apply attempt of the given KluctlDeployment.
-func KluctlDeploymentNotReady(k KluctlDeployment, revision, targetHash, reason, message string) KluctlDeployment {
-	SetKluctlDeploymentReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision, targetHash)
-	if revision != "" {
-		k.Status.LastAttemptedRevision = revision
-	}
-	if targetHash != "" {
-		k.Status.LastAttemptedTarget = &TargetInfo{
-			Name:       k.Spec.Target,
-			TargetHash: targetHash,
-		}
-	}
+func KluctlDeploymentNotReady(k KluctlDeployment, revision string, targetHash string, deployResult *CommandResult, pruneResult *CommandResult, reason, message string) KluctlDeployment {
+	SetKluctlDeploymentReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision, targetHash, deployResult, pruneResult)
 	return k
 }
 
 // KluctlDeploymentReady registers a successful deploy attempt of the given KluctlDeployment.
-func KluctlDeploymentReady(k KluctlDeployment, revision, targetHash, reason, message string) KluctlDeployment {
-	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision, targetHash)
+func KluctlDeploymentReady(k KluctlDeployment, revision string, targetHash string, deployResult *CommandResult, pruneResult *CommandResult, reason, message string) KluctlDeployment {
+	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision, targetHash, deployResult, pruneResult)
 	SetKluctlDeploymentHealthiness(&k, metav1.ConditionTrue, reason, reason)
-	k.Status.LastDeployedRevision = revision
-	k.Status.LastDeployedTarget = &TargetInfo{
-		Name:       k.Spec.Target,
-		TargetHash: targetHash,
-	}
+	k.Status.LastSuccessfulReconcile = k.Status.LastAttemptedReconcile.DeepCopy()
 	return k
 }
 

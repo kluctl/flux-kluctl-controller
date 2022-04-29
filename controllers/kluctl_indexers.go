@@ -52,7 +52,7 @@ func (r *KluctlDeploymentReconciler) requestsForRevisionChangeOf(indexKey string
 		for _, d := range list.Items {
 			// If the revision of the artifact equals to the last attempted revision,
 			// we should not make a request for this Kustomization
-			if repo.GetArtifact().Revision == d.Status.LastAttemptedRevision {
+			if d.Status.LastAttemptedReconcile != nil && repo.GetArtifact().Revision == d.Status.LastAttemptedReconcile.Revision {
 				continue
 			}
 			dd = append(dd, d.DeepCopy())
