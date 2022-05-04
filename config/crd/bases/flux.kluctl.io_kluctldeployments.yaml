@@ -166,8 +166,7 @@ spec:
                   the kubeconfig to be used when invoking kluctl. Contexts in this
                   kubeconfig must match the cluster config found in the kluctl project.
                   As alternative, RenameContexts can be used to fix non-matching context
-                  names. If KubeConfig is not specified, the service account of the
-                  controller is used to generate a kubeconfig.
+                  names.
                 properties:
                   secretRef:
                     description: SecretRef holds the name to a secret that contains
@@ -221,8 +220,9 @@ spec:
                 description: RenameContexts specifies a list of context rename operations.
                   This is useful when the kluctl project's cluster configs specify
                   contexts that do not match with the contexts found in the kubeconfig
-                  while deploying. This is the case when re-using the in-cluster kubeconfig
-                  of the controller which always has the name "default"
+                  while deploying. This is the case when using kubeconfigs generated
+                  from service accounts, in which case the context name is always
+                  "default".
                 items:
                   description: RenameContext specifies a single rename of a context
                   properties:
@@ -247,6 +247,10 @@ spec:
                 description: The interval at which to retry a previously failed reconciliation.
                   When not specified, the controller uses the KluctlDeploymentSpec.Interval
                   value to retry failures.
+                type: string
+              serviceAccountName:
+                description: The name of the Kubernetes service account to use while
+                  deploying. If not specified, the default service account is used.
                 type: string
               sourceRef:
                 description: Reference of the source where the kluctl project is.

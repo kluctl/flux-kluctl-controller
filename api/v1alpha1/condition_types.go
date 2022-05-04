@@ -24,7 +24,7 @@ const (
 
 const (
 	// PruneFailedReason represents the fact that the
-	// pruning of the Kustomization failed.
+	// pruning of the KluctlDeployment failed.
 	PruneFailedReason string = "PruneFailed"
 
 	// ArtifactFailedReason represents the fact that the

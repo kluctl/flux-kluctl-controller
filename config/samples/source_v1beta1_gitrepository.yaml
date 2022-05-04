@@ -1,0 +1,10 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: microservices-demo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/kluctl/kluctl-examples.git
+  ref:
+    branch: main
