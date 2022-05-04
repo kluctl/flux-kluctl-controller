@@ -63,14 +63,15 @@ import (
 // KluctlDeploymentReconciler reconciles a KluctlDeployment object
 type KluctlDeploymentReconciler struct {
 	client.Client
-	httpClient           *retryablehttp.Client
-	requeueDependency    time.Duration
-	Scheme               *runtime.Scheme
-	EventRecorder        kuberecorder.EventRecorder
-	MetricsRecorder      *metrics.Recorder
-	ControllerName       string
-	statusManager        string
-	NoCrossNamespaceRefs bool
+	httpClient            *retryablehttp.Client
+	requeueDependency     time.Duration
+	Scheme                *runtime.Scheme
+	EventRecorder         kuberecorder.EventRecorder
+	MetricsRecorder       *metrics.Recorder
+	ControllerName        string
+	statusManager         string
+	NoCrossNamespaceRefs  bool
+	DefaultServiceAccount string
 }
 
 // +kubebuilder:rbac:groups=flux.kluctl.io,resources=kluctldeployments,verbs=get;list;watch;create;update;patch;delete

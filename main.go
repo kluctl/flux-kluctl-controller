@@ -74,13 +74,7 @@ func main() {
 		aclOptions            acl.Options
 		watchAllNamespaces    bool
 		httpRetry             int
-
-		rateLimiterOptions       helper.RateLimiterOptions
-		storagePath              string
-		storageAddr              string
-		storageAdvAddr           string
-		artifactRetentionTTL     time.Duration
-		artifactRetentionRecords int
+		defaultServiceAccount string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -91,23 +85,12 @@ func main() {
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
-
-	flag.StringVar(&storagePath, "storage-path", envOrDefault("STORAGE_PATH", ""),
-		"The local storage path.")
-	flag.StringVar(&storageAddr, "storage-addr", envOrDefault("STORAGE_ADDR", ":9090"),
-		"The address the static file server binds to.")
-	flag.StringVar(&storageAdvAddr, "storage-adv-addr", envOrDefault("STORAGE_ADV_ADDR", ""),
-		"The advertised address of the static file server.")
-	flag.DurationVar(&artifactRetentionTTL, "artifact-retention-ttl", 60*time.Second,
-		"The duration of time that artifacts will be kept in storage before being garbage collected.")
-	flag.IntVar(&artifactRetentionRecords, "artifact-retention-records", 2,
-		"The maximum number of artifacts to be kept in storage after a garbage collection.")
+	flag.StringVar(&defaultServiceAccount, "default-service-account", "", "Default service account used for impersonation.")
 
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
 	leaderElectionOptions.BindFlags(flag.CommandLine)
 	aclOptions.BindFlags(flag.CommandLine)
-	rateLimiterOptions.BindFlags(flag.CommandLine)
 	flag.Parse()
 
 	ctrl.SetLogger(logger.NewLogger(logOptions))
@@ -149,12 +132,13 @@ func main() {
 	metricsH := helper.MustMakeMetrics(mgr)
 
 	if err = (&controllers.KluctlDeploymentReconciler{
-		ControllerName:       controllerName,
-		Client:               mgr.GetClient(),
-		Scheme:               mgr.GetScheme(),
-		EventRecorder:        eventRecorder,
-		MetricsRecorder:      metricsH.MetricsRecorder,
-		NoCrossNamespaceRefs: aclOptions.NoCrossNamespaceRefs,
+		ControllerName:        controllerName,
+		DefaultServiceAccount: defaultServiceAccount,
+		Client:                mgr.GetClient(),
+		Scheme:                mgr.GetScheme(),
+		EventRecorder:         eventRecorder,
+		MetricsRecorder:       metricsH.MetricsRecorder,
+		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
 	}).SetupWithManager(mgr, controllers.KluctlDeploymentReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,

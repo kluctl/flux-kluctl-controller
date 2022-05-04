@@ -4,20 +4,25 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/docker/cli/cli/config/configfile"
 	"github.com/fluxcd/pkg/runtime/events"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
@@ -40,7 +45,7 @@ type preparedProject struct {
 	tmpDir    string
 	sourceDir string
 	gitRepo   *sourcev1.GitRepository
-	gitSecret *v1.Secret
+	gitSecret *corev1.Secret
 
 	metadata   types2.ProjectMetadata
 	target     *types2.Target
@@ -130,57 +135,14 @@ func (pp *preparedProject) cleanup() {
 	_ = os.RemoveAll(pp.tmpDir)
 }
 
-func (pp *preparedProject) getKubeconfigFromSecret(ctx context.Context) (*api.Config, error) {
-	secretName := types.NamespacedName{
-		Namespace: pp.d.GetNamespace(),
-		Name:      pp.d.Spec.KubeConfig.SecretRef.Name,
-	}
-
-	var secret v1.Secret
-	if err := pp.r.Get(ctx, secretName, &secret); err != nil {
-		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
-	}
-
-	var kubeConfig []byte
-	for k := range secret.Data {
-		if k == "value" || k == "value.yaml" {
-			kubeConfig = secret.Data[k]
-			break
-		}
-	}
-
-	if len(kubeConfig) == 0 {
-		return nil, fmt.Errorf("KubeConfig secret '%s' doesn't contain a 'value' key ", secretName.String())
-	}
-
-	return clientcmd.Load(kubeConfig)
-}
-
-func (pp *preparedProject) getDefaultKubeconfig(ctx context.Context) (*api.Config, error) {
-	var err error
-	var restConfig *rest.Config
-	if host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORt"); host != "" && port != "" {
-		restConfig, err = rest.InClusterConfig()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		configOverrides := &clientcmd.ConfigOverrides{}
-
-		restConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides).ClientConfig()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	cfg := api.NewConfig()
+func (pp *preparedProject) restConfigToKubeconfig(restConfig *rest.Config) *api.Config {
+	kubeConfig := api.NewConfig()
 	cluster := api.NewCluster()
 	cluster.Server = restConfig.Host
 	cluster.CertificateAuthority = restConfig.TLSClientConfig.CAFile
 	cluster.CertificateAuthorityData = restConfig.TLSClientConfig.CAData
 	cluster.InsecureSkipTLSVerify = restConfig.TLSClientConfig.Insecure
-	cfg.Clusters["default"] = cluster
+	kubeConfig.Clusters["default"] = cluster
 
 	user := api.NewAuthInfo()
 	user.ClientKey = restConfig.KeyFile
@@ -196,32 +158,96 @@ func (pp *preparedProject) getDefaultKubeconfig(ctx context.Context) (*api.Confi
 	user.Username = restConfig.Username
 	user.Password = restConfig.Password
 	user.AuthProvider = restConfig.AuthProvider
-	cfg.AuthInfos["default"] = user
+	kubeConfig.AuthInfos["default"] = user
 
 	kctx := api.NewContext()
 	kctx.Cluster = "default"
 	kctx.AuthInfo = "default"
-	cfg.Contexts["default"] = kctx
+	kubeConfig.Contexts["default"] = kctx
 
-	return cfg, nil
+	return kubeConfig
 }
 
-func (pp *preparedProject) getKubeconfig(ctx context.Context) (*api.Config, error) {
-	var kc *api.Config
+func (pp *preparedProject) getKubeconfigFromSecret(ctx context.Context) ([]byte, error) {
+	secretName := types.NamespacedName{
+		Namespace: pp.d.GetNamespace(),
+		Name:      pp.d.Spec.KubeConfig.SecretRef.Name,
+	}
+
+	var secret corev1.Secret
+	if err := pp.r.Get(ctx, secretName, &secret); err != nil {
+		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
+	}
+
+	var kubeConfig []byte
+	switch {
+	case pp.d.Spec.KubeConfig.SecretRef.Key != "":
+		key := pp.d.Spec.KubeConfig.SecretRef.Key
+		kubeConfig = secret.Data[key]
+		if kubeConfig == nil {
+			return nil, fmt.Errorf("KubeConfig secret '%s' does not contain a '%s' key with a kubeconfig", secretName, key)
+		}
+	case secret.Data["value"] != nil:
+		kubeConfig = secret.Data["value"]
+	case secret.Data["value.yaml"] != nil:
+		kubeConfig = secret.Data["value.yaml"]
+	default:
+		// User did not specify a key, and the 'value' key was not defined.
+		return nil, fmt.Errorf("KubeConfig secret '%s' does not contain a 'value' key with a kubeconfig", secretName)
+	}
+
+	return kubeConfig, nil
+}
+
+func (pp *preparedProject) setImpersonationConfig(restConfig *rest.Config) {
+	name := pp.r.DefaultServiceAccount
+	if sa := pp.d.Spec.ServiceAccountName; sa != "" {
+		name = sa
+	}
+	if name != "" {
+		username := fmt.Sprintf("system:serviceaccount:%s:%s", pp.d.GetNamespace(), name)
+		restConfig.Impersonate = rest.ImpersonationConfig{UserName: username}
+	}
+}
+
+func (pp *preparedProject) buildRestConfig(ctx context.Context) (*rest.Config, error) {
 	var err error
+	var restConfig *rest.Config
+
 	if pp.d.Spec.KubeConfig != nil {
-		kc, err = pp.getKubeconfigFromSecret(ctx)
+		kubeConfig, err := pp.getKubeconfigFromSecret(ctx)
+		if err != nil {
+			return nil, err
+		}
+		restConfig, err = clientcmd.RESTConfigFromKubeConfig(kubeConfig)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		kc, err = pp.getDefaultKubeconfig(ctx)
+		restConfig, err = config.GetConfig()
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	pp.setImpersonationConfig(restConfig)
+
+	return restConfig, nil
+}
+
+func (pp *preparedProject) buildKubeconfig(ctx context.Context) (*api.Config, error) {
+	restConfig, err := pp.buildRestConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	err = pp.renameContexts(kc)
+
+	kubeConfig := pp.restConfigToKubeconfig(restConfig)
+
+	err = pp.renameContexts(kubeConfig)
 	if err != nil {
 		return nil, err
 	}
-	return kc, nil
+	return kubeConfig, nil
 }
 
 func (pp *preparedProject) renameContexts(cfg *api.Config) error {
@@ -243,7 +269,7 @@ func (pp *preparedProject) renameContexts(cfg *api.Config) error {
 	return nil
 }
 
-func (pp *preparedProject) getGitSecret(ctx context.Context) (*v1.Secret, error) {
+func (pp *preparedProject) getGitSecret(ctx context.Context) (*corev1.Secret, error) {
 	if gitRepo, ok := pp.source.(*sourcev1.GitRepository); ok {
 		if gitRepo.Spec.SecretRef == nil {
 			return nil, nil
@@ -253,7 +279,7 @@ func (pp *preparedProject) getGitSecret(ctx context.Context) (*v1.Secret, error)
 			Namespace: pp.d.GetNamespace(),
 			Name:      gitRepo.Spec.SecretRef.Name,
 		}
-		var secret v1.Secret
+		var secret corev1.Secret
 		if err := pp.r.Client.Get(ctx, name, &secret); err != nil {
 			return nil, fmt.Errorf("failed to get secret '%s': %w", name.String(), err)
 		}
@@ -295,14 +321,14 @@ func (pp *preparedProject) buildGitAuth() (*auth.GitAuthProviders, error) {
 	return ga, nil
 }
 
-func (pp *preparedProject) getRegistrySecrets(ctx context.Context) ([]*v1.Secret, error) {
-	var ret []*v1.Secret
+func (pp *preparedProject) getRegistrySecrets(ctx context.Context) ([]*corev1.Secret, error) {
+	var ret []*corev1.Secret
 	for _, ref := range pp.d.Spec.RegistrySecrets {
 		name := types.NamespacedName{
 			Namespace: pp.d.GetNamespace(),
 			Name:      ref.Name,
 		}
-		var secret v1.Secret
+		var secret corev1.Secret
 		if err := pp.r.Client.Get(ctx, name, &secret); err != nil {
 			return nil, fmt.Errorf("failed to get secret '%s': %w", name.String(), err)
 		}
@@ -456,7 +482,7 @@ func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArch
 		inclusion := pp.buildInclusion()
 
 		clientConfigGetter := func(context string) (*rest.Config, error) {
-			kubeConfig, err := pp.getKubeconfig(ctx)
+			kubeConfig, err := pp.buildKubeconfig(ctx)
 			if err != nil {
 				return nil, err
 			}

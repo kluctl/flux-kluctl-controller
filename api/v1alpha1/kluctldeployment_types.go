@@ -86,18 +86,22 @@ type KluctlDeploymentSpec struct {
 	// +required
 	Target string `json:"target"`
 
+	// The name of the Kubernetes service account to use while deploying.
+	// If not specified, the default service account is used.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
 	// The KubeConfig for deploying to the target cluster.
 	// Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
 	// the cluster config found in the kluctl project. As alternative, RenameContexts can be used to fix
-	// non-matching context names. If KubeConfig is not specified, the service account of the controller is
-	// used to generate a kubeconfig.
+	// non-matching context names.
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig"`
 
 	// RenameContexts specifies a list of context rename operations.
 	// This is useful when the kluctl project's cluster configs specify contexts that do not match with the
-	// contexts found in the kubeconfig while deploying. This is the case when re-using the in-cluster kubeconfig
-	// of the controller which always has the name "default"
+	// contexts found in the kubeconfig while deploying. This is the case when using kubeconfigs generated from
+	// service accounts, in which case the context name is always "default".
 	// +optional
 	RenameContexts []RenameContext `json:"renameContexts,omitempty"`
 
@@ -181,16 +185,17 @@ type KluctlDeploymentSpec struct {
 
 // KubeConfig references a Kubernetes secret that contains a kubeconfig file.
 type KubeConfig struct {
-	// SecretRef holds the name to a secret that contains a 'value' key with
-	// the kubeconfig file as the value. It must be in the same namespace as
-	// the KluctlDeployment.
+	// SecretRef holds the name of a secret that contains a key with
+	// the kubeconfig file as the value. If no key is set, the key will default
+	// to 'value'. The secret must be in the same namespace as
+	// the Kustomization.
 	// It is recommended that the kubeconfig is self-contained, and the secret
 	// is regularly updated if credentials such as a cloud-access-token expire.
 	// Cloud specific `cmd-path` auth helpers will not function without adding
 	// binaries and credentials to the Pod that is responsible for reconciling
 	// the KluctlDeployment.
 	// +required
-	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef meta.SecretKeyReference `json:"secretRef,omitempty"`
 }
 
 // RenameContext specifies a single rename of a context
