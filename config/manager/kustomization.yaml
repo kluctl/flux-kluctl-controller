@@ -1,10 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
 resources:
-- manager.yaml
-
-generatorOptions:
-  disableNameSuffixHash: true
-
-configMapGenerator:
-- name: manager-config
-  files:
-  - controller_manager_config.yaml
+  - deployment.yaml
+images:
+  - name: ghcr.io/kluctl/flux-kluctl-controller
+    newName: ghcr.io/kluctl/flux-kluctl-controller
+    newTag: v0.1.0

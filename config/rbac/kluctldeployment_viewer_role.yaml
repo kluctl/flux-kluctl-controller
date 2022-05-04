@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kluctldeployment-viewer-role
+  name: flux-kluctl-viewer-role
 rules:
 - apiGroups:
   - flux.kluctl.io
