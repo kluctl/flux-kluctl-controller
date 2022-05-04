@@ -16,6 +16,12 @@ builds:
     goarm:
       - 7
 
+archives:
+  - name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    files:
+      - none*
+
 dockers:
   - id: linux-amd64
     goos: linux
