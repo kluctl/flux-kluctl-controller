@@ -384,7 +384,7 @@ func (pp *preparedProject) buildImages(ctx context.Context) (*deployment.Images,
 	if err != nil {
 		return nil, err
 	}
-	images, err := deployment.NewImages(rh, pp.d.Spec.UpdateImages)
+	images, err := deployment.NewImages(rh, pp.d.Spec.UpdateImages, false)
 	if err != nil {
 		return nil, err
 	}

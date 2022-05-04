@@ -865,8 +865,8 @@ github.com/klauspost/compress v1.11.13/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdY
 github.com/klauspost/compress v1.13.6/go.mod h1:/3/Vjq9QcHkK5uEr5lBEmyoZ1iFhe47etQ6QUkpK6sk=
 github.com/klauspost/compress v1.15.2 h1:3WH+AG7s2+T8o3nrM/8u2rdqUEcQhmga7smjrT41nAw=
 github.com/klauspost/compress v1.15.2/go.mod h1:PhcZ0MbTNciWF3rruxRgKxI5NkcHHrHUDtV4Yw2GlzU=
-github.com/kluctl/kluctl/v2 v2.8.1-0.20220429163150-df53812fcb12 h1:DJiEwLXt8Ql6YiP0Gs4/RsGwDce1W/3VLrV8NH5Z8MM=
-github.com/kluctl/kluctl/v2 v2.8.1-0.20220429163150-df53812fcb12/go.mod h1:chrQIAcMr1yWsujgLSnzxH/WYCcm0Q5NBQBDAYdZSAM=
+github.com/kluctl/kluctl/v2 v2.8.1-0.20220504073119-2df3e9cb4f10 h1:Yo9wtOUi2RJo7E7z5kickmJeK7dGwUbR1lHCUVUSREI=
+github.com/kluctl/kluctl/v2 v2.8.1-0.20220504073119-2df3e9cb4f10/go.mod h1:PtqP2ueqHwR9wTeZOMt/+0OCTdV3YD2tdCxK3NLZRK4=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
