@@ -11,6 +11,7 @@ release:
 checksum:
   extra_files:
     - glob: config/release/*.yaml
+  name_template: '{{ .ProjectName }}_v{{ .Version }}_checksums.txt'
 
 source:
   enabled: true
