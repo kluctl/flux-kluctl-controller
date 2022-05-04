@@ -496,6 +496,10 @@ func (pp *preparedProject) kluctlArchive(ctx context.Context) error {
 }
 
 func (pp *preparedProject) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *types2.CommandResult, commandName string) (*kluctlv1.CommandResult, error) {
+	log := ctrl.LoggerFrom(ctx)
+
+	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
+
 	revision := pp.source.GetArtifact().Revision
 
 	if cmdErr != nil {
@@ -555,7 +559,7 @@ func (pp *preparedProject) kluctlPrune(ctx context.Context) (*kluctlv1.CommandRe
 		if err != nil {
 			return err
 		}
-		cmdResult, err := utils2.DeleteObjects(targetContext.K, refs, true)
+		cmdResult, err := pp.doDeleteObjects(ctx, targetContext.K, refs)
 		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
@@ -574,9 +578,21 @@ func (pp *preparedProject) kluctlDelete(ctx context.Context) (*kluctlv1.CommandR
 		if err != nil {
 			return err
 		}
-		cmdResult, err := utils2.DeleteObjects(targetContext.K, refs, true)
+		cmdResult, err := pp.doDeleteObjects(ctx, targetContext.K, refs)
 		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
 	return retCmdResult, err
+}
+
+func (pp *preparedProject) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluster, refs []k8s.ObjectRef) (*types2.CommandResult, error) {
+	log := ctrl.LoggerFrom(ctx)
+
+	var refStrs []string
+	for _, ref := range refs {
+		refStrs = append(refStrs, ref.String())
+	}
+	log.Info(fmt.Sprintf("deleting (without waiting): %s", strings.Join(refStrs, ", ")))
+
+	return utils2.DeleteObjects(k, refs, false)
 }
