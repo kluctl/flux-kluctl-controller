@@ -23,7 +23,6 @@ const (
 )
 
 const (
-
 	// PruneFailedReason represents the fact that the
 	// pruning of the Kustomization failed.
 	PruneFailedReason string = "PruneFailed"
@@ -38,10 +37,6 @@ const (
 	// DeployFailedReason represents the fact that the
 	// kluctl deploy command failed.
 	DeployFailedReason string = "DeployFailed"
-
-	// HealthCheckFailedReason represents the fact that
-	// one of the health checks failed.
-	HealthCheckFailedReason string = "HealthCheckFailed"
 
 	// DependencyNotReadyReason represents the fact that
 	// one of the dependencies is not ready.

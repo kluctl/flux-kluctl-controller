@@ -60,7 +60,7 @@ type KluctlDeploymentSpec struct {
 
 	// Reference of the source where the kluctl project is.
 	// The authentication secrets from the source are also used to authenticate
-	// dependent git repositories which are clones while deploying the kluctl project.
+	// dependent git repositories which are cloned while deploying the kluctl project.
 	// +required
 	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
 
@@ -101,7 +101,8 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	RenameContexts []RenameContext `json:"renameContexts,omitempty"`
 
-	// Args specifies dynamic target args
+	// Args specifies dynamic target args.
+	// Only arguments defined by 'dynamicArgs' of the target are allowed.
 	// +optional
 	Args map[string]string `json:"args,omitempty"`
 
@@ -111,7 +112,7 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	UpdateImages bool `json:"updateImages,omitempty"`
 
-	// UpdateImages contains a list of image overrides.
+	// Images contains a list of fixed image overrides.
 	// Equivalent to using '--fixed-images-file' when calling kluctl.
 	// +optional
 	Images []FixedImage `json:"images,omitempty"`
@@ -157,7 +158,7 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	IncludeTags []string `json:"includeTags,omitempty"`
 
-	// ExcludeTags instructs kluctl to only include deployments with given tags.
+	// ExcludeTags instructs kluctl to exclude deployments with given tags.
 	// Equivalent to using '--exclude-tag' when calling kluctl.
 	// +optional
 	ExcludeTags []string `json:"excludeTags,omitempty"`
@@ -167,7 +168,7 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	IncludeDeploymentDirs []string `json:"includeDeploymentDirs,omitempty"`
 
-	// ExcludeDeploymentDirs instructs kluctl to only include deployments with the given dir.
+	// ExcludeDeploymentDirs instructs kluctl to exclude deployments with the given dir.
 	// Equivalent to using '--exclude-deployment-dir' when calling kluctl.
 	// +optional
 	ExcludeDeploymentDirs []string `json:"excludeDeploymentDirs,omitempty"`
@@ -182,12 +183,12 @@ type KluctlDeploymentSpec struct {
 type KubeConfig struct {
 	// SecretRef holds the name to a secret that contains a 'value' key with
 	// the kubeconfig file as the value. It must be in the same namespace as
-	// the Kustomization.
+	// the KluctlDeployment.
 	// It is recommended that the kubeconfig is self-contained, and the secret
 	// is regularly updated if credentials such as a cloud-access-token expire.
 	// Cloud specific `cmd-path` auth helpers will not function without adding
 	// binaries and credentials to the Pod that is responsible for reconciling
-	// the Kustomization.
+	// the KluctlDeployment.
 	// +required
 	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
 }

@@ -44,7 +44,8 @@ spec:
               args:
                 additionalProperties:
                   type: string
-                description: Args specifies dynamic target args
+                description: Args specifies dynamic target args. Only arguments defined
+                  by 'dynamicArgs' of the target are allowed.
                 type: object
               dependsOn:
                 description: DependsOn may contain a meta.NamespacedObjectReference
@@ -71,16 +72,15 @@ spec:
                   mode. Equivalent to using '--dry-run' when calling kluctl.
                 type: boolean
               excludeDeploymentDirs:
-                description: ExcludeDeploymentDirs instructs kluctl to only include
-                  deployments with the given dir. Equivalent to using '--exclude-deployment-dir'
+                description: ExcludeDeploymentDirs instructs kluctl to exclude deployments
+                  with the given dir. Equivalent to using '--exclude-deployment-dir'
                   when calling kluctl.
                 items:
                   type: string
                 type: array
               excludeTags:
-                description: ExcludeTags instructs kluctl to only include deployments
-                  with given tags. Equivalent to using '--exclude-tag' when calling
-                  kluctl.
+                description: ExcludeTags instructs kluctl to exclude deployments with
+                  given tags. Equivalent to using '--exclude-tag' when calling kluctl.
                 items:
                   type: string
                 type: array
@@ -97,7 +97,7 @@ spec:
                   when calling kluctl.
                 type: boolean
               images:
-                description: UpdateImages contains a list of image overrides. Equivalent
+                description: Images contains a list of fixed image overrides. Equivalent
                   to using '--fixed-images-file' when calling kluctl.
                 items:
                   properties:
@@ -172,12 +172,12 @@ spec:
                   secretRef:
                     description: SecretRef holds the name to a secret that contains
                       a 'value' key with the kubeconfig file as the value. It must
-                      be in the same namespace as the Kustomization. It is recommended
+                      be in the same namespace as the KluctlDeployment. It is recommended
                       that the kubeconfig is self-contained, and the secret is regularly
                       updated if credentials such as a cloud-access-token expire.
                       Cloud specific `cmd-path` auth helpers will not function without
                       adding binaries and credentials to the Pod that is responsible
-                      for reconciling the Kustomization.
+                      for reconciling the KluctlDeployment.
                     properties:
                       name:
                         description: Name of the referent.
@@ -203,7 +203,9 @@ spec:
                 type: boolean
               registrySecrets:
                 description: RegistrySecrets is a list of secret references to be
-                  used for image registry authentication
+                  used for image registry authentication. The secrets must either
+                  have ".dockerconfigjson" included or "registry", "username" and
+                  "password". Additionally, "caFile" and "insecure" can be specified.
                 items:
                   description: LocalObjectReference contains enough information to
                     locate the referenced Kubernetes resource object.
@@ -249,7 +251,7 @@ spec:
               sourceRef:
                 description: Reference of the source where the kluctl project is.
                   The authentication secrets from the source are also used to authenticate
-                  dependent git repositories which are clones while deploying the
+                  dependent git repositories which are cloned while deploying the
                   kluctl project.
                 properties:
                   apiVersion:
