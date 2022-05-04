@@ -1,4 +1,4 @@
-domain: kluctl.io
+domain: flux.kluctl.io
 layout:
 - go.kubebuilder.io/v3
 projectName: flux-kluctl-controller
@@ -8,7 +8,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: kluctl.io
+  domain: flux.kluctl.io
   kind: KluctlDeployment
   path: github.com/kluctl/flux-kluctl-controller/api/v1alpha1
   version: v1alpha1

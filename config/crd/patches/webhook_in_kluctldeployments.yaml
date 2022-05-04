@@ -2,7 +2,7 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: kluctldeployments.kluctl.io
+  name: kluctldeployments.flux.kluctl.io
 spec:
   conversion:
     strategy: Webhook

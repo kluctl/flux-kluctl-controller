@@ -5,7 +5,7 @@ metadata:
   name: kluctldeployment-viewer-role
 rules:
 - apiGroups:
-  - kluctl.io
+  - flux.kluctl.io
   resources:
   - kluctldeployments
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kluctl.io
+  - flux.kluctl.io
   resources:
   - kluctldeployments/status
   verbs:

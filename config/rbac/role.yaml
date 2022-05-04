@@ -23,7 +23,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - kluctl.io
+  - flux.kluctl.io
   resources:
   - kluctldeployments
   verbs:
@@ -35,13 +35,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - kluctl.io
+  - flux.kluctl.io
   resources:
   - kluctldeployments/finalizers
   verbs:
   - update
 - apiGroups:
-  - kluctl.io
+  - flux.kluctl.io
   resources:
   - kluctldeployments/status
   verbs:

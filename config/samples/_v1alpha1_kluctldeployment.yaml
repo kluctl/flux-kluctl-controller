@@ -1,4 +1,4 @@
-apiVersion: kluctl.io/v1alpha1
+apiVersion: flux.kluctl.io/v1alpha1
 kind: KluctlDeployment
 metadata:
   name: kluctldeployment-sample

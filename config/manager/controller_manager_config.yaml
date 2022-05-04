@@ -8,4 +8,4 @@ webhook:
   port: 9443
 leaderElection:
   leaderElect: true
-  resourceName: 11af78ce.kluctl.io
+  resourceName: 11af78ce.flux.kluctl.io
