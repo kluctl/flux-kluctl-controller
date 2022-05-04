@@ -115,7 +115,8 @@ generate: controller-gen vendor-gen
 	cd api; $(CONTROLLER_GEN) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build:
+docker-build: manager
+	cp $(BUILD_DIR)/bin/manager ./manager
 	docker buildx build \
 	--platform=$(BUILD_PLATFORMS) \
 	-t ${IMG} \

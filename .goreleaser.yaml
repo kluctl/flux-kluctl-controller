@@ -1,7 +1,56 @@
 project_name: flux-kluctl-controller
 
+before:
+  hooks:
+    - make vendor-gen
 builds:
-  - skip: true
+  - binary: manager
+    env:
+      - CGO_ENABLED=0
+    id: linux
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    goarm:
+      - 7
+
+dockers:
+  - id: linux-amd64
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - "--pull"
+      - "--build-arg=ARCH=linux-amd64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.name={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+      - "--platform=linux/amd64"
+    image_templates:
+      - "ghcr.io/kluctl/flux-kluctl-controller:v{{ .Version }}-amd64"
+  - id: linux-arm64
+    goos: linux
+    goarch: arm64
+    build_flag_templates:
+      - "--pull"
+      - "--build-arg=ARCH=linux-arm64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.name={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
+      - "--platform=linux/arm64"
+    image_templates:
+      - "ghcr.io/kluctl/flux-kluctl-controller:v{{ .Version }}-arm64"
+
+docker_manifests:
+  - name_template: ghcr.io/kluctl/flux-kluctl-controller:{{ .Tag }}
+    image_templates:
+      - "ghcr.io/kluctl/flux-kluctl-controller:v{{ .Version }}-amd64"
+      - "ghcr.io/kluctl/flux-kluctl-controller:v{{ .Version }}-arm64"
 
 release:
   prerelease: "true"

@@ -2,6 +2,7 @@
 /bin
 /vendor
 /build
+/dist
 
 # Binaries for programs and plugins
 *.exe
