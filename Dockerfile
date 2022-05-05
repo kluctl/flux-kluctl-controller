@@ -1,7 +1,6 @@
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+# We must use a glibc based distro due to embedded python not supporting musl libc for aarch64
+FROM debian:bullseye-slim
 COPY manager /manager
 USER 65532:65532
 
