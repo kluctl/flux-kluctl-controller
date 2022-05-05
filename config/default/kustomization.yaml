@@ -7,4 +7,3 @@ resources:
 - ../crd
 - ../rbac
 - ../manager
-- namespace.yaml
