@@ -42,8 +42,10 @@ type preparedProject struct {
 	d      kluctlv1.KluctlDeployment
 	source sourcev1.Source
 
-	tmpDir    string
-	sourceDir string
+	tmpDir     string
+	repoDir    string
+	projectDir string
+
 	gitRepo   *sourcev1.GitRepository
 	gitSecret *corev1.Secret
 
@@ -84,22 +86,21 @@ func prepareProject(ctx context.Context,
 		return pp, fmt.Errorf("failed download of artifact: %w", err)
 	}
 
+	pp.repoDir = filepath.Join(tmpDir, "source")
+
 	// check kluctl project path exists
-	dirPath, err := securejoin.SecureJoin(tmpDir, filepath.Join("source", kluctlDeployment.Spec.Path))
+	pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, kluctlDeployment.Spec.Path)
 	if err != nil {
 		return pp, err
 	}
-	if _, err := os.Stat(dirPath); err != nil {
+	if _, err := os.Stat(pp.projectDir); err != nil {
 		return pp, fmt.Errorf("kluctlDeployment path not found: %w", err)
 	}
 
-	gitSecret, err := pp.getGitSecret(ctx)
+	pp.gitSecret, err = pp.getGitSecret(ctx)
 	if err != nil {
 		return pp, fmt.Errorf("failed to get git secret: %w", err)
 	}
-
-	pp.sourceDir = dirPath
-	pp.gitSecret = gitSecret
 
 	err = pp.kluctlArchive(ctx)
 	if err != nil {
@@ -450,7 +451,8 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bo
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
-		ProjectDir:       pp.sourceDir,
+		RepoRoot:         pp.repoDir,
+		ProjectDir:       pp.projectDir,
 		GitAuthProviders: ga,
 	}
 	if fromArchive {
