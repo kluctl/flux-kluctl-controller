@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -30,9 +28,11 @@ import (
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
@@ -438,7 +438,7 @@ func (pp *preparedProject) buildInclusion() *utils.Inclusion {
 	return inc
 }
 
-func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bool, cb func(p *kluctl_project.KluctlProjectContext) error) error {
+func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bool, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
 	j2, err := jinja2.NewJinja2()
 	if err != nil {
 		return err
@@ -472,7 +472,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bo
 }
 
 func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArchive bool, cb func(targetContext *kluctl_project.TargetContext) error) error {
-	return pp.withKluctlProject(ctx, fromArchive, func(p *kluctl_project.KluctlProjectContext) error {
+	return pp.withKluctlProject(ctx, fromArchive, func(p *kluctl_project.LoadedKluctlProject) error {
 		renderOutputDir, err := os.MkdirTemp(pp.tmpDir, "render-")
 		if err != nil {
 			return err
@@ -505,10 +505,10 @@ func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArch
 }
 
 func (pp *preparedProject) kluctlArchive(ctx context.Context) error {
-	err := pp.withKluctlProject(ctx, false, func(p *kluctl_project.KluctlProjectContext) error {
+	err := pp.withKluctlProject(ctx, false, func(p *kluctl_project.LoadedKluctlProject) error {
 		archivePath := filepath.Join(pp.tmpDir, "archive.tar.gz")
 		metadataPath := filepath.Join(pp.tmpDir, "metadata.yaml")
-		err := p.CreateTGZArchive(archivePath, false)
+		err := p.WriteArchive(archivePath, false)
 		if err != nil {
 			return err
 		}
