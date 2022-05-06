@@ -6,4 +6,5 @@ resources:
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
 - account.yaml
+- reconciler_binding.yaml
 namePrefix: flux-kluctl-
