@@ -399,7 +399,7 @@ func (r *KluctlDeploymentReconciler) reconcile(
 }
 
 func (r *KluctlDeploymentReconciler) checkUnchanged(kluctlDeployment kluctlv1.KluctlDeployment, pp *preparedProject) (bool, kluctlv1.KluctlDeployment) {
-	if kluctlDeployment.Status.LastAttemptedReconcile != nil && kluctlDeployment.Status.LastSuccessfulReconcile.TargetHash == pp.targetHash {
+	if kluctlDeployment.Status.LastAttemptedReconcile != nil && kluctlDeployment.Status.LastAttemptedReconcile.TargetHash == pp.targetHash {
 		// was it actually successful?
 		if kluctlDeployment.Status.LastSuccessfulReconcile != nil && kluctlDeployment.Status.LastSuccessfulReconcile.TargetHash == pp.targetHash {
 			return true, kluctlv1.KluctlDeploymentReady(
