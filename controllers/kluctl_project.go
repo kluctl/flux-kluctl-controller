@@ -551,10 +551,22 @@ func (pp *preparedProject) handleCommandResult(ctx context.Context, cmdErr error
 	if len(cmdResult.OrphanObjects) != 0 {
 		msg += fmt.Sprintf(" %d orphan objects.", len(cmdResult.OrphanObjects))
 	}
+	if len(cmdResult.Errors) != 0 {
+		msg += fmt.Sprintf(" %d errors.", len(cmdResult.Errors))
+	}
+	if len(cmdResult.Warnings) != 0 {
+		msg += fmt.Sprintf(" %d warnings.", len(cmdResult.Warnings))
+	}
 
-	pp.r.event(ctx, pp.d, revision, events.EventSeverityInfo, msg, nil)
+	severity := events.EventSeverityInfo
+	var err error
+	if len(cmdResult.Errors) != 0 {
+		severity = events.EventSeverityError
+		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))
+	}
+	pp.r.event(ctx, pp.d, revision, severity, msg, nil)
 
-	return kluctlv1.ConvertCommandResult(cmdResult), nil
+	return kluctlv1.ConvertCommandResult(cmdResult), err
 }
 
 func (pp *preparedProject) kluctlDeploy(ctx context.Context) (*kluctlv1.CommandResult, error) {
