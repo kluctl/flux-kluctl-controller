@@ -344,7 +344,7 @@ func (pp *preparedProject) buildRegistryHelper(ctx context.Context) (*registries
 		return nil, err
 	}
 
-	rh := registries.NewRegistryHelper()
+	rh := registries.NewRegistryHelper(ctx)
 	err = rh.ParseAuthEntriesFromEnv()
 	if err != nil {
 		return nil, err
@@ -460,10 +460,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bo
 		loadArgs.FromArchiveMetadata = filepath.Join(pp.tmpDir, "metadata.yaml")
 	}
 
-	loadCtx, cancel := context.WithDeadline(ctx, time.Now().Add(pp.d.GetTimeout()))
-	defer cancel()
-
-	p, err := kluctl_project.LoadKluctlProject(loadCtx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
 	if err != nil {
 		return err
 	}
@@ -492,7 +489,7 @@ func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArch
 			return clientcmd.NewDefaultClientConfig(*kubeConfig, configOverrides).ClientConfig()
 		}
 
-		targetContext, err := p.NewTargetContext(clientConfigGetter, pp.d.Spec.Target, "", pp.d.Spec.DryRun, pp.d.Spec.Args, false, images, inclusion, renderOutputDir)
+		targetContext, err := p.NewTargetContext(ctx, clientConfigGetter, pp.d.Spec.Target, "", pp.d.Spec.DryRun, pp.d.Spec.Args, false, images, inclusion, renderOutputDir)
 		if err != nil {
 			return err
 		}
@@ -577,10 +574,10 @@ func (pp *preparedProject) kluctlDeploy(ctx context.Context) (*kluctlv1.CommandR
 		cmd.ReplaceOnError = pp.d.Spec.ReplaceOnError
 		cmd.ForceReplaceOnError = pp.d.Spec.ForceReplaceOnError
 		cmd.AbortOnError = pp.d.Spec.AbortOnError
-		cmd.HookTimeout = pp.d.GetTimeout()
+		cmd.ReadinessTimeout = time.Minute * 10
 		cmd.NoWait = pp.d.Spec.NoWait
 
-		cmdResult, err := cmd.Run(targetContext.K, nil)
+		cmdResult, err := cmd.Run(ctx, targetContext.K, nil)
 		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
@@ -595,7 +592,7 @@ func (pp *preparedProject) kluctlPrune(ctx context.Context) (*kluctlv1.CommandRe
 	var retCmdResult *kluctlv1.CommandResult
 	err := pp.withKluctlProjectTarget(ctx, true, func(targetContext *kluctl_project.TargetContext) error {
 		cmd := commands.NewPruneCommand(targetContext.DeploymentCollection)
-		refs, err := cmd.Run(targetContext.K)
+		refs, err := cmd.Run(ctx, targetContext.K)
 		if err != nil {
 			return err
 		}
@@ -614,7 +611,7 @@ func (pp *preparedProject) kluctlDelete(ctx context.Context) (*kluctlv1.CommandR
 	var retCmdResult *kluctlv1.CommandResult
 	err := pp.withKluctlProjectTarget(ctx, true, func(targetContext *kluctl_project.TargetContext) error {
 		cmd := commands.NewDeleteCommand(targetContext.DeploymentCollection)
-		refs, err := cmd.Run(targetContext.K)
+		refs, err := cmd.Run(ctx, targetContext.K)
 		if err != nil {
 			return err
 		}

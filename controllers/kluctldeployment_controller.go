@@ -22,6 +22,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"io"
 	"net/http"
 	"net/url"
@@ -284,6 +285,13 @@ func (r *KluctlDeploymentReconciler) reconcile(
 	kluctlDeployment kluctlv1.KluctlDeployment,
 	source sourcev1.Source) (kluctlv1.KluctlDeployment, error) {
 	log := ctrl.LoggerFrom(ctx)
+
+	ctx, cancel := context.WithTimeout(ctx, kluctlDeployment.GetTimeout())
+	defer cancel()
+
+	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(message string) {
+		log.Info(message)
+	}, false))
 
 	forceReconcile := false
 
