@@ -26,6 +26,10 @@ The Flux Kluctl Controller supports all types of Kluctl projects, including simp
 contains all necessary data and complex ones where for example clusters or target configurations are in other Git
 repositories.
 
+## Installation
+
+Installation instructions can be found [here](./docs/install.md)
+
 ## Design
 
 The reconciliation process can be defined with a Kubernetes custom resource
