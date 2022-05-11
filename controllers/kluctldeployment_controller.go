@@ -143,10 +143,17 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	log := ctrl.LoggerFrom(ctx)
 	reconcileStart := time.Now()
 
+	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(message string) {
+		log.Info(message)
+	}, false))
+
 	var kluctlDeployment kluctlv1.KluctlDeployment
 	if err := r.Get(ctx, req.NamespacedName, &kluctlDeployment); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, kluctlDeployment.GetTimeout())
+	defer cancel()
 
 	// Record suspended status metric
 	defer r.recordSuspension(ctx, kluctlDeployment)
@@ -285,13 +292,6 @@ func (r *KluctlDeploymentReconciler) reconcile(
 	kluctlDeployment kluctlv1.KluctlDeployment,
 	source sourcev1.Source) (kluctlv1.KluctlDeployment, error) {
 	log := ctrl.LoggerFrom(ctx)
-
-	ctx, cancel := context.WithTimeout(ctx, kluctlDeployment.GetTimeout())
-	defer cancel()
-
-	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(message string) {
-		log.Info(message)
-	}, false))
 
 	forceReconcile := false
 
