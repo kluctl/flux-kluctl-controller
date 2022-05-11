@@ -5,4 +5,4 @@ resources:
 images:
   - name: ghcr.io/kluctl/flux-kluctl-controller
     newName: ghcr.io/kluctl/flux-kluctl-controller
-    newTag: v0.1.10
+    newTag: v0.1.11
