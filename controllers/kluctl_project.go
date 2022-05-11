@@ -629,7 +629,9 @@ func (pp *preparedProject) doDeleteObjects(ctx context.Context, k *k8s2.K8sClust
 	for _, ref := range refs {
 		refStrs = append(refStrs, ref.String())
 	}
-	log.Info(fmt.Sprintf("deleting (without waiting): %s", strings.Join(refStrs, ", ")))
+	if len(refStrs) != 0 {
+		log.Info(fmt.Sprintf("deleting (without waiting): %s", strings.Join(refStrs, ", ")))
+	}
 
 	return utils2.DeleteObjects(k, refs, false)
 }
