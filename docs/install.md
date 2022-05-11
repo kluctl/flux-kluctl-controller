@@ -6,5 +6,5 @@ same cluster that you plan to install the Flux Kluctl Controller to.
 After Flux has been installed, you can install the Flux Kluctl Controller by running the following command:
 
 ```sh
-kustomize build "https://github.com/kluctl/flux-kluctl-controller//config/install?ref=v0.1.9" | kubectl apply -f-
+kustomize build "https://github.com/kluctl/flux-kluctl-controller//config/install?ref=v0.1.10" | kubectl apply -f-
 ```
