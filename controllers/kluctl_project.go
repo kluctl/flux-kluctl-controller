@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/git"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -438,6 +439,33 @@ func (pp *preparedProject) buildInclusion() *utils.Inclusion {
 	return inc
 }
 
+func (pp *preparedProject) clientConfigGetter(ctx context.Context) func(context *string) (*rest.Config, *api.Config, error) {
+	return func(context *string) (*rest.Config, *api.Config, error) {
+		kubeConfig, err := pp.buildKubeconfig(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		configOverrides := &clientcmd.ConfigOverrides{}
+		if context != nil {
+			configOverrides.CurrentContext = *context
+		}
+		clientConfig := clientcmd.NewDefaultClientConfig(*kubeConfig, configOverrides)
+		rawConfig, err := clientConfig.RawConfig()
+		if err != nil {
+			return nil, nil, err
+		}
+		if context != nil {
+			rawConfig.CurrentContext = *context
+		}
+		restConfig, err := clientConfig.ClientConfig()
+		if err != nil {
+			return nil, nil, err
+		}
+		return restConfig, &rawConfig, nil
+	}
+}
+
 func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bool, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
 	j2, err := jinja2.NewJinja2()
 	if err != nil {
@@ -450,14 +478,20 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bo
 		return err
 	}
 
+	grc := git.NewMirroredGitRepoCollection(ctx, ga, 0)
+	defer grc.Clear()
+
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
-		RepoRoot:         pp.repoDir,
-		ProjectDir:       pp.projectDir,
-		GitAuthProviders: ga,
+		RepoRoot:           pp.repoDir,
+		ProjectDir:         pp.projectDir,
+		GRC:                grc,
+		ClientConfigGetter: pp.clientConfigGetter(ctx),
 	}
 	if fromArchive {
 		loadArgs.FromArchive = filepath.Join(pp.tmpDir, "archive.tar.gz")
 		loadArgs.FromArchiveMetadata = filepath.Join(pp.tmpDir, "metadata.yaml")
+	} else {
+		loadArgs.AllowGitClone = true
 	}
 
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
@@ -480,16 +514,7 @@ func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArch
 		}
 		inclusion := pp.buildInclusion()
 
-		clientConfigGetter := func(context string) (*rest.Config, error) {
-			kubeConfig, err := pp.buildKubeconfig(ctx)
-			if err != nil {
-				return nil, err
-			}
-			configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
-			return clientcmd.NewDefaultClientConfig(*kubeConfig, configOverrides).ClientConfig()
-		}
-
-		targetContext, err := p.NewTargetContext(ctx, clientConfigGetter, pp.d.Spec.Target, "", pp.d.Spec.DryRun, pp.d.Spec.Args, false, images, inclusion, renderOutputDir)
+		targetContext, err := p.NewTargetContext(ctx, pp.d.Spec.Target, nil, pp.d.Spec.DryRun, pp.d.Spec.Args, false, images, inclusion, renderOutputDir)
 		if err != nil {
 			return err
 		}

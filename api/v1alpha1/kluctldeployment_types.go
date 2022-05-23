@@ -93,13 +93,13 @@ type KluctlDeploymentSpec struct {
 
 	// The KubeConfig for deploying to the target cluster.
 	// Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
-	// the cluster config found in the kluctl project. As alternative, RenameContexts can be used to fix
+	// the context found in the kluctl target. As an alternative, RenameContexts can be used to fix
 	// non-matching context names.
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig"`
 
 	// RenameContexts specifies a list of context rename operations.
-	// This is useful when the kluctl project's cluster configs specify contexts that do not match with the
+	// This is useful when the kluctl target's context does not match with the
 	// contexts found in the kubeconfig while deploying. This is the case when using kubeconfigs generated from
 	// service accounts, in which case the context name is always "default".
 	// +optional
