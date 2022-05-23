@@ -35,4 +35,4 @@ echo "committing"
 git commit -o -m "build: Preparing release $VERSION" -- $FILES
 
 echo "tagging"
-git tag $VERSION
+git tag -f $VERSION
