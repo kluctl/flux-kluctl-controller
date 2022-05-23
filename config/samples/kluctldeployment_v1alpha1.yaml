@@ -12,7 +12,7 @@ spec:
   timeout: 2m
   target: test
   prune: true
-  # kluctl cluster configs specify the expected context name, which does not necessarely match the context name
+  # kluctl targets specify the expected context name, which does not necessarily match the context name
   # found while it is deployed via the controller. This means we must pass a kubeconfig to kluctl that has the
   # context renamed to the one that it expects.
   renameContexts:

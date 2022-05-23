@@ -697,7 +697,7 @@ KubeConfig
 <em>(Optional)</em>
 <p>The KubeConfig for deploying to the target cluster.
 Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
-the cluster config found in the kluctl project. As alternative, RenameContexts can be used to fix
+the context found in the kluctl target. As an alternative, RenameContexts can be used to fix
 non-matching context names.</p>
 </td>
 </tr>
@@ -713,7 +713,7 @@ non-matching context names.</p>
 <td>
 <em>(Optional)</em>
 <p>RenameContexts specifies a list of context rename operations.
-This is useful when the kluctl project&rsquo;s cluster configs specify contexts that do not match with the
+This is useful when the kluctl target&rsquo;s context does not match with the
 contexts found in the kubeconfig while deploying. This is the case when using kubeconfigs generated from
 service accounts, in which case the context name is always &ldquo;default&rdquo;.</p>
 </td>
@@ -1091,7 +1091,7 @@ KubeConfig
 <em>(Optional)</em>
 <p>The KubeConfig for deploying to the target cluster.
 Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
-the cluster config found in the kluctl project. As alternative, RenameContexts can be used to fix
+the context found in the kluctl target. As an alternative, RenameContexts can be used to fix
 non-matching context names.</p>
 </td>
 </tr>
@@ -1107,7 +1107,7 @@ non-matching context names.</p>
 <td>
 <em>(Optional)</em>
 <p>RenameContexts specifies a list of context rename operations.
-This is useful when the kluctl project&rsquo;s cluster configs specify contexts that do not match with the
+This is useful when the kluctl target&rsquo;s context does not match with the
 contexts found in the kubeconfig while deploying. This is the case when using kubeconfigs generated from
 service accounts, in which case the context name is always &ldquo;default&rdquo;.</p>
 </td>
@@ -1436,15 +1436,16 @@ ReconcileAttempt
 <td>
 <code>secretRef</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
-github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#SecretKeyReference">
+github.com/fluxcd/pkg/apis/meta.SecretKeyReference
 </a>
 </em>
 </td>
 <td>
-<p>SecretRef holds the name to a secret that contains a &lsquo;value&rsquo; key with
-the kubeconfig file as the value. It must be in the same namespace as
-the KluctlDeployment.
+<p>SecretRef holds the name of a secret that contains a key with
+the kubeconfig file as the value. If no key is set, the key will default
+to &lsquo;value&rsquo;. The secret must be in the same namespace as
+the Kustomization.
 It is recommended that the kubeconfig is self-contained, and the secret
 is regularly updated if credentials such as a cloud-access-token expire.
 Cloud specific <code>cmd-path</code> auth helpers will not function without adding
