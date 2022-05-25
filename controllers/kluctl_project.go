@@ -38,8 +38,8 @@ import (
 )
 
 type preparedProject struct {
-	r      *KluctlDeploymentReconciler
-	d      kluctlv1.KluctlDeployment
+	r      *KluctlProjectReconciler
+	obj    KluctlProjectHolder
 	source sourcev1.Source
 
 	tmpDir     string
@@ -50,19 +50,26 @@ type preparedProject struct {
 	gitSecret *corev1.Secret
 }
 
+type preparedTarget struct {
+	pp *preparedProject
+
+	targetName string
+	spec       kluctlv1.KluctlDeploymentTemplateSpec
+}
+
 func prepareProject(ctx context.Context,
-	r *KluctlDeploymentReconciler,
-	kluctlDeployment kluctlv1.KluctlDeployment,
+	r *KluctlProjectReconciler,
+	obj KluctlProjectHolder,
 	source sourcev1.Source) (*preparedProject, error) {
 
 	pp := &preparedProject{
 		r:      r,
-		d:      kluctlDeployment,
+		obj:    obj,
 		source: source,
 	}
 
 	// create tmp dir
-	tmpDir, err := os.MkdirTemp("", kluctlDeployment.Name)
+	tmpDir, err := os.MkdirTemp("", obj.GetName()+"-")
 	if err != nil {
 		return pp, fmt.Errorf("failed to create temp dir for kluctl project: %w", err)
 	}
@@ -85,7 +92,7 @@ func prepareProject(ctx context.Context,
 	pp.repoDir = filepath.Join(tmpDir, "source")
 
 	// check kluctl project path exists
-	pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, kluctlDeployment.Spec.Path)
+	pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.GetKluctlProject().Path)
 	if err != nil {
 		return pp, err
 	}
@@ -106,7 +113,17 @@ func (pp *preparedProject) cleanup() {
 	_ = os.RemoveAll(pp.tmpDir)
 }
 
-func (pp *preparedProject) restConfigToKubeconfig(restConfig *rest.Config) *api.Config {
+func (pp *preparedProject) newTarget(targetName string, spec kluctlv1.KluctlDeploymentTemplateSpec) (*preparedTarget, error) {
+	pt := preparedTarget{
+		pp:         pp,
+		targetName: targetName,
+		spec:       spec,
+	}
+
+	return &pt, nil
+}
+
+func (pt *preparedTarget) restConfigToKubeconfig(restConfig *rest.Config) *api.Config {
 	kubeConfig := api.NewConfig()
 	cluster := api.NewCluster()
 	cluster.Server = restConfig.Host
@@ -139,21 +156,21 @@ func (pp *preparedProject) restConfigToKubeconfig(restConfig *rest.Config) *api.
 	return kubeConfig
 }
 
-func (pp *preparedProject) getKubeconfigFromSecret(ctx context.Context) ([]byte, error) {
+func (pt *preparedTarget) getKubeconfigFromSecret(ctx context.Context) ([]byte, error) {
 	secretName := types.NamespacedName{
-		Namespace: pp.d.GetNamespace(),
-		Name:      pp.d.Spec.KubeConfig.SecretRef.Name,
+		Namespace: pt.pp.obj.GetNamespace(),
+		Name:      pt.spec.KubeConfig.SecretRef.Name,
 	}
 
 	var secret corev1.Secret
-	if err := pp.r.Get(ctx, secretName, &secret); err != nil {
+	if err := pt.pp.r.Get(ctx, secretName, &secret); err != nil {
 		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
 	}
 
 	var kubeConfig []byte
 	switch {
-	case pp.d.Spec.KubeConfig.SecretRef.Key != "":
-		key := pp.d.Spec.KubeConfig.SecretRef.Key
+	case pt.spec.KubeConfig.SecretRef.Key != "":
+		key := pt.spec.KubeConfig.SecretRef.Key
 		kubeConfig = secret.Data[key]
 		if kubeConfig == nil {
 			return nil, fmt.Errorf("KubeConfig secret '%s' does not contain a '%s' key with a kubeconfig", secretName, key)
@@ -170,23 +187,23 @@ func (pp *preparedProject) getKubeconfigFromSecret(ctx context.Context) ([]byte,
 	return kubeConfig, nil
 }
 
-func (pp *preparedProject) setImpersonationConfig(restConfig *rest.Config) {
-	name := pp.r.DefaultServiceAccount
-	if sa := pp.d.Spec.ServiceAccountName; sa != "" {
+func (pt *preparedTarget) setImpersonationConfig(restConfig *rest.Config) {
+	name := pt.pp.r.DefaultServiceAccount
+	if sa := pt.spec.ServiceAccountName; sa != "" {
 		name = sa
 	}
 	if name != "" {
-		username := fmt.Sprintf("system:serviceaccount:%s:%s", pp.d.GetNamespace(), name)
+		username := fmt.Sprintf("system:serviceaccount:%s:%s", pt.pp.obj.GetNamespace(), name)
 		restConfig.Impersonate = rest.ImpersonationConfig{UserName: username}
 	}
 }
 
-func (pp *preparedProject) buildRestConfig(ctx context.Context) (*rest.Config, error) {
+func (pt *preparedTarget) buildRestConfig(ctx context.Context) (*rest.Config, error) {
 	var err error
 	var restConfig *rest.Config
 
-	if pp.d.Spec.KubeConfig != nil {
-		kubeConfig, err := pp.getKubeconfigFromSecret(ctx)
+	if pt.spec.KubeConfig != nil {
+		kubeConfig, err := pt.getKubeconfigFromSecret(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -201,28 +218,28 @@ func (pp *preparedProject) buildRestConfig(ctx context.Context) (*rest.Config, e
 		}
 	}
 
-	pp.setImpersonationConfig(restConfig)
+	pt.setImpersonationConfig(restConfig)
 
 	return restConfig, nil
 }
 
-func (pp *preparedProject) buildKubeconfig(ctx context.Context) (*api.Config, error) {
-	restConfig, err := pp.buildRestConfig(ctx)
+func (pt *preparedTarget) buildKubeconfig(ctx context.Context) (*api.Config, error) {
+	restConfig, err := pt.buildRestConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	kubeConfig := pp.restConfigToKubeconfig(restConfig)
+	kubeConfig := pt.restConfigToKubeconfig(restConfig)
 
-	err = pp.renameContexts(kubeConfig)
+	err = pt.renameContexts(kubeConfig)
 	if err != nil {
 		return nil, err
 	}
 	return kubeConfig, nil
 }
 
-func (pp *preparedProject) renameContexts(cfg *api.Config) error {
-	for _, r := range pp.d.Spec.RenameContexts {
+func (pt *preparedTarget) renameContexts(cfg *api.Config) error {
+	for _, r := range pt.spec.RenameContexts {
 		ctx, ok := cfg.Contexts[r.OldContext]
 		if !ok {
 			return fmt.Errorf("failed to rename context %s -> %s. Old context not found in kubeconfig", r.OldContext, r.NewContext)
@@ -247,7 +264,7 @@ func (pp *preparedProject) getGitSecret(ctx context.Context) (*corev1.Secret, er
 		}
 		// Attempt to retrieve secret
 		name := types.NamespacedName{
-			Namespace: pp.d.GetNamespace(),
+			Namespace: pp.obj.GetNamespace(),
 			Name:      gitRepo.Spec.SecretRef.Name,
 		}
 		var secret corev1.Secret
@@ -292,15 +309,15 @@ func (pp *preparedProject) buildGitAuth() (*auth.GitAuthProviders, error) {
 	return ga, nil
 }
 
-func (pp *preparedProject) getRegistrySecrets(ctx context.Context) ([]*corev1.Secret, error) {
+func (pt *preparedTarget) getRegistrySecrets(ctx context.Context) ([]*corev1.Secret, error) {
 	var ret []*corev1.Secret
-	for _, ref := range pp.d.Spec.RegistrySecrets {
+	for _, ref := range pt.spec.RegistrySecrets {
 		name := types.NamespacedName{
-			Namespace: pp.d.GetNamespace(),
+			Namespace: pt.pp.obj.GetNamespace(),
 			Name:      ref.Name,
 		}
 		var secret corev1.Secret
-		if err := pp.r.Client.Get(ctx, name, &secret); err != nil {
+		if err := pt.pp.r.Client.Get(ctx, name, &secret); err != nil {
 			return nil, fmt.Errorf("failed to get secret '%s': %w", name.String(), err)
 		}
 		ret = append(ret, &secret)
@@ -308,8 +325,8 @@ func (pp *preparedProject) getRegistrySecrets(ctx context.Context) ([]*corev1.Se
 	return ret, nil
 }
 
-func (pp *preparedProject) buildRegistryHelper(ctx context.Context) (*registries.RegistryHelper, error) {
-	secrets, err := pp.getRegistrySecrets(ctx)
+func (pt *preparedTarget) buildRegistryHelper(ctx context.Context) (*registries.RegistryHelper, error) {
+	secrets, err := pt.getRegistrySecrets(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -376,41 +393,41 @@ func (pp *preparedProject) buildRegistryHelper(ctx context.Context) (*registries
 	return rh, nil
 }
 
-func (pp *preparedProject) buildImages(ctx context.Context) (*deployment.Images, error) {
-	rh, err := pp.buildRegistryHelper(ctx)
+func (pt *preparedTarget) buildImages(ctx context.Context) (*deployment.Images, error) {
+	rh, err := pt.buildRegistryHelper(ctx)
 	if err != nil {
 		return nil, err
 	}
-	images, err := deployment.NewImages(rh, pp.d.Spec.UpdateImages, false)
+	images, err := deployment.NewImages(rh, pt.spec.UpdateImages, false)
 	if err != nil {
 		return nil, err
 	}
-	for _, fi := range kluctlv1.ConvertFixedImagesToKluctl(pp.d.Spec.Images) {
+	for _, fi := range kluctlv1.ConvertFixedImagesToKluctl(pt.spec.Images) {
 		images.AddFixedImage(fi)
 	}
 	return images, nil
 }
 
-func (pp *preparedProject) buildInclusion() *utils.Inclusion {
+func (pt *preparedTarget) buildInclusion() *utils.Inclusion {
 	inc := utils.NewInclusion()
-	for _, x := range pp.d.Spec.IncludeTags {
+	for _, x := range pt.spec.IncludeTags {
 		inc.AddInclude("tag", x)
 	}
-	for _, x := range pp.d.Spec.ExcludeTags {
+	for _, x := range pt.spec.ExcludeTags {
 		inc.AddExclude("tag", x)
 	}
-	for _, x := range pp.d.Spec.IncludeDeploymentDirs {
+	for _, x := range pt.spec.IncludeDeploymentDirs {
 		inc.AddInclude("deploymentItemDir", x)
 	}
-	for _, x := range pp.d.Spec.ExcludeDeploymentDirs {
+	for _, x := range pt.spec.ExcludeDeploymentDirs {
 		inc.AddExclude("deploymentItemDir", x)
 	}
 	return inc
 }
 
-func (pp *preparedProject) clientConfigGetter(ctx context.Context) func(context *string) (*rest.Config, *api.Config, error) {
+func (pt *preparedTarget) clientConfigGetter(ctx context.Context) func(context *string) (*rest.Config, *api.Config, error) {
 	return func(context *string) (*rest.Config, *api.Config, error) {
-		kubeConfig, err := pp.buildKubeconfig(ctx)
+		kubeConfig, err := pt.buildKubeconfig(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -435,7 +452,7 @@ func (pp *preparedProject) clientConfigGetter(ctx context.Context) func(context 
 	}
 }
 
-func (pp *preparedProject) withKluctlProject(ctx context.Context, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
+func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTarget, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
 	j2, err := jinja2.NewJinja2()
 	if err != nil {
 		return err
@@ -451,10 +468,12 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, cb func(p *klu
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
-		RepoRoot:           pp.repoDir,
-		ProjectDir:         pp.projectDir,
-		RP:                 rp,
-		ClientConfigGetter: pp.clientConfigGetter(ctx),
+		RepoRoot:   pp.repoDir,
+		ProjectDir: pp.projectDir,
+		RP:         rp,
+	}
+	if pt != nil {
+		loadArgs.ClientConfigGetter = pt.clientConfigGetter(ctx)
 	}
 
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
@@ -465,19 +484,19 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, cb func(p *klu
 	return cb(p)
 }
 
-func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, cb func(targetContext *kluctl_project.TargetContext) error) error {
-	return pp.withKluctlProject(ctx, func(p *kluctl_project.LoadedKluctlProject) error {
-		renderOutputDir, err := os.MkdirTemp(pp.tmpDir, "render-")
+func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(targetContext *kluctl_project.TargetContext) error) error {
+	return pt.pp.withKluctlProject(ctx, pt, func(p *kluctl_project.LoadedKluctlProject) error {
+		renderOutputDir, err := os.MkdirTemp(pt.pp.tmpDir, "render-")
 		if err != nil {
 			return err
 		}
-		images, err := pp.buildImages(ctx)
+		images, err := pt.buildImages(ctx)
 		if err != nil {
 			return err
 		}
-		inclusion := pp.buildInclusion()
+		inclusion := pt.buildInclusion()
 
-		targetContext, err := p.NewTargetContext(ctx, pp.d.Spec.Target, nil, pp.d.Spec.DryRun, pp.d.Spec.Args, false, images, inclusion, renderOutputDir)
+		targetContext, err := p.NewTargetContext(ctx, pt.targetName, nil, pt.spec.DryRun, pt.spec.Args, false, images, inclusion, renderOutputDir)
 		if err != nil {
 			return err
 		}
@@ -489,15 +508,15 @@ func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, cb func(
 	})
 }
 
-func (pp *preparedProject) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *types2.CommandResult, commandName string) (*kluctlv1.CommandResult, error) {
+func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *types2.CommandResult, commandName string) (*kluctlv1.CommandResult, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
 
-	revision := pp.source.GetArtifact().Revision
+	revision := pt.pp.source.GetArtifact().Revision
 
 	if cmdErr != nil {
-		pp.r.event(ctx, pp.d, revision, events.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
+		pt.pp.r.event(ctx, pt.pp.obj, revision, events.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return kluctlv1.ConvertCommandResult(cmdResult), cmdErr
 	}
 
@@ -530,68 +549,64 @@ func (pp *preparedProject) handleCommandResult(ctx context.Context, cmdErr error
 		severity = events.EventSeverityError
 		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))
 	}
-	pp.r.event(ctx, pp.d, revision, severity, msg, nil)
+	pt.pp.r.event(ctx, pt.pp.obj, revision, severity, msg, nil)
 
 	return kluctlv1.ConvertCommandResult(cmdResult), err
 }
 
-func (pp *preparedProject) kluctlDeploy(ctx context.Context) (*kluctlv1.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeploy(ctx context.Context) (*kluctlv1.CommandResult, error) {
 	var retCmdResult *kluctlv1.CommandResult
-	err := pp.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
+	err := pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		cmd := commands.NewDeployCommand(targetContext.DeploymentCollection)
-		cmd.ForceApply = pp.d.Spec.ForceApply
-		cmd.ReplaceOnError = pp.d.Spec.ReplaceOnError
-		cmd.ForceReplaceOnError = pp.d.Spec.ForceReplaceOnError
-		cmd.AbortOnError = pp.d.Spec.AbortOnError
+		cmd.ForceApply = pt.spec.ForceApply
+		cmd.ReplaceOnError = pt.spec.ReplaceOnError
+		cmd.ForceReplaceOnError = pt.spec.ForceReplaceOnError
+		cmd.AbortOnError = pt.spec.AbortOnError
 		cmd.ReadinessTimeout = time.Minute * 10
-		cmd.NoWait = pp.d.Spec.NoWait
+		cmd.NoWait = pt.spec.NoWait
 
 		cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K, nil)
-		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
+		retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
 	return retCmdResult, err
 }
 
-func (pp *preparedProject) kluctlPrune(ctx context.Context) (*kluctlv1.CommandResult, error) {
-	if !pp.d.Spec.Prune {
-		return nil, nil
-	}
-
+func (pt *preparedTarget) kluctlPrune(ctx context.Context) (*kluctlv1.CommandResult, error) {
 	var retCmdResult *kluctlv1.CommandResult
-	err := pp.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
+	err := pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		cmd := commands.NewPruneCommand(targetContext.DeploymentCollection)
 		refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
 		if err != nil {
 			return err
 		}
-		cmdResult, err := pp.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
-		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
+		cmdResult, err := pt.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
+		retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
 	return retCmdResult, err
 }
 
-func (pp *preparedProject) kluctlDelete(ctx context.Context) (*kluctlv1.CommandResult, error) {
-	if !pp.d.Spec.Prune {
+func (pt *preparedTarget) kluctlDelete(ctx context.Context) (*kluctlv1.CommandResult, error) {
+	if !pt.spec.Prune {
 		return nil, nil
 	}
 
 	var retCmdResult *kluctlv1.CommandResult
-	err := pp.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
+	err := pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		cmd := commands.NewDeleteCommand(targetContext.DeploymentCollection)
 		refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
 		if err != nil {
 			return err
 		}
-		cmdResult, err := pp.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
-		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
+		cmdResult, err := pt.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
+		retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
 	return retCmdResult, err
 }
 
-func (pp *preparedProject) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluster, refs []k8s.ObjectRef) (*types2.CommandResult, error) {
+func (pt *preparedTarget) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluster, refs []k8s.ObjectRef) (*types2.CommandResult, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	var refStrs []string

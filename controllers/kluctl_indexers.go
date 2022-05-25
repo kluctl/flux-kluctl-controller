@@ -28,7 +28,7 @@ import (
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 )
 
-func (r *KluctlDeploymentReconciler) requestsForRevisionChangeOf(indexKey string) func(obj client.Object) []reconcile.Request {
+func (r *KluctlProjectReconciler) requestsForRevisionChangeOf(indexKey string) func(obj client.Object) []reconcile.Request {
 	return func(obj client.Object) []reconcile.Request {
 		repo, ok := obj.(interface {
 			GetArtifact() *sourcev1.Artifact
@@ -42,20 +42,22 @@ func (r *KluctlDeploymentReconciler) requestsForRevisionChangeOf(indexKey string
 		}
 
 		ctx := context.Background()
-		var list kluctlv1.KluctlDeploymentList
-		if err := r.List(ctx, &list, client.MatchingFields{
+		list := r.Impl.NewObjectList()
+
+		if err := r.List(ctx, list, client.MatchingFields{
 			indexKey: client.ObjectKeyFromObject(obj).String(),
 		}); err != nil {
 			return nil
 		}
 		var dd []dependency.Dependent
-		for _, d := range list.Items {
+		for _, d := range list.GetItems() {
+			d := d.(KluctlProjectHolder)
 			// If the revision of the artifact equals to the last attempted revision,
 			// we should not make a request for this Kustomization
-			if d.Status.LastAttemptedReconcile != nil && repo.GetArtifact().Revision == d.Status.LastAttemptedReconcile.Revision {
+			if repo.GetArtifact().Revision == d.GetKluctlStatus().LastAttemptedRevision {
 				continue
 			}
-			dd = append(dd, d.DeepCopy())
+			dd = append(dd, d.DeepCopyObject().(dependency.Dependent))
 		}
 		sorted, err := dependency.Sort(dd)
 		if err != nil {
@@ -70,7 +72,7 @@ func (r *KluctlDeploymentReconciler) requestsForRevisionChangeOf(indexKey string
 	}
 }
 
-func (r *KluctlDeploymentReconciler) indexBy(kind string) func(o client.Object) []string {
+func (r *KluctlProjectReconciler) indexBy(kind string) func(o client.Object) []string {
 	return func(o client.Object) []string {
 		k, ok := o.(*kluctlv1.KluctlDeployment)
 		if !ok {

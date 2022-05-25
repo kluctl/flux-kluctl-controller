@@ -134,7 +134,7 @@ func main() {
 
 	metricsH := helper.MustMakeMetrics(mgr)
 
-	if err = (&controllers.KluctlDeploymentReconciler{
+	r := controllers.KluctlProjectReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
 		Client:                mgr.GetClient(),
@@ -142,7 +142,14 @@ func main() {
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsH.MetricsRecorder,
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
-	}).SetupWithManager(mgr, controllers.KluctlDeploymentReconcilerOptions{
+	}
+
+	kluctlDeploymentReconciler := r
+	kluctlDeploymentReconciler.Impl = &controllers.KluctlDeploymentReconcilerImpl{
+		R: &kluctlDeploymentReconciler,
+	}
+
+	if err = kluctlDeploymentReconciler.SetupWithManager(mgr, controllers.KluctlProjectReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
 		DependencyRequeueInterval: requeueDependency,
 		HTTPRetry:                 httpRetry,

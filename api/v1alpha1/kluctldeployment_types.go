@@ -18,9 +18,9 @@ package v1alpha1
 
 import (
 	"github.com/fluxcd/pkg/apis/meta"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	meta2 "github.com/fluxcd/pkg/apis/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -32,12 +32,6 @@ const (
 )
 
 type KluctlDeploymentTemplateSpec struct {
-	// DependsOn may contain a meta.NamespacedObjectReference slice
-	// with references to resources that must be ready before this
-	// kluctl project can be deployed.
-	// +optional
-	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
-
 	// RegistrySecrets is a list of secret references to be used for image registry authentication.
 	// The secrets must either have ".dockerconfigjson" included or "registry", "username" and "password".
 	// Additionally, "caFile" and "insecure" can be specified.
@@ -143,8 +137,8 @@ type KluctlDeploymentTemplateSpec struct {
 
 // KluctlDeploymentSpec defines the desired state of KluctlDeployment
 type KluctlDeploymentSpec struct {
-	KluctlProjectSpec            `json:"kluctlProjectSpec,inline"`
-	KluctlDeploymentTemplateSpec `json:"kluctlDeploymentTemplateSpec,inline"`
+	KluctlProjectSpec            `json:",inline"`
+	KluctlDeploymentTemplateSpec `json:",inline"`
 
 	// Target specifies the kluctl target to deploy
 	// +kubebuilder:validation:MinLength=1
@@ -181,14 +175,7 @@ type RenameContext struct {
 
 // KluctlDeploymentStatus defines the observed state of KluctlDeployment
 type KluctlDeploymentStatus struct {
-	meta.ReconcileRequestStatus `json:",inline"`
-
-	// ObservedGeneration is the last reconciled generation.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	KluctlProjectStatus `json:",inline"`
 
 	// The last attempted reconcile.
 	// +optional
@@ -223,41 +210,9 @@ type ReconcileAttempt struct {
 	PruneResult *CommandResult `json:"pruneResult,omitempty"`
 }
 
-// KluctlDeploymentProgressing resets the conditions of the given KluctlDeployment to a single
-// ReadyCondition with status ConditionUnknown.
-func KluctlDeploymentProgressing(k KluctlDeployment, message string) KluctlDeployment {
-	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  metav1.ConditionUnknown,
-		Reason:  meta.ProgressingReason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
-	return k
-}
-
-// SetKluctlDeploymentHealthiness sets the HealthyCondition status for a KluctlDeployment.
-func SetKluctlDeploymentHealthiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string) {
-	newCondition := metav1.Condition{
-		Type:    HealthyCondition,
-		Status:  status,
-		Reason:  reason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
-}
-
-// SetKluctlDeploymentReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedReconcile, on the KluctlDeployment.
 func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string, deployResult *CommandResult, pruneResult *CommandResult) {
-	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  status,
-		Reason:  reason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(k.GetStatusConditions(), newCondition)
+	SetKluctlProjectReadiness(k.GetKluctlStatus(), status, reason, message, k.GetGeneration(), revision)
 
-	k.Status.ObservedGeneration = k.Generation
 	k.Status.LastAttemptedReconcile = &ReconcileAttempt{
 		AttemptedAt:  metav1.Now(),
 		Revision:     revision,
@@ -265,67 +220,6 @@ func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionSt
 		DeployResult: deployResult,
 		PruneResult:  pruneResult,
 	}
-}
-
-// KluctlDeploymentNotReady registers a failed apply attempt of the given KluctlDeployment.
-func KluctlDeploymentNotReady(k KluctlDeployment, revision string, deployResult *CommandResult, pruneResult *CommandResult, reason, message string) KluctlDeployment {
-	SetKluctlDeploymentReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision, deployResult, pruneResult)
-	return k
-}
-
-// KluctlDeploymentReady registers a successful deploy attempt of the given KluctlDeployment.
-func KluctlDeploymentReady(k KluctlDeployment, revision string, deployResult *CommandResult, pruneResult *CommandResult, reason, message string) KluctlDeployment {
-	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision, deployResult, pruneResult)
-	SetKluctlDeploymentHealthiness(&k, metav1.ConditionTrue, reason, reason)
-	k.Status.LastSuccessfulReconcile = k.Status.LastAttemptedReconcile.DeepCopy()
-	return k
-}
-
-// GetTimeout returns the timeout with default.
-func (in KluctlDeployment) GetTimeout() time.Duration {
-	duration := in.Spec.Interval.Duration - 30*time.Second
-	if in.Spec.Timeout != nil {
-		duration = in.Spec.Timeout.Duration
-	}
-	if duration < 30*time.Second {
-		return 30 * time.Second
-	}
-	return duration
-}
-
-// GetRetryInterval returns the retry interval
-func (in KluctlDeployment) GetRetryInterval() time.Duration {
-	if in.Spec.RetryInterval != nil {
-		return in.Spec.RetryInterval.Duration
-	}
-	return in.GetRequeueAfter()
-}
-
-// GetRequeueAfter returns the duration after which the KluctlDeployment must be
-// reconciled again.
-func (in KluctlDeployment) GetRequeueAfter() time.Duration {
-	return in.Spec.Interval.Duration
-}
-
-// GetDependsOn returns the list of dependencies across-namespaces.
-func (in KluctlDeployment) GetDependsOn() []meta.NamespacedObjectReference {
-	return in.Spec.DependsOn
-}
-
-// GetConditions returns the status conditions of the object.
-func (in KluctlDeployment) GetConditions() []metav1.Condition {
-	return in.Status.Conditions
-}
-
-// SetConditions sets the status conditions on the object.
-func (in *KluctlDeployment) SetConditions(conditions []metav1.Condition) {
-	in.Status.Conditions = conditions
-}
-
-// GetStatusConditions returns a pointer to the Status.Conditions slice.
-// Deprecated: use GetConditions instead.
-func (in *KluctlDeployment) GetStatusConditions() *[]metav1.Condition {
-	return &in.Status.Conditions
 }
 
 //+kubebuilder:object:root=true
@@ -340,6 +234,34 @@ type KluctlDeployment struct {
 	Status KluctlDeploymentStatus `json:"status,omitempty"`
 }
 
+// GetConditions returns the status conditions of the object.
+func (in *KluctlDeployment) GetConditions() []metav1.Condition {
+	return in.Status.Conditions
+}
+
+// SetConditions sets the status conditions on the object.
+func (in *KluctlDeployment) SetConditions(conditions []metav1.Condition) {
+	in.Status.Conditions = conditions
+}
+
+// GetStatusConditions returns a pointer to the Status.Conditions slice.
+// Deprecated: use GetConditions instead.
+func (in *KluctlDeployment) GetStatusConditions() *[]metav1.Condition {
+	return &in.Status.Conditions
+}
+
+func (in *KluctlDeployment) GetDependsOn() []meta2.NamespacedObjectReference {
+	return in.Spec.DependsOn
+}
+
+func (in *KluctlDeployment) GetKluctlProject() *KluctlProjectSpec {
+	return &in.Spec.KluctlProjectSpec
+}
+
+func (in *KluctlDeployment) GetKluctlStatus() *KluctlProjectStatus {
+	return &in.Status.KluctlProjectStatus
+}
+
 //+kubebuilder:object:root=true
 
 // KluctlDeploymentList contains a list of KluctlDeployment
@@ -347,6 +269,16 @@ type KluctlDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []KluctlDeployment `json:"items"`
+}
+
+func (in *KluctlDeploymentList) GetItems() []client.Object {
+	var ret []client.Object
+	for _, x := range in.Items {
+		x := x
+		ret = append(ret, &x)
+	}
+
+	return ret
 }
 
 func init() {
