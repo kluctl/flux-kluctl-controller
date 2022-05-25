@@ -281,11 +281,9 @@ Source supported types:
 * [GitRepository](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md)
 * [Bucket](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/buckets.md)
 
-The Kluctl project found in the referenced source is also called the "root project". It might
-contain references to [external project](https://kluctl.io/docs/reference/kluctl-project/external-projects/),
-meaning that other dependent Git projects might get involved without you explicitely defining them via
-GitRepository objects. In this case, the controller will re-use the credentials from the root project's
-GitRepository for further authentication.
+The Kluctl project found in the referenced source might also internally reference other Git repositories, for example
+by loading variables from Git repositories or including other Git repositories in your deployments. In this case,
+the controller will re-use the credentials from the root project's GitRepository for further authentication.
 
 ## Reconciliation
 
@@ -293,8 +291,7 @@ The KluctlDeployment `spec.interval` tells the controller at which interval to t
 The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
 A reconciliation attempt does not necessarily lead to an actual deployment. The controller keeps track of the
-last attempted project revision and only re-deploys in case something has changed. For this, all sources, including
-from external projects, are taken into account.
+last attempted project revision and only re-deploys in case something has changed.
 
 The KluctlDeployment reconciliation can be suspended by setting `spec.susped` to `true`.
 
