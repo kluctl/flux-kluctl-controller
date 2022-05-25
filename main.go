@@ -18,10 +18,11 @@ package main
 
 import (
 	"fmt"
-	helper "github.com/fluxcd/pkg/runtime/controller"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"os"
 	"time"
+
+	helper "github.com/fluxcd/pkg/runtime/controller"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/kluctl/flux-kluctl-controller/controllers"
 
@@ -41,6 +42,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/probes"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 
+	fluxkluctliov1alpha1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	kluctliov1alpha1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -58,6 +60,7 @@ func init() {
 	utilruntime.Must(sourcev1.AddToScheme(scheme))
 	utilruntime.Must(kluctliov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(kluctliov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(fluxkluctliov1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -145,6 +148,13 @@ func main() {
 		HTTPRetry:                 httpRetry,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlDeploymentKind)
+		os.Exit(1)
+	}
+	if err = (&controllers.KluctlMultiDeploymentReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "KluctlMultiDeployment")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
