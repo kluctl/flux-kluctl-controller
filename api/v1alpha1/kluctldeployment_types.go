@@ -31,56 +31,18 @@ const (
 	MergeValue                = "merge"
 )
 
-// KluctlDeploymentSpec defines the desired state of KluctlDeployment
-type KluctlDeploymentSpec struct {
+type KluctlDeploymentTemplateSpec struct {
 	// DependsOn may contain a meta.NamespacedObjectReference slice
 	// with references to resources that must be ready before this
 	// kluctl project can be deployed.
 	// +optional
 	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
 
-	// The interval at which to reconcile the KluctlDeployment.
-	// +required
-	Interval metav1.Duration `json:"interval"`
-
-	// The interval at which to retry a previously failed reconciliation.
-	// When not specified, the controller uses the KluctlDeploymentSpec.Interval
-	// value to retry failures.
-	// +optional
-	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
-
-	// Path to the directory containing the .kluctl.yaml file, or the
-	// Defaults to 'None', which translates to the root path of the SourceRef.
-	// +optional
-	Path string `json:"path,omitempty"`
-
-	// Reference of the source where the kluctl project is.
-	// The authentication secrets from the source are also used to authenticate
-	// dependent git repositories which are cloned while deploying the kluctl project.
-	// +required
-	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
-
 	// RegistrySecrets is a list of secret references to be used for image registry authentication.
 	// The secrets must either have ".dockerconfigjson" included or "registry", "username" and "password".
 	// Additionally, "caFile" and "insecure" can be specified.
 	// +optional
 	RegistrySecrets []meta.LocalObjectReference `json:"registrySecrets,omitempty"`
-
-	// This flag tells the controller to suspend subsequent kluctl executions,
-	// it does not apply to already started executions. Defaults to false.
-	// +optional
-	Suspend bool `json:"suspend,omitempty"`
-
-	// Timeout for all operations.
-	// Defaults to 'Interval' duration.
-	// +optional
-	Timeout *metav1.Duration `json:"timeout,omitempty"`
-
-	// Target specifies the kluctl target to deploy
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=63
-	// +required
-	Target string `json:"target"`
 
 	// The name of the Kubernetes service account to use while deploying.
 	// If not specified, the default service account is used.
@@ -177,6 +139,18 @@ type KluctlDeploymentSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Prune bool `json:"prune,omitempty"`
+}
+
+// KluctlDeploymentSpec defines the desired state of KluctlDeployment
+type KluctlDeploymentSpec struct {
+	KluctlProjectSpec            `json:"kluctlProjectSpec,inline"`
+	KluctlDeploymentTemplateSpec `json:"kluctlDeploymentTemplateSpec,inline"`
+
+	// Target specifies the kluctl target to deploy
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +required
+	Target string `json:"target"`
 }
 
 // KubeConfig references a Kubernetes secret that contains a kubeconfig file.
