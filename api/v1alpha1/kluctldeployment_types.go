@@ -17,13 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"github.com/fluxcd/pkg/apis/meta"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"time"
 )
 
@@ -220,15 +216,6 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// LastForceReconcileHash contains a hash of all values from the spec that must cause a forced
-	// reconcile.
-	// +optional
-	LastForceReconcileHash string `json:"lastForceReconcileHash,omitempty"`
-
-	// InvolvedRepos is a list of repositories and refs involved with this kluctl project
-	// +optional
-	InvolvedRepos []InvolvedRepo `json:"involvedRepos,omitempty"`
-
 	// The last attempted reconcile.
 	// +optional
 	LastAttemptedReconcile *ReconcileAttempt `json:"lastAttemptedReconcile,omitempty"`
@@ -236,24 +223,6 @@ type KluctlDeploymentStatus struct {
 	// The last successfully reconcile attempt.
 	// +optional
 	LastSuccessfulReconcile *ReconcileAttempt `json:"lastSuccessfulReconcile,omitempty"`
-}
-
-// InvolvedRepo represents a git repository and all involved refs
-type InvolvedRepo struct {
-	// URL is the url of the involved git repository
-	URL string `json:"url"`
-
-	// Patterns is a list of pattern+refs combinations
-	Patterns []InvolvedRepoPattern `json:"patterns"`
-}
-
-// InvolvedRepoPattern represents a ref pattern and the found refs
-type InvolvedRepoPattern struct {
-	// Pattern is a regex to filter refs
-	Pattern string `json:"pattern"`
-
-	// Refs is the filtered list of refs
-	Refs map[string]string `json:"refs"`
 }
 
 // ReconcileAttempt describes an attempt to reconcile
@@ -270,10 +239,6 @@ type ReconcileAttempt struct {
 	// TargetName is the name of the target
 	// +required
 	TargetName string `json:"targetName"`
-
-	// TargetHash is the hash of the target configuration
-	// +optional
-	TargetHash string `json:"targetHash,omitempty"`
 
 	// DeployResult is the command result of the deploy command
 	// +optional
@@ -309,7 +274,7 @@ func SetKluctlDeploymentHealthiness(k *KluctlDeployment, status metav1.Condition
 }
 
 // SetKluctlDeploymentReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedReconcile, on the KluctlDeployment.
-func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string, targetHash string, deployResult *CommandResult, pruneResult *CommandResult) {
+func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string, deployResult *CommandResult, pruneResult *CommandResult) {
 	newCondition := metav1.Condition{
 		Type:    meta.ReadyCondition,
 		Status:  status,
@@ -323,40 +288,23 @@ func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionSt
 		AttemptedAt:  metav1.Now(),
 		Revision:     revision,
 		TargetName:   k.Spec.Target,
-		TargetHash:   targetHash,
 		DeployResult: deployResult,
 		PruneResult:  pruneResult,
 	}
 }
 
 // KluctlDeploymentNotReady registers a failed apply attempt of the given KluctlDeployment.
-func KluctlDeploymentNotReady(k KluctlDeployment, revision string, targetHash string, deployResult *CommandResult, pruneResult *CommandResult, reason, message string) KluctlDeployment {
-	SetKluctlDeploymentReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision, targetHash, deployResult, pruneResult)
+func KluctlDeploymentNotReady(k KluctlDeployment, revision string, deployResult *CommandResult, pruneResult *CommandResult, reason, message string) KluctlDeployment {
+	SetKluctlDeploymentReadiness(&k, metav1.ConditionFalse, reason, trimString(message, MaxConditionMessageLength), revision, deployResult, pruneResult)
 	return k
 }
 
 // KluctlDeploymentReady registers a successful deploy attempt of the given KluctlDeployment.
-func KluctlDeploymentReady(k KluctlDeployment, revision string, targetHash string, deployResult *CommandResult, pruneResult *CommandResult, reason, message string) KluctlDeployment {
-	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision, targetHash, deployResult, pruneResult)
+func KluctlDeploymentReady(k KluctlDeployment, revision string, deployResult *CommandResult, pruneResult *CommandResult, reason, message string) KluctlDeployment {
+	SetKluctlDeploymentReadiness(&k, metav1.ConditionTrue, reason, trimString(message, MaxConditionMessageLength), revision, deployResult, pruneResult)
 	SetKluctlDeploymentHealthiness(&k, metav1.ConditionTrue, reason, reason)
 	k.Status.LastSuccessfulReconcile = k.Status.LastAttemptedReconcile.DeepCopy()
 	return k
-}
-
-// CalcForceReconcileHash calculates a hash from all values of the spec that must cause a forced reconciliation
-func (in KluctlDeployment) CalcForceReconcileHash(scheme *runtime.Scheme) (string, error) {
-	onlySpec := KluctlDeployment{
-		Spec: in.Spec,
-	}
-
-	h := sha256.New()
-	s := json.NewSerializerWithOptions(nil, scheme, scheme, json.SerializerOptions{})
-	err := s.Encode(&onlySpec, h)
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(h.Sum(nil)[:]), nil
 }
 
 // GetTimeout returns the timeout with default.

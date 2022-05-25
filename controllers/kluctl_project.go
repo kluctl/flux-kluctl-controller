@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,6 +27,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
+	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -35,7 +35,6 @@ import (
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 type preparedProject struct {
@@ -49,10 +48,6 @@ type preparedProject struct {
 
 	gitRepo   *sourcev1.GitRepository
 	gitSecret *corev1.Secret
-
-	metadata   types2.ProjectMetadata
-	target     *types2.Target
-	targetHash string
 }
 
 func prepareProject(ctx context.Context,
@@ -102,32 +97,6 @@ func prepareProject(ctx context.Context,
 	if err != nil {
 		return pp, fmt.Errorf("failed to get git secret: %w", err)
 	}
-
-	err = pp.kluctlArchive(ctx)
-	if err != nil {
-		return pp, err
-	}
-
-	err = yaml.ReadYamlFile(filepath.Join(pp.tmpDir, "metadata.yaml"), &pp.metadata)
-	if err != nil {
-		return pp, fmt.Errorf("failed to read metadata.yaml: %w", err)
-	}
-
-	for _, t := range pp.metadata.Targets {
-		if t.Target.Name == kluctlDeployment.Spec.Target {
-			pp.target = t.Target
-			break
-		}
-	}
-	if pp.target == nil {
-		return pp, fmt.Errorf("target %s not found in kluctl project", kluctlDeployment.Spec.Target)
-	}
-
-	archiveHash, err := calcFileHash(filepath.Join(pp.tmpDir, "archive.tar.gz"))
-	if err != nil {
-		return pp, err
-	}
-	pp.targetHash = calcTargetHash(archiveHash, pp.target)
 
 	cleanup = false
 	return pp, nil
@@ -466,7 +435,7 @@ func (pp *preparedProject) clientConfigGetter(ctx context.Context) func(context 
 	}
 }
 
-func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bool, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
+func (pp *preparedProject) withKluctlProject(ctx context.Context, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
 	j2, err := jinja2.NewJinja2()
 	if err != nil {
 		return err
@@ -478,20 +447,14 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bo
 		return err
 	}
 
-	grc := git.NewMirroredGitRepoCollection(ctx, ga, 0)
-	defer grc.Clear()
+	rp := repoprovider.NewLiveRepoProvider(ctx, ga, 0)
+	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		RepoRoot:           pp.repoDir,
 		ProjectDir:         pp.projectDir,
-		GRC:                grc,
+		RP:                 rp,
 		ClientConfigGetter: pp.clientConfigGetter(ctx),
-	}
-	if fromArchive {
-		loadArgs.FromArchive = filepath.Join(pp.tmpDir, "archive.tar.gz")
-		loadArgs.FromArchiveMetadata = filepath.Join(pp.tmpDir, "metadata.yaml")
-	} else {
-		loadArgs.AllowGitClone = true
 	}
 
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
@@ -502,8 +465,8 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, fromArchive bo
 	return cb(p)
 }
 
-func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArchive bool, cb func(targetContext *kluctl_project.TargetContext) error) error {
-	return pp.withKluctlProject(ctx, fromArchive, func(p *kluctl_project.LoadedKluctlProject) error {
+func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, cb func(targetContext *kluctl_project.TargetContext) error) error {
+	return pp.withKluctlProject(ctx, func(p *kluctl_project.LoadedKluctlProject) error {
 		renderOutputDir, err := os.MkdirTemp(pp.tmpDir, "render-")
 		if err != nil {
 			return err
@@ -518,31 +481,12 @@ func (pp *preparedProject) withKluctlProjectTarget(ctx context.Context, fromArch
 		if err != nil {
 			return err
 		}
-		err = targetContext.DeploymentCollection.Prepare(targetContext.K)
+		err = targetContext.DeploymentCollection.Prepare()
 		if err != nil {
 			return err
 		}
 		return cb(targetContext)
 	})
-}
-
-func (pp *preparedProject) kluctlArchive(ctx context.Context) error {
-	err := pp.withKluctlProject(ctx, false, func(p *kluctl_project.LoadedKluctlProject) error {
-		archivePath := filepath.Join(pp.tmpDir, "archive.tar.gz")
-		metadataPath := filepath.Join(pp.tmpDir, "metadata.yaml")
-		err := p.WriteArchive(archivePath, false)
-		if err != nil {
-			return err
-		}
-
-		metadata := p.GetMetadata()
-		err = yaml.WriteYamlFile(metadataPath, &metadata)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	return err
 }
 
 func (pp *preparedProject) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *types2.CommandResult, commandName string) (*kluctlv1.CommandResult, error) {
@@ -593,7 +537,7 @@ func (pp *preparedProject) handleCommandResult(ctx context.Context, cmdErr error
 
 func (pp *preparedProject) kluctlDeploy(ctx context.Context) (*kluctlv1.CommandResult, error) {
 	var retCmdResult *kluctlv1.CommandResult
-	err := pp.withKluctlProjectTarget(ctx, true, func(targetContext *kluctl_project.TargetContext) error {
+	err := pp.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		cmd := commands.NewDeployCommand(targetContext.DeploymentCollection)
 		cmd.ForceApply = pp.d.Spec.ForceApply
 		cmd.ReplaceOnError = pp.d.Spec.ReplaceOnError
@@ -602,7 +546,7 @@ func (pp *preparedProject) kluctlDeploy(ctx context.Context) (*kluctlv1.CommandR
 		cmd.ReadinessTimeout = time.Minute * 10
 		cmd.NoWait = pp.d.Spec.NoWait
 
-		cmdResult, err := cmd.Run(ctx, targetContext.K, nil)
+		cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K, nil)
 		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
@@ -615,13 +559,13 @@ func (pp *preparedProject) kluctlPrune(ctx context.Context) (*kluctlv1.CommandRe
 	}
 
 	var retCmdResult *kluctlv1.CommandResult
-	err := pp.withKluctlProjectTarget(ctx, true, func(targetContext *kluctl_project.TargetContext) error {
+	err := pp.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		cmd := commands.NewPruneCommand(targetContext.DeploymentCollection)
-		refs, err := cmd.Run(ctx, targetContext.K)
+		refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
 		if err != nil {
 			return err
 		}
-		cmdResult, err := pp.doDeleteObjects(ctx, targetContext.K, refs)
+		cmdResult, err := pp.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
 		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
@@ -634,13 +578,13 @@ func (pp *preparedProject) kluctlDelete(ctx context.Context) (*kluctlv1.CommandR
 	}
 
 	var retCmdResult *kluctlv1.CommandResult
-	err := pp.withKluctlProjectTarget(ctx, true, func(targetContext *kluctl_project.TargetContext) error {
+	err := pp.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		cmd := commands.NewDeleteCommand(targetContext.DeploymentCollection)
-		refs, err := cmd.Run(ctx, targetContext.K)
+		refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
 		if err != nil {
 			return err
 		}
-		cmdResult, err := pp.doDeleteObjects(ctx, targetContext.K, refs)
+		cmdResult, err := pp.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
 		retCmdResult, err = pp.handleCommandResult(ctx, err, cmdResult, "deploy")
 		return err
 	})
