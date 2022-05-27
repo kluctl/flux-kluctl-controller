@@ -187,6 +187,11 @@ type KluctlDeploymentStatus struct {
 	// The last successfully reconcile attempt.
 	// +optional
 	LastSuccessfulReconcile *ReconcileAttempt `json:"lastSuccessfulReconcile,omitempty"`
+
+	// CommonLabels are the commonLabels found in the deployment project when the last deployment was done.
+	// This is used to perform cleanup/deletion in case the KluctlDeployment project is deleted
+	// +optional
+	CommonLabels map[string]string `json:"commonLabels,omitempty"`
 }
 
 // ReconcileAttempt describes an attempt to reconcile

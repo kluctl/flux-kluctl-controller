@@ -308,6 +308,13 @@ spec:
           status:
             description: KluctlDeploymentStatus defines the observed state of KluctlDeployment
             properties:
+              commonLabels:
+                additionalProperties:
+                  type: string
+                description: CommonLabels are the commonLabels found in the deployment
+                  project when the last deployment was done. This is used to perform
+                  cleanup/deletion in case the KluctlDeployment project is deleted
+                type: object
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
