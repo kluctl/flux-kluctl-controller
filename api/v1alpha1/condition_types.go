@@ -45,8 +45,4 @@ const (
 	// ReconciliationSucceededReason represents the fact that
 	// the reconciliation succeeded.
 	ReconciliationSucceededReason string = "ReconciliationSucceeded"
-
-	// ReconciliationSkippedReason represents the fact that
-	// the reconciliation was skipped due to an unchanged target.
-	ReconciliationSkippedReason string = "ReconciliationSkipped"
 )

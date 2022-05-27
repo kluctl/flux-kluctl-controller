@@ -19,13 +19,11 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/fluxcd/pkg/runtime/dependency"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
-	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 )
 
 func (r *KluctlProjectReconciler) requestsForRevisionChangeOf(indexKey string) func(obj client.Object) []reconcile.Request {
@@ -74,17 +72,19 @@ func (r *KluctlProjectReconciler) requestsForRevisionChangeOf(indexKey string) f
 
 func (r *KluctlProjectReconciler) indexBy(kind string) func(o client.Object) []string {
 	return func(o client.Object) []string {
-		k, ok := o.(*kluctlv1.KluctlDeployment)
+		k, ok := o.(KluctlProjectHolder)
 		if !ok {
-			panic(fmt.Sprintf("Expected a Kustomization, got %T", o))
+			panic(fmt.Sprintf("Expected a KluctlProjectHolder, got %T", o))
 		}
 
-		if k.Spec.SourceRef.Kind == kind {
+		sourceRef := k.GetKluctlProject().SourceRef
+
+		if sourceRef.Kind == kind {
 			namespace := k.GetNamespace()
-			if k.Spec.SourceRef.Namespace != "" {
-				namespace = k.Spec.SourceRef.Namespace
+			if sourceRef.Namespace != "" {
+				namespace = sourceRef.Namespace
 			}
-			return []string{fmt.Sprintf("%s/%s", namespace, k.Spec.SourceRef.Name)}
+			return []string{fmt.Sprintf("%s/%s", namespace, sourceRef.Name)}
 		}
 
 		return nil

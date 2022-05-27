@@ -70,6 +70,10 @@ rules:
   resources:
   - kluctlmultideployments/finalizers
   verbs:
+  - create
+  - delete
+  - get
+  - patch
   - update
 - apiGroups:
   - flux.kluctl.io

@@ -25,6 +25,7 @@ import (
 
 const (
 	KluctlDeploymentKind      = "KluctlDeployment"
+	KluctlMultiDeploymentKind = "KluctlMultiDeployment"
 	KluctlDeploymentFinalizer = "finalizers.flux.kluctl.io"
 	MaxConditionMessageLength = 20000
 	DisabledValue             = "disabled"
@@ -32,6 +33,8 @@ const (
 )
 
 type KluctlDeploymentTemplateSpec struct {
+	KluctlTimingSpec `json:",inline"`
+
 	// RegistrySecrets is a list of secret references to be used for image registry authentication.
 	// The secrets must either have ".dockerconfigjson" included or "registry", "username" and "password".
 	// Additionally, "caFile" and "insecure" can be specified.
@@ -256,6 +259,10 @@ func (in *KluctlDeployment) GetDependsOn() []meta2.NamespacedObjectReference {
 
 func (in *KluctlDeployment) GetKluctlProject() *KluctlProjectSpec {
 	return &in.Spec.KluctlProjectSpec
+}
+
+func (in *KluctlDeployment) GetKluctlTiming() *KluctlTimingSpec {
+	return &in.Spec.KluctlTimingSpec
 }
 
 func (in *KluctlDeployment) GetKluctlStatus() *KluctlProjectStatus {

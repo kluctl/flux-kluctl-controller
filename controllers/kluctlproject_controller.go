@@ -154,8 +154,9 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	projectSpec := obj.GetKluctlProject()
+	timingSpec := obj.GetKluctlTiming()
 
-	ctx, cancel := context.WithTimeout(ctx, projectSpec.GetTimeout())
+	ctx, cancel := context.WithTimeout(ctx, timingSpec.GetTimeout())
 	defer cancel()
 
 	// Record suspended status metric
@@ -194,7 +195,7 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.recordReadiness(ctx, obj)
 			log.Info(msg)
 			// do not requeue immediately, when the source is created the watcher should trigger a reconciliation
-			return ctrl.Result{RequeueAfter: projectSpec.GetRetryInterval()}, nil
+			return ctrl.Result{RequeueAfter: timingSpec.GetRetryInterval()}, nil
 		}
 
 		if acl.IsAccessDenied(err) {
@@ -205,7 +206,7 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			log.Error(err, "access denied to cross-namespace source")
 			r.recordReadiness(ctx, obj)
 			r.event(ctx, obj, "unknown", events.EventSeverityError, err.Error(), nil)
-			return ctrl.Result{RequeueAfter: projectSpec.GetRetryInterval()}, nil
+			return ctrl.Result{RequeueAfter: timingSpec.GetRetryInterval()}, nil
 		}
 
 		// retry on transient errors
@@ -222,7 +223,7 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		r.recordReadiness(ctx, obj)
 		log.Info(msg)
 		// do not requeue immediately, when the artifact is created the watcher should trigger a reconciliation
-		return ctrl.Result{RequeueAfter: projectSpec.GetRetryInterval()}, nil
+		return ctrl.Result{RequeueAfter: timingSpec.GetRetryInterval()}, nil
 	}
 
 	// check dependencies
@@ -266,7 +267,7 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// reconcile kluctlDeployment by applying the latest revision
-	reconcileErr := r.Impl.Reconcile(ctx, obj.DeepCopyObject().(KluctlProjectHolder), source)
+	reconcileErr := r.Impl.Reconcile(ctx, obj, source)
 	if err := r.patchProjectStatus(ctx, req, *obj.GetKluctlStatus()); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
@@ -276,22 +277,22 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if reconcileErr != nil {
 		log.Error(reconcileErr, fmt.Sprintf("Reconciliation failed after %s, next try in %s",
 			time.Since(reconcileStart).String(),
-			projectSpec.GetRetryInterval().String()),
+			timingSpec.GetRetryInterval().String()),
 			"revision",
 			source.GetArtifact().Revision)
 		r.event(ctx, obj, source.GetArtifact().Revision, events.EventSeverityError,
 			reconcileErr.Error(), nil)
-		return ctrl.Result{RequeueAfter: projectSpec.GetRetryInterval()}, nil
+		return ctrl.Result{RequeueAfter: timingSpec.GetRetryInterval()}, nil
 	}
 
 	// broadcast the reconciliation result and requeue at the specified interval
 	msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
 		time.Since(reconcileStart).String(),
-		projectSpec.Interval.Duration.String())
+		timingSpec.Interval.Duration.String())
 	log.Info(msg, "revision", source.GetArtifact().Revision)
 	r.event(ctx, obj, source.GetArtifact().Revision, events.EventSeverityInfo,
 		msg, map[string]string{kluctlv1.GroupVersion.Group + "/commit_status": "update"})
-	return ctrl.Result{RequeueAfter: projectSpec.Interval.Duration}, nil
+	return ctrl.Result{RequeueAfter: timingSpec.Interval.Duration}, nil
 }
 
 func (r *KluctlProjectReconciler) checkDependencies(source sourcev1.Source, obj KluctlProjectHolder) error {

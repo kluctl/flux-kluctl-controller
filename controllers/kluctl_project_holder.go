@@ -14,6 +14,7 @@ type KluctlProjectHolder interface {
 	meta.ObjectWithConditionsSetter
 
 	GetKluctlProject() *kluctlv1.KluctlProjectSpec
+	GetKluctlTiming() *kluctlv1.KluctlTimingSpec
 	GetKluctlStatus() *kluctlv1.KluctlProjectStatus
 }
 

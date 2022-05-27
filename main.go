@@ -148,6 +148,10 @@ func main() {
 	kluctlDeploymentReconciler.Impl = &controllers.KluctlDeploymentReconcilerImpl{
 		R: &kluctlDeploymentReconciler,
 	}
+	kluctlMultiDeploymentReconciler := r
+	kluctlMultiDeploymentReconciler.Impl = &controllers.KluctlMultiDeploymentReconcilerImpl{
+		R: &kluctlMultiDeploymentReconciler,
+	}
 
 	if err = kluctlDeploymentReconciler.SetupWithManager(mgr, controllers.KluctlProjectReconcilerOptions{
 		MaxConcurrentReconciles:   concurrent,
@@ -157,11 +161,12 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlDeploymentKind)
 		os.Exit(1)
 	}
-	if err = (&controllers.KluctlMultiDeploymentReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "KluctlMultiDeployment")
+	if err = kluctlMultiDeploymentReconciler.SetupWithManager(mgr, controllers.KluctlProjectReconcilerOptions{
+		MaxConcurrentReconciles:   concurrent,
+		DependencyRequeueInterval: requeueDependency,
+		HTTPRetry:                 httpRetry,
+	}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlMultiDeploymentKind)
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

@@ -17,19 +17,37 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/fluxcd/pkg/apis/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // KluctlMultiDeploymentSpec defines the desired state of KluctlMultiDeployment
 type KluctlMultiDeploymentSpec struct {
-	// Foo is an example field of KluctlMultiDeployment. Edit kluctlmultideployment_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	KluctlProjectSpec `json:",inline"`
+	KluctlTimingSpec  `json:",inline"`
+
+	// TargetPattern is the regex pattern used to match targets
+	// +required
+	TargetPattern string `json:"targetPattern"`
+
+	// Template is the object template used to create KluctlDeploymet objects
+	// +required
+	Template KluctlMultiDeploymentTemplate `json:"template"`
+}
+
+// KluctlMultiDeploymentTemplate is the template used to create KluctlDeployment objects
+type KluctlMultiDeploymentTemplate struct {
+	metav1.ObjectMeta `json:",inline"`
+
+	// Spec is the KluctlDeployment spec to be used as a template
+	// +required
+	Spec KluctlDeploymentTemplateSpec `json:"spec"`
 }
 
 // KluctlMultiDeploymentStatus defines the observed state of KluctlMultiDeployment
 type KluctlMultiDeploymentStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	KluctlProjectStatus `json:",inline"`
 }
 
 //+kubebuilder:object:root=true
@@ -44,6 +62,38 @@ type KluctlMultiDeployment struct {
 	Status KluctlMultiDeploymentStatus `json:"status,omitempty"`
 }
 
+// GetConditions returns the status conditions of the object.
+func (in *KluctlMultiDeployment) GetConditions() []metav1.Condition {
+	return in.Status.Conditions
+}
+
+// SetConditions sets the status conditions on the object.
+func (in *KluctlMultiDeployment) SetConditions(conditions []metav1.Condition) {
+	in.Status.Conditions = conditions
+}
+
+// GetStatusConditions returns a pointer to the Status.Conditions slice.
+// Deprecated: use GetConditions instead.
+func (in *KluctlMultiDeployment) GetStatusConditions() *[]metav1.Condition {
+	return &in.Status.Conditions
+}
+
+func (in *KluctlMultiDeployment) GetDependsOn() []meta.NamespacedObjectReference {
+	return in.Spec.DependsOn
+}
+
+func (in *KluctlMultiDeployment) GetKluctlProject() *KluctlProjectSpec {
+	return &in.Spec.KluctlProjectSpec
+}
+
+func (in *KluctlMultiDeployment) GetKluctlTiming() *KluctlTimingSpec {
+	return &in.Spec.KluctlTimingSpec
+}
+
+func (in *KluctlMultiDeployment) GetKluctlStatus() *KluctlProjectStatus {
+	return &in.Status.KluctlProjectStatus
+}
+
 //+kubebuilder:object:root=true
 
 // KluctlMultiDeploymentList contains a list of KluctlMultiDeployment
@@ -51,6 +101,16 @@ type KluctlMultiDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []KluctlMultiDeployment `json:"items"`
+}
+
+func (in *KluctlMultiDeploymentList) GetItems() []client.Object {
+	var ret []client.Object
+	for _, x := range in.Items {
+		x := x
+		ret = append(ret, &x)
+	}
+
+	return ret
 }
 
 func init() {

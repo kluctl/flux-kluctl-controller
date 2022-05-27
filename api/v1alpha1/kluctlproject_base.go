@@ -14,16 +14,6 @@ type KluctlProjectSpec struct {
 	// +optional
 	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
 
-	// The interval at which to reconcile the KluctlDeployment.
-	// +required
-	Interval metav1.Duration `json:"interval"`
-
-	// The interval at which to retry a previously failed reconciliation.
-	// When not specified, the controller uses the KluctlDeploymentSpec.Interval
-	// value to retry failures.
-	// +optional
-	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
-
 	// Path to the directory containing the .kluctl.yaml file, or the
 	// Defaults to 'None', which translates to the root path of the SourceRef.
 	// +optional
@@ -39,6 +29,18 @@ type KluctlProjectSpec struct {
 	// it does not apply to already started executions. Defaults to false.
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
+}
+
+type KluctlTimingSpec struct {
+	// The interval at which to reconcile the KluctlDeployment.
+	// +required
+	Interval metav1.Duration `json:"interval"`
+
+	// The interval at which to retry a previously failed reconciliation.
+	// When not specified, the controller uses the KluctlDeploymentSpec.Interval
+	// value to retry failures.
+	// +optional
+	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
 
 	// Timeout for all operations.
 	// Defaults to 'Interval' duration.
@@ -68,7 +70,7 @@ func (in KluctlProjectSpec) GetDependsOn() []meta.NamespacedObjectReference {
 }
 
 // GetTimeout returns the timeout with default.
-func (in KluctlProjectSpec) GetTimeout() time.Duration {
+func (in KluctlTimingSpec) GetTimeout() time.Duration {
 	duration := in.Interval.Duration - 30*time.Second
 	if in.Timeout != nil {
 		duration = in.Timeout.Duration
@@ -80,7 +82,7 @@ func (in KluctlProjectSpec) GetTimeout() time.Duration {
 }
 
 // GetRetryInterval returns the retry interval
-func (in KluctlProjectSpec) GetRetryInterval() time.Duration {
+func (in KluctlTimingSpec) GetRetryInterval() time.Duration {
 	if in.RetryInterval != nil {
 		return in.RetryInterval.Duration
 	}
@@ -89,7 +91,7 @@ func (in KluctlProjectSpec) GetRetryInterval() time.Duration {
 
 // GetRequeueAfter returns the duration after which the KluctlDeployment must be
 // reconciled again.
-func (in KluctlProjectSpec) GetRequeueAfter() time.Duration {
+func (in KluctlTimingSpec) GetRequeueAfter() time.Duration {
 	return in.Interval.Duration
 }
 

@@ -37,14 +37,396 @@ spec:
           spec:
             description: KluctlMultiDeploymentSpec defines the desired state of KluctlMultiDeployment
             properties:
-              foo:
-                description: Foo is an example field of KluctlMultiDeployment. Edit
-                  kluctlmultideployment_types.go to remove/update
+              dependsOn:
+                description: DependsOn may contain a meta.NamespacedObjectReference
+                  slice with references to resources that must be ready before this
+                  kluctl project can be deployed.
+                items:
+                  description: NamespacedObjectReference contains enough information
+                    to locate the referenced Kubernetes resource object in any namespace.
+                  properties:
+                    name:
+                      description: Name of the referent.
+                      type: string
+                    namespace:
+                      description: Namespace of the referent, when not specified it
+                        acts as LocalObjectReference.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              interval:
+                description: The interval at which to reconcile the KluctlDeployment.
                 type: string
+              path:
+                description: Path to the directory containing the .kluctl.yaml file,
+                  or the Defaults to 'None', which translates to the root path of
+                  the SourceRef.
+                type: string
+              retryInterval:
+                description: The interval at which to retry a previously failed reconciliation.
+                  When not specified, the controller uses the KluctlDeploymentSpec.Interval
+                  value to retry failures.
+                type: string
+              sourceRef:
+                description: Reference of the source where the kluctl project is.
+                  The authentication secrets from the source are also used to authenticate
+                  dependent git repositories which are cloned while deploying the
+                  kluctl project.
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  kind:
+                    description: Kind of the referent.
+                    enum:
+                    - GitRepository
+                    - Bucket
+                    type: string
+                  name:
+                    description: Name of the referent.
+                    type: string
+                  namespace:
+                    description: Namespace of the referent, defaults to the namespace
+                      of the Kubernetes resource object that contains the reference.
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+              suspend:
+                description: This flag tells the controller to suspend subsequent
+                  kluctl executions, it does not apply to already started executions.
+                  Defaults to false.
+                type: boolean
+              targetPattern:
+                description: TargetPattern is the regex pattern used to match targets
+                type: string
+              template:
+                description: Template is the object template used to create KluctlDeploymet
+                  objects
+                properties:
+                  spec:
+                    description: Spec is the KluctlDeployment spec to be used as a
+                      template
+                    properties:
+                      abortOnError:
+                        default: false
+                        description: ForceReplaceOnError instructs kluctl to abort
+                          deployments immediately when something fails. Equivalent
+                          to using '--abort-on-error' when calling kluctl.
+                        type: boolean
+                      args:
+                        additionalProperties:
+                          type: string
+                        description: Args specifies dynamic target args. Only arguments
+                          defined by 'dynamicArgs' of the target are allowed.
+                        type: object
+                      dryRun:
+                        default: false
+                        description: DryRun instructs kluctl to run everything in
+                          dry-run mode. Equivalent to using '--dry-run' when calling
+                          kluctl.
+                        type: boolean
+                      excludeDeploymentDirs:
+                        description: ExcludeDeploymentDirs instructs kluctl to exclude
+                          deployments with the given dir. Equivalent to using '--exclude-deployment-dir'
+                          when calling kluctl.
+                        items:
+                          type: string
+                        type: array
+                      excludeTags:
+                        description: ExcludeTags instructs kluctl to exclude deployments
+                          with given tags. Equivalent to using '--exclude-tag' when
+                          calling kluctl.
+                        items:
+                          type: string
+                        type: array
+                      forceApply:
+                        default: false
+                        description: ForceApply instructs kluctl to force-apply in
+                          case of SSA conflicts. Equivalent to using '--force-apply'
+                          when calling kluctl.
+                        type: boolean
+                      forceReplaceOnError:
+                        default: false
+                        description: ForceReplaceOnError instructs kluctl to force-replace
+                          resources in case a normal replace fails. Equivalent to
+                          using '--force-replace-on-error' when calling kluctl.
+                        type: boolean
+                      images:
+                        description: Images contains a list of fixed image overrides.
+                          Equivalent to using '--fixed-images-file' when calling kluctl.
+                        items:
+                          properties:
+                            container:
+                              type: string
+                            deployTags:
+                              items:
+                                type: string
+                              type: array
+                            deployedImage:
+                              type: string
+                            deployment:
+                              type: string
+                            deploymentDir:
+                              type: string
+                            image:
+                              type: string
+                            namespace:
+                              type: string
+                            object:
+                              description: ResourceRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                id:
+                                  description: ID is the string representation of
+                                    the Kubernetes resource object's metadata, in
+                                    the format '<namespace>_<name>_<group>_<kind>'.
+                                  type: string
+                                v:
+                                  description: Version is the API version of the Kubernetes
+                                    resource object's kind.
+                                  type: string
+                              required:
+                              - id
+                              - v
+                              type: object
+                            registryImage:
+                              type: string
+                            resultImage:
+                              type: string
+                            versionFilter:
+                              type: string
+                          required:
+                          - image
+                          - resultImage
+                          type: object
+                        type: array
+                      includeDeploymentDirs:
+                        description: IncludeDeploymentDirs instructs kluctl to only
+                          include deployments with the given dir. Equivalent to using
+                          '--include-deployment-dir' when calling kluctl.
+                        items:
+                          type: string
+                        type: array
+                      includeTags:
+                        description: IncludeTags instructs kluctl to only include
+                          deployments with given tags. Equivalent to using '--include-tag'
+                          when calling kluctl.
+                        items:
+                          type: string
+                        type: array
+                      interval:
+                        description: The interval at which to reconcile the KluctlDeployment.
+                        type: string
+                      kubeConfig:
+                        description: The KubeConfig for deploying to the target cluster.
+                          Specifies the kubeconfig to be used when invoking kluctl.
+                          Contexts in this kubeconfig must match the context found
+                          in the kluctl target. As an alternative, RenameContexts
+                          can be used to fix non-matching context names.
+                        properties:
+                          secretRef:
+                            description: SecretRef holds the name of a secret that
+                              contains a key with the kubeconfig file as the value.
+                              If no key is set, the key will default to 'value'. The
+                              secret must be in the same namespace as the Kustomization.
+                              It is recommended that the kubeconfig is self-contained,
+                              and the secret is regularly updated if credentials such
+                              as a cloud-access-token expire. Cloud specific `cmd-path`
+                              auth helpers will not function without adding binaries
+                              and credentials to the Pod that is responsible for reconciling
+                              the KluctlDeployment.
+                            properties:
+                              key:
+                                description: Key in the Secret, when not specified
+                                  an implementation-specific default key is used.
+                                type: string
+                              name:
+                                description: Name of the Secret.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        type: object
+                      noWait:
+                        default: false
+                        description: NoWait instructs kluctl to not wait for any resources
+                          to become ready, including hooks. Equivalent to using '--no-wait'
+                          when calling kluctl.
+                        type: boolean
+                      prune:
+                        default: false
+                        description: Prune enables pruning after deploying.
+                        type: boolean
+                      registrySecrets:
+                        description: RegistrySecrets is a list of secret references
+                          to be used for image registry authentication. The secrets
+                          must either have ".dockerconfigjson" included or "registry",
+                          "username" and "password". Additionally, "caFile" and "insecure"
+                          can be specified.
+                        items:
+                          description: LocalObjectReference contains enough information
+                            to locate the referenced Kubernetes resource object.
+                          properties:
+                            name:
+                              description: Name of the referent.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                      renameContexts:
+                        description: RenameContexts specifies a list of context rename
+                          operations. This is useful when the kluctl target's context
+                          does not match with the contexts found in the kubeconfig
+                          while deploying. This is the case when using kubeconfigs
+                          generated from service accounts, in which case the context
+                          name is always "default".
+                        items:
+                          description: RenameContext specifies a single rename of
+                            a context
+                          properties:
+                            newContext:
+                              description: NewContext is the new name of the context
+                              type: string
+                            oldContext:
+                              description: OldContext is the name of the context to
+                                be renamed
+                              type: string
+                          required:
+                          - newContext
+                          - oldContext
+                          type: object
+                        type: array
+                      replaceOnError:
+                        default: false
+                        description: ReplaceOnError instructs kluctl to replace resources
+                          on error. Equivalent to using '--replace-on-error' when
+                          calling kluctl.
+                        type: boolean
+                      retryInterval:
+                        description: The interval at which to retry a previously failed
+                          reconciliation. When not specified, the controller uses
+                          the KluctlDeploymentSpec.Interval value to retry failures.
+                        type: string
+                      serviceAccountName:
+                        description: The name of the Kubernetes service account to
+                          use while deploying. If not specified, the default service
+                          account is used.
+                        type: string
+                      timeout:
+                        description: Timeout for all operations. Defaults to 'Interval'
+                          duration.
+                        type: string
+                      updateImages:
+                        default: false
+                        description: UpdateImages instructs kluctl to update dynamic
+                          images. Equivalent to using '-u' when calling kluctl.
+                        type: boolean
+                    required:
+                    - interval
+                    type: object
+                required:
+                - spec
+                type: object
+              timeout:
+                description: Timeout for all operations. Defaults to 'Interval' duration.
+                type: string
+            required:
+            - interval
+            - sourceRef
+            - targetPattern
+            - template
             type: object
           status:
             description: KluctlMultiDeploymentStatus defines the observed state of
               KluctlMultiDeployment
+            properties:
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    type FooStatus struct{     // Represents the observations of a
+                    foo's current state.     // Known .status.conditions.type are:
+                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
+                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                    \n     // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastAttemptedRevision:
+                description: LastAttemptedRevision is the revision of the last reconciliation
+                  attempt.
+                type: string
+              lastHandledReconcileAt:
+                description: LastHandledReconcileAt holds the value of the most recent
+                  reconcile request value, so a change of the annotation value can
+                  be detected.
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the last reconciled generation.
+                format: int64
+                type: integer
             type: object
         type: object
     served: true

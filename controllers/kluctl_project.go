@@ -484,6 +484,20 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 	return cb(p)
 }
 
+func (pp *preparedProject) listTargets(ctx context.Context) ([]*types2.Target, error) {
+	var ret []*types2.Target
+	err := pp.withKluctlProject(ctx, nil, func(p *kluctl_project.LoadedKluctlProject) error {
+		for _, x := range p.DynamicTargets {
+			ret = append(ret, x.Target)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(targetContext *kluctl_project.TargetContext) error) error {
 	return pt.pp.withKluctlProject(ctx, pt, func(p *kluctl_project.LoadedKluctlProject) error {
 		renderOutputDir, err := os.MkdirTemp(pt.pp.tmpDir, "render-")
