@@ -11,7 +11,7 @@ spec:
 
   # Specifies a regex to be matched against the project's targets. A KluctlDeployment will be created for each
   # matching target.
-  targetPattern: local|test
+  targetPattern: local|test|feature-.*
 
   template:
     spec:
