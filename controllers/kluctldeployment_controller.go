@@ -90,7 +90,7 @@ func (r *KluctlDeploymentReconcilerImpl) Finalize(ctx context.Context, objIn Klu
 		return
 	}
 
-	if len(obj.Status.CommonLabels) != 0 {
+	if len(obj.Status.CommonLabels) == 0 {
 		log.V(1).Info("No commonLabels set, skipping deletion")
 		return
 	}
