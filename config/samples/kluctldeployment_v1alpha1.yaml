@@ -1,16 +1,15 @@
 apiVersion: flux.kluctl.io/v1alpha1
 kind: KluctlDeployment
 metadata:
-  name: microservices-demo-test
-  namespace: flux-system
+  name: microservices-demo-prod
 spec:
-  interval: 10m
+  interval: 5m
   path: "./microservices-demo/3-templating-and-multi-env/"
   sourceRef:
     kind: GitRepository
     name: microservices-demo
   timeout: 2m
-  target: test
+  target: prod
   prune: true
   # kluctl targets specify the expected context name, which does not necessarily match the context name
   # found while it is deployed via the controller. This means we must pass a kubeconfig to kluctl that has the
