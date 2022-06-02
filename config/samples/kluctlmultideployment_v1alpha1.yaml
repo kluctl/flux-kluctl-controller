@@ -9,6 +9,8 @@ spec:
     kind: GitRepository
     name: microservices-demo
 
+  # Specifies a regex to be matched against the project's targets. A KluctlDeployment will be created for each
+  # matching target.
   targetPattern: local|test
 
   template:
