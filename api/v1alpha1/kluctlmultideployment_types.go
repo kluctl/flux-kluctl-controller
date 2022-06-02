@@ -94,6 +94,18 @@ func (in *KluctlMultiDeployment) GetKluctlStatus() *KluctlProjectStatus {
 	return &in.Status.KluctlProjectStatus
 }
 
+func (in *KluctlMultiDeployment) GetFullStatus() any {
+	return &in.Status
+}
+
+func (in *KluctlMultiDeployment) SetFullStatus(s any) {
+	s2, ok := s.(*KluctlMultiDeploymentStatus)
+	if !ok {
+		panic("not a KluctlMultiDeploymentStatus")
+	}
+	in.Status = *s2
+}
+
 //+kubebuilder:object:root=true
 
 // KluctlMultiDeploymentList contains a list of KluctlMultiDeployment

@@ -268,7 +268,7 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// reconcile kluctlDeployment by applying the latest revision
 	reconcileErr := r.Impl.Reconcile(ctx, obj, source)
-	if err := r.patchProjectStatus(ctx, req, *obj.GetKluctlStatus()); err != nil {
+	if err := r.patchFullStatus(ctx, req, obj.GetFullStatus()); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
 	r.recordReadiness(ctx, obj)
@@ -533,5 +533,16 @@ func (r *KluctlProjectReconciler) patchProjectStatus(ctx context.Context, req ct
 
 	patch := client.MergeFrom(obj.DeepCopyObject().(KluctlProjectHolder))
 	*obj.GetKluctlStatus() = newStatus
+	return r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager))
+}
+
+func (r *KluctlProjectReconciler) patchFullStatus(ctx context.Context, req ctrl.Request, newStatus any) error {
+	obj := r.Impl.NewObject()
+	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
+		return err
+	}
+
+	patch := client.MergeFrom(obj.DeepCopyObject().(KluctlProjectHolder))
+	obj.SetFullStatus(newStatus)
 	return r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager))
 }

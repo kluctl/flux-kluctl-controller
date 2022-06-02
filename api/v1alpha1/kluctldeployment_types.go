@@ -228,6 +228,9 @@ func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionSt
 		DeployResult: deployResult,
 		PruneResult:  pruneResult,
 	}
+	if status == metav1.ConditionTrue {
+		k.Status.LastSuccessfulReconcile = k.Status.LastAttemptedReconcile
+	}
 }
 
 //+kubebuilder:object:root=true
@@ -272,6 +275,18 @@ func (in *KluctlDeployment) GetKluctlTiming() *KluctlTimingSpec {
 
 func (in *KluctlDeployment) GetKluctlStatus() *KluctlProjectStatus {
 	return &in.Status.KluctlProjectStatus
+}
+
+func (in *KluctlDeployment) GetFullStatus() any {
+	return &in.Status
+}
+
+func (in *KluctlDeployment) SetFullStatus(s any) {
+	s2, ok := s.(*KluctlDeploymentStatus)
+	if !ok {
+		panic("not a KluctlDeploymentStatus")
+	}
+	in.Status = *s2
 }
 
 //+kubebuilder:object:root=true

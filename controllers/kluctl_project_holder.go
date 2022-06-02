@@ -16,6 +16,8 @@ type KluctlProjectHolder interface {
 	GetKluctlProject() *kluctlv1.KluctlProjectSpec
 	GetKluctlTiming() *kluctlv1.KluctlTimingSpec
 	GetKluctlStatus() *kluctlv1.KluctlProjectStatus
+	GetFullStatus() any
+	SetFullStatus(s any)
 }
 
 type KluctlProjectListHolder interface {
