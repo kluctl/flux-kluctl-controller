@@ -15,6 +15,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/events"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -46,8 +47,7 @@ type preparedProject struct {
 	repoDir    string
 	projectDir string
 
-	gitRepo   *sourcev1.GitRepository
-	gitSecret *corev1.Secret
+	gitRepo *sourcev1.GitRepository
 }
 
 type preparedTarget struct {
@@ -83,26 +83,23 @@ func prepareProject(ctx context.Context,
 
 	pp.tmpDir = tmpDir
 
-	// download artifact and extract files
-	err = pp.r.download(source, tmpDir)
-	if err != nil {
-		return pp, fmt.Errorf("failed download of artifact: %w", err)
-	}
+	if source != nil {
+		// download artifact and extract files
+		err = pp.r.download(source, tmpDir)
+		if err != nil {
+			return pp, fmt.Errorf("failed download of artifact: %w", err)
+		}
 
-	pp.repoDir = filepath.Join(tmpDir, "source")
+		pp.repoDir = filepath.Join(tmpDir, "source")
 
-	// check kluctl project path exists
-	pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.GetKluctlProject().Path)
-	if err != nil {
-		return pp, err
-	}
-	if _, err := os.Stat(pp.projectDir); err != nil {
-		return pp, fmt.Errorf("kluctlDeployment path not found: %w", err)
-	}
-
-	pp.gitSecret, err = pp.getGitSecret(ctx)
-	if err != nil {
-		return pp, fmt.Errorf("failed to get git secret: %w", err)
+		// check kluctl project path exists
+		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.GetKluctlProject().Path)
+		if err != nil {
+			return pp, err
+		}
+		if _, err := os.Stat(pp.projectDir); err != nil {
+			return pp, fmt.Errorf("kluctlDeployment path not found: %w", err)
+		}
 	}
 
 	cleanup = false
@@ -276,9 +273,15 @@ func (pp *preparedProject) getGitSecret(ctx context.Context) (*corev1.Secret, er
 	return nil, nil
 }
 
-func (pp *preparedProject) buildGitAuth() (*auth.GitAuthProviders, error) {
+func (pp *preparedProject) buildGitAuth(ctx context.Context) (*auth.GitAuthProviders, error) {
 	ga := auth.NewDefaultAuthProviders()
-	if pp.gitSecret == nil {
+
+	gitSecret, err := pp.getGitSecret(ctx)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+
+	if gitSecret == nil {
 		return ga, nil
 	}
 
@@ -287,19 +290,19 @@ func (pp *preparedProject) buildGitAuth() (*auth.GitAuthProviders, error) {
 		Username: "*",
 	}
 
-	if x, ok := pp.gitSecret.Data["username"]; ok {
+	if x, ok := gitSecret.Data["username"]; ok {
 		e.Username = string(x)
 	}
-	if x, ok := pp.gitSecret.Data["password"]; ok {
+	if x, ok := gitSecret.Data["password"]; ok {
 		e.Password = string(x)
 	}
-	if x, ok := pp.gitSecret.Data["caFile"]; ok {
+	if x, ok := gitSecret.Data["caFile"]; ok {
 		e.CABundle = x
 	}
-	if x, ok := pp.gitSecret.Data["known_hosts"]; ok {
+	if x, ok := gitSecret.Data["known_hosts"]; ok {
 		e.KnownHosts = x
 	}
-	if x, ok := pp.gitSecret.Data["identity"]; ok {
+	if x, ok := gitSecret.Data["identity"]; ok {
 		e.SshKey = x
 	}
 
@@ -459,7 +462,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 	}
 	defer j2.Close()
 
-	ga, err := pp.buildGitAuth()
+	ga, err := pp.buildGitAuth(ctx)
 	if err != nil {
 		return err
 	}
@@ -527,7 +530,10 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
 
-	revision := pt.pp.source.GetArtifact().Revision
+	revision := ""
+	if pt.pp.source != nil {
+		revision = pt.pp.source.GetArtifact().Revision
+	}
 
 	if cmdErr != nil {
 		pt.pp.r.event(ctx, pt.pp.obj, revision, events.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
@@ -622,7 +628,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[str
 		return nil, err
 	}
 	cmdResult, err := pt.doDeleteObjects(ctx, k, refs)
-	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
+	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "delete")
 	return retCmdResult, err
 }
 

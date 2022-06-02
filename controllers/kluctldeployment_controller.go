@@ -97,11 +97,7 @@ func (r *KluctlDeploymentReconcilerImpl) Finalize(ctx context.Context, objIn Klu
 
 	log.V(1).Info("Deleting target")
 
-	source, err := r.R.getSource(ctx, obj)
-	if err != nil {
-		return
-	}
-	pp, err := prepareProject(ctx, r.R, obj, source)
+	pp, err := prepareProject(ctx, r.R, obj, nil)
 	if err != nil {
 		return
 	}
