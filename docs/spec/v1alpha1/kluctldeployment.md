@@ -3,277 +3,54 @@
 The `KluctlDeployment` API defines a deployment of a [target](https://kluctl.io/docs/reference/kluctl-project/targets/)
 from a [Kluctl Project](https://kluctl.io/docs/reference/kluctl-project/).
 
-## Specification
+## Example
 
-A **KluctlDeployment** object defines the source of the root project by referencing an object 
-managed by [source-controller](https://github.com/fluxcd/source-controller),
-the path to the .kluctl.yaml config file within that source,
-and the interval at which the target is deployed to the cluster.
-
-```go
-// KluctlDeploymentSpec defines the desired state of KluctlDeployment
-type KluctlDeploymentSpec struct {
-	// DependsOn may contain a meta.NamespacedObjectReference slice
-	// with references to resources that must be ready before this
-	// kluctl project can be deployed.
-	// +optional
-	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
-
-	// The interval at which to reconcile the KluctlDeployment.
-	// +required
-	Interval metav1.Duration `json:"interval"`
-
-	// The interval at which to retry a previously failed reconciliation.
-	// When not specified, the controller uses the KluctlDeploymentSpec.Interval
-	// value to retry failures.
-	// +optional
-	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
-
-	// Path to the directory containing the .kluctl.yaml file, or the
-	// Defaults to 'None', which translates to the root path of the SourceRef.
-	// +optional
-	Path string `json:"path,omitempty"`
-
-	// Reference of the source where the kluctl project is.
-	// The authentication secrets from the source are also used to authenticate
-	// dependent git repositories which are cloned while deploying the kluctl project.
-	// +required
-	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
-
-	// RegistrySecrets is a list of secret references to be used for image registry authentication.
-	// The secrets must either have ".dockerconfigjson" included or "registry", "username" and "password".
-	// Additionally, "caFile" and "insecure" can be specified.
-	// +optional
-	RegistrySecrets []meta.LocalObjectReference `json:"registrySecrets,omitempty"`
-
-	// This flag tells the controller to suspend subsequent kluctl executions,
-	// it does not apply to already started executions. Defaults to false.
-	// +optional
-	Suspend bool `json:"suspend,omitempty"`
-
-	// Timeout for all operations.
-	// Defaults to 'Interval' duration.
-	// +optional
-	Timeout *metav1.Duration `json:"timeout,omitempty"`
-
-	// Target specifies the kluctl target to deploy
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=63
-	// +required
-	Target string `json:"target"`
-
-	// The name of the Kubernetes service account to use while deploying.
-	// If not specified, the default service account is used.
-	// +optional
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
-
-	// The KubeConfig for deploying to the target cluster.
-	// Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
-	// the cluster config found in the kluctl project. As alternative, RenameContexts can be used to fix
-	// non-matching context names.
-	// +optional
-	KubeConfig *KubeConfig `json:"kubeConfig"`
-
-	// RenameContexts specifies a list of context rename operations.
-	// This is useful when the kluctl project's cluster configs specify contexts that do not match with the
-	// contexts found in the kubeconfig while deploying. This is the case when using kubeconfigs generated from
-	// service accounts, in which case the context name is always "default".
-	// +optional
-	RenameContexts []RenameContext `json:"renameContexts,omitempty"`
-
-	// Args specifies dynamic target args.
-	// Only arguments defined by 'dynamicArgs' of the target are allowed.
-	// +optional
-	Args map[string]string `json:"args,omitempty"`
-
-	// UpdateImages instructs kluctl to update dynamic images.
-	// Equivalent to using '-u' when calling kluctl.
-	// +kubebuilder:default:=false
-	// +optional
-	UpdateImages bool `json:"updateImages,omitempty"`
-
-	// Images contains a list of fixed image overrides.
-	// Equivalent to using '--fixed-images-file' when calling kluctl.
-	// +optional
-	Images []FixedImage `json:"images,omitempty"`
-
-	// DryRun instructs kluctl to run everything in dry-run mode.
-	// Equivalent to using '--dry-run' when calling kluctl.
-	// +kubebuilder:default:=false
-	// +optional
-	DryRun bool `json:"dryRun,omitempty"`
-
-	// NoWait instructs kluctl to not wait for any resources to become ready, including hooks.
-	// Equivalent to using '--no-wait' when calling kluctl.
-	// +kubebuilder:default:=false
-	// +optional
-	NoWait bool `json:"noWait,omitempty"`
-
-	// ForceApply instructs kluctl to force-apply in case of SSA conflicts.
-	// Equivalent to using '--force-apply' when calling kluctl.
-	// +kubebuilder:default:=false
-	// +optional
-	ForceApply bool `json:"forceApply,omitempty"`
-
-	// ReplaceOnError instructs kluctl to replace resources on error.
-	// Equivalent to using '--replace-on-error' when calling kluctl.
-	// +kubebuilder:default:=false
-	// +optional
-	ReplaceOnError bool `json:"replaceOnError,omitempty"`
-
-	// ForceReplaceOnError instructs kluctl to force-replace resources in case a normal replace fails.
-	// Equivalent to using '--force-replace-on-error' when calling kluctl.
-	// +kubebuilder:default:=false
-	// +optional
-	ForceReplaceOnError bool `json:"forceReplaceOnError,omitempty"`
-
-	// ForceReplaceOnError instructs kluctl to abort deployments immediately when something fails.
-	// Equivalent to using '--abort-on-error' when calling kluctl.
-	// +kubebuilder:default:=false
-	// +optional
-	AbortOnError bool `json:"abortOnError,omitempty"`
-
-	// IncludeTags instructs kluctl to only include deployments with given tags.
-	// Equivalent to using '--include-tag' when calling kluctl.
-	// +optional
-	IncludeTags []string `json:"includeTags,omitempty"`
-
-	// ExcludeTags instructs kluctl to exclude deployments with given tags.
-	// Equivalent to using '--exclude-tag' when calling kluctl.
-	// +optional
-	ExcludeTags []string `json:"excludeTags,omitempty"`
-
-	// IncludeDeploymentDirs instructs kluctl to only include deployments with the given dir.
-	// Equivalent to using '--include-deployment-dir' when calling kluctl.
-	// +optional
-	IncludeDeploymentDirs []string `json:"includeDeploymentDirs,omitempty"`
-
-	// ExcludeDeploymentDirs instructs kluctl to exclude deployments with the given dir.
-	// Equivalent to using '--exclude-deployment-dir' when calling kluctl.
-	// +optional
-	ExcludeDeploymentDirs []string `json:"excludeDeploymentDirs,omitempty"`
-
-	// Prune enables pruning after deploying.
-	// +kubebuilder:default:=false
-	// +optional
-	Prune bool `json:"prune,omitempty"`
-}
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: microservices-demo
+spec:
+  interval: 1m
+  url: https://github.com/kluctl/kluctl-examples.git
+  ref:
+    branch: main
+---
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: microservices-demo-prod
+spec:
+  interval: 5m
+  path: "./microservices-demo/3-templating-and-multi-env/"
+  sourceRef:
+    kind: GitRepository
+    name: microservices-demo
+  timeout: 2m
+  target: prod
+  prune: true
+  # kluctl targets specify the expected context name, which does not necessarily match the context name
+  # found while it is deployed via the controller. This means we must pass a kubeconfig to kluctl that has the
+  # context renamed to the one that it expects.
+  renameContexts:
+    - oldContext: default
+      newContext: kind-kind
 ```
 
-KubeConfig references a Kubernetes secret generated by CAPI:
+In the above example, two objects are being created, a GitRepository that points to the Kluctl project and KluctlDeployment
+that defines the deployment based on the Kluctl project.
 
-```go
-// KubeConfig references a Kubernetes secret that contains a kubeconfig file.
-type KubeConfig struct {
-	// SecretRef holds the name of a secret that contains a key with
-	// the kubeconfig file as the value. If no key is set, the key will default
-	// to 'value'. The secret must be in the same namespace as
-	// the Kustomization.
-	// It is recommended that the kubeconfig is self-contained, and the secret
-	// is regularly updated if credentials such as a cloud-access-token expire.
-	// Cloud specific `cmd-path` auth helpers will not function without adding
-	// binaries and credentials to the Pod that is responsible for reconciling
-	// the KluctlDeployment.
-	// +required
-	SecretRef meta.SecretKeyReference `json:"secretRef,omitempty"`
-}
-```
+The deployment is performed every 5 minutes or whenever the source changes. It will deploy the `prod`
+[target](https://kluctl.io/docs/reference/kluctl-project/targets/) and then prune orphaned objects afterwards.
 
-RenameContext specifies a single rename of a context
-
-```go
-// RenameContext specifies a single rename of a context
-type RenameContext struct {
-	// OldContext is the name of the context to be renamed
-	// +required
-	OldContext string `json:"oldContext"`
-
-	// NewContext is the new name of the context
-	// +required
-	NewContext string `json:"newContext"`
-}
-```
-
-The status sub-resource records the result of the last reconciliation:
-
-```go
-type KluctlDeploymentStatus struct {
-	meta.ReconcileRequestStatus `json:",inline"`
-
-	// ObservedGeneration is the last reconciled generation.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// LastForceReconcileHash contains a hash of all values from the spec that must cause a forced
-	// reconcile.
-	// +optional
-	LastForceReconcileHash string `json:"lastForceReconcileHash,omitempty"`
-
-	// InvolvedRepos is a list of repositories and refs involved with this kluctl project
-	// +optional
-	InvolvedRepos []InvolvedRepo `json:"involvedRepos,omitempty"`
-
-	// The last attempted reconcile.
-	// +optional
-	LastAttemptedReconcile *ReconcileAttempt `json:"lastAttemptedReconcile,omitempty"`
-
-	// The last successfully reconcile attempt.
-	// +optional
-	LastSuccessfulReconcile *ReconcileAttempt `json:"lastSuccessfulReconcile,omitempty"`
-}
-```
-
-Status condition types:
-
-```go
-const (
-	// ReadyCondition is the name of the condition that
-	// records the readiness status of a KluctlDeployment.
-	ReadyCondition string = "Ready"
-)
-```
-
-Status condition reasons:
-
-```go
-const (
-	// PruneFailedReason represents the fact that the
-	// pruning of the KluctlDeployment failed.
-	PruneFailedReason string = "PruneFailed"
-
-	// ArtifactFailedReason represents the fact that the
-	// source artifact download failed.
-	ArtifactFailedReason string = "ArtifactFailed"
-
-	// PrepareFailedReason represents failure in the kluctl preparation phase
-	PrepareFailedReason string = "PrepareFailed"
-
-	// DeployFailedReason represents the fact that the
-	// kluctl deploy command failed.
-	DeployFailedReason string = "DeployFailed"
-	
-	// DependencyNotReadyReason represents the fact that
-	// one of the dependencies is not ready.
-	DependencyNotReadyReason string = "DependencyNotReady"
-
-	// ReconciliationSucceededReason represents the fact that
-	// the reconciliation succeeded.
-	ReconciliationSucceededReason string = "ReconciliationSucceeded"
-
-	// ReconciliationSkippedReason represents the fact that
-	// the reconciliation was skipped due to an unchanged target.
-	ReconciliationSkippedReason string = "ReconciliationSkipped"
-)
-```
+It uses the `default` context provided by the default Flux service account and rename it to `kind-kind` so that it is
+compatible with the context specified in the example's `prod` target.
 
 ## Source reference
 
 The KluctlDeployment `spec.sourceRef` is a reference to an object managed by
 [source-controller](https://github.com/fluxcd/source-controller). When the source
-[revision](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/common.md#source-status) 
+[revision](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/common.md#source-status)
 changes, it generates a Kubernetes event that triggers a reconciliation attempt.
 
 Source supported types:
@@ -285,39 +62,150 @@ The Kluctl project found in the referenced source might also internally referenc
 by loading variables from Git repositories or including other Git repositories in your deployments. In this case,
 the controller will re-use the credentials from the root project's GitRepository for further authentication.
 
+`spec.path` specifies the subdirectory inside the referenced source to be used as the project root.
+
+## Target
+`spec.target` specifies the target to be deployed. It must exist in the Kluctl projects
+[kluctl.yaml targets](https://kluctl.io/docs/reference/kluctl-project/targets/) list.
+
 ## Reconciliation
 
 The KluctlDeployment `spec.interval` tells the controller at which interval to try reconciliations.
 The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
-A reconciliation attempt does not necessarily lead to an actual deployment. The controller keeps track of the
-last attempted project revision and only re-deploys in case something has changed.
-
-The KluctlDeployment reconciliation can be suspended by setting `spec.susped` to `true`.
+The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`.
 
 The controller can be told to reconcile the KluctlDeployment outside of the specified interval
-by annotating the KluctlDeployment object with:
-
-```go
-const (
-	// ReconcileAtAnnotation is the annotation used for triggering a
-	// reconciliation outside of the defined schedule.
-	ReconcileAtAnnotation string = "fluxcd.io/reconcileAt"
-)
-```
+by annotating the KluctlDeployment object with `fluxcd.io/reconcileAt`.
 
 On-demand execution example:
 
 ```bash
-kubectl annotate --overwrite kluctldeployment/podinfo fluxcd.io/reconcileAt="$(date +%s)"
+kubectl annotate --overwrite kluctldeployment/microservices-demo-prod fluxcd.io/reconcileAt="$(date +%s)"
 ```
-
-This will also cause a forced re-deployment in case the Kluctl project has not changed.
 
 ## Pruning
 
 To enable pruning, set `spec.prune` to `true`. This will cause the controller to run `kluctl prune` after each
 successful deployment.
+
+## Kluctl Options
+The [kluctl deploy](https://kluctl.io/docs/reference/commands/deploy/) command has multiple arguments that influence
+how the deployment is performed. `KluctlDeployment`'s can set most of these arguements as well:
+
+### args
+`spec.args` is a map of strings representing [arguments](https://kluctl.io/docs/reference/deployments/deployment-yml/#args)
+passed to the deployment. Example:
+
+```yaml
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: example
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: example
+  timeout: 2m
+  target: prod
+  args:
+    arg1: value1
+    arg2: value2
+```
+
+The above example is equivalent to calling `kluctl deploy -t prod -a arg1=value1 -a arg2=value2`.
+
+### updateImages
+`spec.updateImages` is a boolean that specifies whether images used via
+[`image.get_image(...)`](https://kluctl.io/docs/reference/deployments/images/#imagesget_image) should use the latest
+image found in the registry.
+
+This is equivalent to calling `kluctl deploy -t prod -u`
+
+### images
+`spec.images` specifies a list of fixed images to be used by
+[`image.get_image(...)`](https://kluctl.io/docs/reference/deployments/images/#imagesget_image). Example:
+
+```
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: example
+spec:
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: example
+  timeout: 2m
+  target: prod
+  images:
+    - image: nginx
+      resultImage: nginx:1.21.6
+      namespace: example-namespace
+      deployment: Deployment/example
+    - image: registry.gitlab.com/my-org/my-repo/image
+      resultImage: registry.gitlab.com/my-org/my-repo/image:1.2.3
+```
+
+The above example will cause the `images.get_image("nginx")` invocations of the `example` Deployment to return
+`nginx:1.21.6`. It will also cause all `images.get_image("registry.gitlab.com/my-org/my-repo/image")` invocations
+to return `registry.gitlab.com/my-org/my-repo/image:1.2.3`.
+
+The fixed images provided here take precedence over the ones provided in the
+[target definition](https://kluctl.io/docs/reference/kluctl-project/targets/#images).
+
+`spec.images` is equivalent to calling `kluctl deploy -t prod --fixed-image=nginx:example-namespace:Deployment/example=nginx:1.21.6 ...`
+and to `kluctl deploy -t prod --fixed-images-file=fixed-images.yaml` with `fixed-images.yaml` containing:
+
+```yaml
+images:
+- image: nginx
+  resultImage: nginx:1.21.6
+  namespace: example-namespace
+  deployment: Deployment/example
+- image: registry.gitlab.com/my-org/my-repo/image
+  resultImage: registry.gitlab.com/my-org/my-repo/image:1.2.3
+```
+
+It is advised to use [dynamic targets](https://kluctl.io/docs/reference/kluctl-project/targets/dynamic-targets/)
+instead of providing images directly in the ´KluctlDeployment` object.
+
+### dryRun
+`spec.dryRun` is a boolean value that turns the deployment into a dry-run deployment. This is equivalent to calling
+`kluctl deploy -t prod --dry-run`.
+
+
+### noWait
+`spec.noWait` is a boolean value that disables all internal waiting (hooks and readiness). This is equivalent to calling
+`kluctl deploy -t prod --no-wait`.
+
+### forceApply
+`spec.forceApply` is a boolean value that causes kluctl to solve conflicts via force apply. This is equivalent to calling
+`kluctl deploy -t prod --force-apply`.
+
+### replaceOnError and forceReplaceOnError
+`spec.replaceOnError` and `spec.forceReplaceOnError` are both boolean values that cause kluctl to perform a replace
+after a failed apply. `forceReplaceOnError` goes a step further and deletes and recreates the object in question.
+These are equivalent to calling `kluctl deploy -t prod --replace-on-error` and `kluctl deploy -t prod --force-replace-on-error`.
+
+### abortOnError
+`spec.abortOnError` is a boolean value that causes kluctl to abort as fast as possible in case of errors. This is equivalent to calling
+`kluctl deploy -t prod --abort-on-error`.
+
+### includeTags, excludeTags, includeDeploymentDirs and excludeDeploymentDirs
+`spec.includeTags` and `spec.excludeTags` are lists of tags to be used in inclusion/exclusion logic while deploying.
+These are equivalent to calling `kluctl deploy -t prod --include-tag <tag1>` and `kluctl deploy -t prod --exclude-tag <tag2>`.
+
+`spec.includeDeploymentDirs` and `spec.excludeDeploymentDirs` are lists of relative deployment directories to be used in
+inclusion/exclusion logic while deploying. These are equivalent to calling `kluctl deploy -t prod --include-tag <tag1>`
+and `kluctl deploy -t prod --exclude-tag <tag2>`.
+
+## Dependencies
+
+KluctlDeployment's can specify dependencies via `spec.dependsOn`. The functionality is equivalent to
+[kustomization-dependencies](https://fluxcd.io/docs/components/kustomize/kustomization/#kustomization-dependencies)
+but with KluctlDeployments as dependency objects.
 
 ## Kubeconfigs and RBAC
 
@@ -330,12 +218,12 @@ The kubeconfig can be generated from 3 different sources:
 3. The secret specified via `spec.kubeConfig` in the KluctlDeployment.
 
 The behavior/functionality of 1. and 2. is comparable to how the [kustomize-controller](https://fluxcd.io/docs/components/kustomize/kustomization/#role-based-access-control)
-handles impersonation, withe difference that a kubeconfig with a "default" context is created in-between.
+handles impersonation, with the difference that a kubeconfig with a "default" context is created in-between.
 
 `spec.kubeConfig` will simply load the kubeconfig from `data.value` of the specified secret.
 
-Kluctl [cluster configs](https://kluctl.io/docs/reference/cluster-configs/) specify a context name that is expected to
-be present in the kubeconfig while deploying. As the context found in the generated kubeconfig does not necessarly
+Kluctl [targets](https://kluctl.io/docs/reference/kluctl-project/targets/) specify a context name that is expected to
+be present in the kubeconfig while deploying. As the context found in the generated kubeconfig does not necessarily
 have the correct name, `spec.renameContexts` allows to rename contexts to the desired names. This is especially useful
 when using service account based kubeconfigs, as these always have the same context with the name "default".
 
