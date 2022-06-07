@@ -326,6 +326,13 @@ spec:
                         description: UpdateImages instructs kluctl to update dynamic
                           images. Equivalent to using '-u' when calling kluctl.
                         type: boolean
+                      validateInterval:
+                        default: 5m
+                        description: ValidateInterval specifies the interval at which
+                          to validate the KluctlDeployment. Validation is performed
+                          the same way as with 'kluctl validate -t <target>'. Defaults
+                          to 1m.
+                        type: string
                     required:
                     - interval
                     type: object

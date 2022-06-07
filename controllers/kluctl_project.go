@@ -601,6 +601,17 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	return retCmdResult, err
 }
 
+func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext) (*kluctlv1.ValidateResult, error) {
+	var retCmdResult *kluctlv1.ValidateResult
+	cmd := commands.NewValidateCommand(ctx, targetContext.DeploymentCollection)
+
+	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
+	if cmdResult != nil {
+		retCmdResult = kluctlv1.ConvertValidateResult(cmdResult)
+	}
+	return retCmdResult, err
+}
+
 func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[string]string) (*kluctlv1.CommandResult, error) {
 	if !pt.spec.Prune {
 		return nil, nil

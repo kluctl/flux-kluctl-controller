@@ -38,7 +38,7 @@ func (r *KluctlMultiDeploymentReconcilerImpl) NewObjectList() KluctlProjectListH
 func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 	ctx context.Context,
 	objIn KluctlProjectHolder,
-	source sourcev1.Source) error {
+	source sourcev1.Source) (*ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	obj := objIn.(*kluctlv1.KluctlMultiDeployment)
@@ -46,27 +46,27 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 	pp, err := prepareProject(ctx, r.R, obj, source)
 	if err != nil {
 		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
-		return err
+		return nil, err
 	}
 	defer pp.cleanup()
 
 	targets, err := pp.listTargets(ctx)
 	if err != nil {
 		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
-		return err
+		return nil, err
 	}
 
 	pattern, err := regexp.Compile(obj.Spec.TargetPattern)
 	if err != nil {
 		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
-		return err
+		return nil, err
 	}
 
 	kdList := &kluctlv1.KluctlDeploymentList{}
 	err = r.R.List(ctx, kdList, client.InNamespace(obj.Namespace))
 	if err != nil {
 		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
-		return err
+		return nil, err
 	}
 
 	toDelete := make(map[string]*kluctlv1.KluctlDeployment)
@@ -93,7 +93,7 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 		err := r.reconcileKluctlDeployment(ctx, obj, target)
 		if err != nil {
 			kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
-			return err
+			return nil, err
 		}
 	}
 
@@ -103,12 +103,12 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 		err = r.R.Delete(ctx, x)
 		if err != nil {
 			kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
-			return err
+			return nil, err
 		}
 	}
 
 	kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, fmt.Sprintf("Reconciled revision: %s", pp.source.GetArtifact().Revision), obj.GetGeneration(), pp.source.GetArtifact().Revision)
-	return nil
+	return nil, nil
 }
 
 func (r *KluctlMultiDeploymentReconcilerImpl) reconcileKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlMultiDeployment, target *types2.Target) error {

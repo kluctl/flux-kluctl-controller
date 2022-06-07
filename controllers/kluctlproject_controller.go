@@ -87,7 +87,7 @@ type KluctlProjectReconcilerOptions struct {
 type KluctlProjectReconcilerImpl interface {
 	NewObject() KluctlProjectHolder
 	NewObjectList() KluctlProjectListHolder
-	Reconcile(ctx context.Context, obj KluctlProjectHolder, source sourcev1.Source) error
+	Reconcile(ctx context.Context, obj KluctlProjectHolder, source sourcev1.Source) (*ctrl.Result, error)
 	Finalize(ctx context.Context, obj KluctlProjectHolder)
 }
 
@@ -267,32 +267,40 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// reconcile kluctlDeployment by applying the latest revision
-	reconcileErr := r.Impl.Reconcile(ctx, obj, source)
+	ctrlResult, reconcileErr := r.Impl.Reconcile(ctx, obj, source)
 	if err := r.patchFullStatus(ctx, req, obj.GetFullStatus()); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
 	r.recordReadiness(ctx, obj)
 
+	if ctrlResult == nil {
+		if reconcileErr != nil {
+			ctrlResult = &ctrl.Result{RequeueAfter: timingSpec.GetRetryInterval()}
+		} else {
+			ctrlResult = &ctrl.Result{RequeueAfter: timingSpec.Interval.Duration}
+		}
+	}
+
 	// broadcast the reconciliation failure and requeue at the specified retry interval
 	if reconcileErr != nil {
 		log.Error(reconcileErr, fmt.Sprintf("Reconciliation failed after %s, next try in %s",
 			time.Since(reconcileStart).String(),
-			timingSpec.GetRetryInterval().String()),
+			ctrlResult.RequeueAfter.String()),
 			"revision",
 			source.GetArtifact().Revision)
 		r.event(ctx, obj, source.GetArtifact().Revision, events.EventSeverityError,
 			reconcileErr.Error(), nil)
-		return ctrl.Result{RequeueAfter: timingSpec.GetRetryInterval()}, nil
+		return *ctrlResult, nil
 	}
 
 	// broadcast the reconciliation result and requeue at the specified interval
 	msg := fmt.Sprintf("Reconciliation finished in %s, next run in %s",
 		time.Since(reconcileStart).String(),
-		timingSpec.Interval.Duration.String())
+		ctrlResult.RequeueAfter.String())
 	log.Info(msg, "revision", source.GetArtifact().Revision)
 	r.event(ctx, obj, source.GetArtifact().Revision, events.EventSeverityInfo,
 		msg, map[string]string{kluctlv1.GroupVersion.Group + "/commit_status": "update"})
-	return ctrl.Result{RequeueAfter: timingSpec.Interval.Duration}, nil
+	return *ctrlResult, nil
 }
 
 func (r *KluctlProjectReconciler) checkDependencies(source sourcev1.Source, obj KluctlProjectHolder) error {
@@ -323,8 +331,8 @@ func (r *KluctlProjectReconciler) checkDependencies(source sourcev1.Source, obj 
 		if k.Spec.SourceRef.Name == projectSpec.SourceRef.Name &&
 			k.Spec.SourceRef.Namespace == projectSpec.SourceRef.Namespace &&
 			k.Spec.SourceRef.Kind == projectSpec.SourceRef.Kind &&
-			k.Status.LastSuccessfulReconcile != nil &&
-			source.GetArtifact().Revision != k.Status.LastSuccessfulReconcile.Revision {
+			k.Status.LastDeployResult != nil &&
+			source.GetArtifact().Revision != k.Status.LastDeployResult.Revision {
 			return fmt.Errorf("dependency '%s' is not updated yet", dName)
 		}
 	}

@@ -136,6 +136,13 @@ type KluctlDeploymentTemplateSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Prune bool `json:"prune,omitempty"`
+
+	// ValidateInterval specifies the interval at which to validate the KluctlDeployment.
+	// Validation is performed the same way as with 'kluctl validate -t <target>'.
+	// Defaults to 1m.
+	// +kubebuilder:default:="5m"
+	// +optional
+	ValidateInterval metav1.Duration `json:"validateInterval"`
 }
 
 // KluctlDeploymentSpec defines the desired state of KluctlDeployment
@@ -180,13 +187,17 @@ type RenameContext struct {
 type KluctlDeploymentStatus struct {
 	KluctlProjectStatus `json:",inline"`
 
-	// The last attempted reconcile.
+	// LastDeployResult is the result of the last deploy command
 	// +optional
-	LastAttemptedReconcile *ReconcileAttempt `json:"lastAttemptedReconcile,omitempty"`
+	LastDeployResult *LastCommandResult `json:"lastDeployResult,omitempty"`
 
-	// The last successfully reconcile attempt.
+	// LastDeployResult is the result of the last prune command
 	// +optional
-	LastSuccessfulReconcile *ReconcileAttempt `json:"lastSuccessfulReconcile,omitempty"`
+	LastPruneResult *LastCommandResult `json:"lastPruneResult,omitempty"`
+
+	// LastValidateResult is the result of the last validate command
+	// +optional
+	LastValidateResult *LastValidateResult `json:"lastValidateResult,omitempty"`
 
 	// CommonLabels are the commonLabels found in the deployment project when the last deployment was done.
 	// This is used to perform cleanup/deletion in case the KluctlDeployment project is deleted
@@ -194,8 +205,7 @@ type KluctlDeploymentStatus struct {
 	CommonLabels map[string]string `json:"commonLabels,omitempty"`
 }
 
-// ReconcileAttempt describes an attempt to reconcile
-type ReconcileAttempt struct {
+type ReconcileResultBase struct {
 	// AttemptedAt is the time when the attempt was performed
 	// +required
 	AttemptedAt metav1.Time `json:"time"`
@@ -208,28 +218,71 @@ type ReconcileAttempt struct {
 	// TargetName is the name of the target
 	// +required
 	TargetName string `json:"targetName"`
-
-	// DeployResult is the command result of the deploy command
-	// +optional
-	DeployResult *CommandResult `json:"deployResult,omitempty"`
-
-	// PruneResult is the command result of the prune command
-	// +optional
-	PruneResult *CommandResult `json:"pruneResult,omitempty"`
 }
 
-func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string, deployResult *CommandResult, pruneResult *CommandResult) {
-	SetKluctlProjectReadiness(k.GetKluctlStatus(), status, reason, message, k.GetGeneration(), revision)
+type LastCommandResult struct {
+	ReconcileResultBase `json:",inline"`
 
-	k.Status.LastAttemptedReconcile = &ReconcileAttempt{
-		AttemptedAt:  metav1.Now(),
-		Revision:     revision,
-		TargetName:   k.Spec.Target,
-		DeployResult: deployResult,
-		PruneResult:  pruneResult,
+	// +optional
+	Result *CommandResult `json:"result,omitempty"`
+
+	// +optional
+	Error string `json:"error,omitempty"`
+}
+
+type LastValidateResult struct {
+	ReconcileResultBase `json:",inline"`
+
+	// +optional
+	Result *ValidateResult `json:"result,omitempty"`
+	Error  string          `json:"error"`
+}
+
+func SetDeployResult(k *KluctlDeployment, revision string, result *CommandResult, err error) {
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
 	}
-	if status == metav1.ConditionTrue {
-		k.Status.LastSuccessfulReconcile = k.Status.LastAttemptedReconcile
+	k.Status.LastDeployResult = &LastCommandResult{
+		ReconcileResultBase: ReconcileResultBase{
+			AttemptedAt: metav1.Now(),
+			Revision:    revision,
+			TargetName:  k.Spec.Target,
+		},
+		Result: result,
+		Error:  errStr,
+	}
+}
+
+func SetPruneResult(k *KluctlDeployment, revision string, result *CommandResult, err error) {
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	k.Status.LastPruneResult = &LastCommandResult{
+		ReconcileResultBase: ReconcileResultBase{
+			AttemptedAt: metav1.Now(),
+			Revision:    revision,
+			TargetName:  k.Spec.Target,
+		},
+		Result: result,
+		Error:  errStr,
+	}
+}
+
+func SetValidateResult(k *KluctlDeployment, revision string, result *ValidateResult, err error) {
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+	k.Status.LastValidateResult = &LastValidateResult{
+		ReconcileResultBase: ReconcileResultBase{
+			AttemptedAt: metav1.Now(),
+			Revision:    revision,
+			TargetName:  k.Spec.Target,
+		},
+		Result: result,
+		Error:  errStr,
 	}
 }
 

@@ -164,3 +164,21 @@ type ValidateResult struct {
 	Errors   []DeploymentError     `json:"errors,omitempty"`
 	Results  []ValidateResultEntry `json:"results,omitempty"`
 }
+
+func ConvertValidateResult(cmdResult *types.ValidateResult) *ValidateResult {
+	if cmdResult == nil {
+		return nil
+	}
+	var ret ValidateResult
+	ret.Ready = cmdResult.Ready
+	for _, x := range cmdResult.Warnings {
+		ret.Warnings = append(ret.Warnings, DeploymentError{Ref: *ConvertResourceRef(&x.Ref), Error: x.Error})
+	}
+	for _, x := range cmdResult.Errors {
+		ret.Errors = append(ret.Errors, DeploymentError{Ref: *ConvertResourceRef(&x.Ref), Error: x.Error})
+	}
+	for _, x := range cmdResult.Results {
+		ret.Results = append(ret.Results, ValidateResultEntry{Ref: *ConvertResourceRef(&x.Ref), Annotation: x.Annotation, Message: x.Message})
+	}
+	return &ret
+}
