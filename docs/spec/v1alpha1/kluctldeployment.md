@@ -263,40 +263,49 @@ A successful reconciliation sets the ready condition to `true` and updates the r
 
 ```yaml
 status:
+  commonLabels:
+    examples.kluctl.io/deployment-project: microservices-demo
+    examples.kluctl.io/deployment-target: prod
   conditions:
-  - lastTransitionTime: "2022-05-04T10:08:39Z"
-    message: 'Deployed revision: main/b285d08164011fb642072bc9e3c62c898eba96f5'
+  - lastTransitionTime: "2022-07-07T11:48:14Z"
+    message: Deployed revision: master/2129450c9fc867f5a9b25760bb512054d7df6c43
     reason: ReconciliationSucceeded
     status: "True"
     type: Ready
-  - lastTransitionTime: "2022-05-04T10:08:39Z"
-    message: ReconciliationSucceeded
-    reason: ReconciliationSucceeded
-    status: "True"
-    type: Healthy
-  lastAttemptedReconcile:
-    deployResult:
-      newObjects:
-      - id: ms-demo-test__Namespace
-        v: v1
-      ...
-    pruneResult: {}
-    revision: main/b285d08164011fb642072bc9e3c62c898eba96f5
-    targetHash: 0669d6dbc5be975f90a685bebcf83bc6049f6cf48538c78a7b3862621b8015df
-    targetName: test
-    time: "2022-05-04T10:08:39Z"
-  lastForceReconcileHash: acad6b40f8556cf0b7752d0286e1b45d2855e3c4ba38cb4f515e03ac62236cc0
-  lastSuccessfulReconcile:
-    deployResult:
-      newObjects:
-      - id: ms-demo-test__Namespace
-        v: v1
-      ...
-    pruneResult: {}
-    revision: main/b285d08164011fb642072bc9e3c62c898eba96f5
-    targetHash: 0669d6dbc5be975f90a685bebcf83bc6049f6cf48538c78a7b3862621b8015df
-    targetName: test
-    time: "2022-05-04T10:08:39Z"
+  lastDeployResult:
+    objectsHash: bc4d2b9f717088a395655b8d8d28fa66a9a91015f244bdba3c755cd87361f9e2
+    result:
+      hookObjects:
+      - ...
+      orphanObjects:
+      - ...
+      seenImages:
+      - ...
+      warnings:
+      - ...
+    revision: master/2129450c9fc867f5a9b25760bb512054d7df6c43
+    targetName: prod
+    time: "2022-07-07T11:49:29Z"
+  lastPruneResult:
+    objectsHash: bc4d2b9f717088a395655b8d8d28fa66a9a91015f244bdba3c755cd87361f9e2
+    result:
+      deletedObjects:
+      - ...
+    revision: master/2129450c9fc867f5a9b25760bb512054d7df6c43
+    targetName: prod
+    time: "2022-07-07T11:49:48Z"
+  lastValidateResult:
+    error: ""
+    objectsHash: bc4d2b9f717088a395655b8d8d28fa66a9a91015f244bdba3c755cd87361f9e2
+    result:
+      errors:
+      - ...
+      ready: false
+      results:
+      - ...
+    revision: master/2129450c9fc867f5a9b25760bb512054d7df6c43
+    targetName: prod
+    time: "2022-07-07T12:05:53Z"
   observedGeneration: 1
 ```
 
@@ -316,10 +325,12 @@ status:
     reason: PrepareFailed
     status: "False"
     type: Ready
-  lastAttemptedReconcile:
-    revision: main/b285d08164011fb642072bc9e3c62c898eba96f5
-    targetName: invalid-name
-    time: "2022-05-04T10:18:11Z"
-``` 
+  lastDeployResult:
+    ...
+  lastPruneResult:
+    ...
+  lastValidateResult:
+    ...
+```
 
-> **Note** that the lastSuccessfulReconcile is updated only on a successful reconciliation.
+> **Note** that the lastDeployResult, lastPruneResult and lastValidateResult are only updated on a successful reconciliation.
