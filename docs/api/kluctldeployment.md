@@ -59,7 +59,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.ReconcileAttempt">ReconcileAttempt</a>)
+<a href="#flux.kluctl.io/v1alpha1.LastCommandResult">LastCommandResult</a>)
 </p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
@@ -611,30 +611,44 @@ KluctlProjectStatus
 </tr>
 <tr>
 <td>
-<code>lastAttemptedReconcile</code><br>
+<code>lastDeployResult</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ReconcileAttempt">
-ReconcileAttempt
+<a href="#flux.kluctl.io/v1alpha1.LastCommandResult">
+LastCommandResult
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>The last attempted reconcile.</p>
+<p>LastDeployResult is the result of the last deploy command</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>lastSuccessfulReconcile</code><br>
+<code>lastPruneResult</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ReconcileAttempt">
-ReconcileAttempt
+<a href="#flux.kluctl.io/v1alpha1.LastCommandResult">
+LastCommandResult
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>The last successfully reconcile attempt.</p>
+<p>LastDeployResult is the result of the last prune command</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastValidateResult</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.LastValidateResult">
+LastValidateResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>LastValidateResult is the result of the last validate command</p>
 </td>
 </tr>
 <tr>
@@ -930,6 +944,38 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Prune enables pruning after deploying.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployInterval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployInterval specifies the interval at which to deploy the KluctlDeployment.
+This is independent of the &lsquo;Interval&rsquo; value, which only causes deployments if some deployment objects have
+changed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validateInterval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ValidateInterval specifies the interval at which to validate the KluctlDeployment.
+Validation is performed the same way as with &lsquo;kluctl validate -t <target>&rsquo;.
+Defaults to 1m.</p>
 </td>
 </tr>
 </tbody>
@@ -1469,6 +1515,38 @@ bool
 <p>Prune enables pruning after deploying.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>deployInterval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployInterval specifies the interval at which to deploy the KluctlDeployment.
+This is independent of the &lsquo;Interval&rsquo; value, which only causes deployments if some deployment objects have
+changed.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validateInterval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ValidateInterval specifies the interval at which to validate the KluctlDeployment.
+Validation is performed the same way as with &lsquo;kluctl validate -t <target>&rsquo;.
+Defaults to 1m.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -1735,13 +1813,130 @@ the KluctlDeployment.</p>
 </table>
 </div>
 </div>
-<h3 id="flux.kluctl.io/v1alpha1.ReconcileAttempt">ReconcileAttempt
+<h3 id="flux.kluctl.io/v1alpha1.LastCommandResult">LastCommandResult
 </h3>
 <p>
 (<em>Appears on:</em>
 <a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentStatus">KluctlDeploymentStatus</a>)
 </p>
-<p>ReconcileAttempt describes an attempt to reconcile</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ReconcileResultBase</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.ReconcileResultBase">
+ReconcileResultBase
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ReconcileResultBase</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>result</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.CommandResult">
+CommandResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>error</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="flux.kluctl.io/v1alpha1.LastValidateResult">LastValidateResult
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentStatus">KluctlDeploymentStatus</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ReconcileResultBase</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.ReconcileResultBase">
+ReconcileResultBase
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>ReconcileResultBase</code> are embedded into this type.)
+</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>result</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.ValidateResult">
+ValidateResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>error</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="flux.kluctl.io/v1alpha1.ReconcileResultBase">ReconcileResultBase
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.LastCommandResult">LastCommandResult</a>, 
+<a href="#flux.kluctl.io/v1alpha1.LastValidateResult">LastValidateResult</a>)
+</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -1791,30 +1986,14 @@ string
 </tr>
 <tr>
 <td>
-<code>deployResult</code><br>
+<code>objectsHash</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.CommandResult">
-CommandResult
-</a>
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>DeployResult is the command result of the deploy command</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>pruneResult</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.CommandResult">
-CommandResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PruneResult is the command result of the prune command</p>
+<p>ObjectsHash is the hash of all rendered objects</p>
 </td>
 </tr>
 </tbody>
@@ -1913,6 +2092,10 @@ string
 </div>
 <h3 id="flux.kluctl.io/v1alpha1.ValidateResult">ValidateResult
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.LastValidateResult">LastValidateResult</a>)
+</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
