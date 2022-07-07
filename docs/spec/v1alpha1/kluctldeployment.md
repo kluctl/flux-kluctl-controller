@@ -73,6 +73,13 @@ the controller will re-use the credentials from the root project's GitRepository
 The KluctlDeployment `spec.interval` tells the controller at which interval to try reconciliations.
 The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
+At each reconciliation run, the controller will check if any rendered objects have been changes since the last
+deployment and then perform a new deployment if changes are detected. Changes are tracked via a hash consisting of
+all rendered objects.
+
+To enforce periodic full deployments even if nothing has changed, `spec.deployInterval` can be used to specify an
+interval at which forced deployments must be performed by the controller.
+
 The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`.
 
 The controller can be told to reconcile the KluctlDeployment outside of the specified interval

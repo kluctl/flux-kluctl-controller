@@ -67,6 +67,11 @@ spec:
                   - name
                   type: object
                 type: array
+              deployInterval:
+                description: DeployInterval specifies the interval at which to deploy
+                  the KluctlDeployment. This is independent of the 'Interval' value,
+                  which only causes deployments if some deployment objects have changed.
+                type: string
               dryRun:
                 default: false
                 description: DryRun instructs kluctl to run everything in dry-run
@@ -399,6 +404,9 @@ spec:
                 properties:
                   error:
                     type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
                   result:
                     properties:
                       changedObjects:
@@ -624,6 +632,9 @@ spec:
                 properties:
                   error:
                     type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
                   result:
                     properties:
                       changedObjects:
@@ -844,6 +855,9 @@ spec:
                   command
                 properties:
                   error:
+                    type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
                     type: string
                   result:
                     properties:

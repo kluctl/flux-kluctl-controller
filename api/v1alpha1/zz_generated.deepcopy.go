@@ -357,6 +357,11 @@ func (in *KluctlDeploymentTemplateSpec) DeepCopyInto(out *KluctlDeploymentTempla
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.DeployInterval != nil {
+		in, out := &in.DeployInterval, &out.DeployInterval
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	out.ValidateInterval = in.ValidateInterval
 }
 

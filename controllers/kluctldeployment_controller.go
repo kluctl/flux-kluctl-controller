@@ -1,13 +1,20 @@
 package controllers
 
 import (
+	"archive/tar"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	project "github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sort"
 	"time"
 )
 
@@ -54,19 +61,22 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 	nextDeployTime := r.nextDeployTime(obj)
 	nextValidateTime := r.nextValidateTime(obj)
 
-	needDeploy := nextDeployTime.Before(time.Now()) || obj.Status.ObservedGeneration != obj.GetGeneration()
-	needPrune := obj.Spec.Prune && needDeploy
-	needValidate := needDeploy || nextValidateTime.Before(time.Now())
-
-	obj.Status.ObservedGeneration = obj.GetGeneration()
-
 	err = pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		obj.Status.CommonLabels = targetContext.DeploymentProject.GetCommonLabels()
+
+		objectsHash := r.calcObjectsHash(targetContext)
+
+		needDeploy := nextDeployTime != nil && (nextDeployTime.Before(time.Now()) || obj.Status.ObservedGeneration != obj.GetGeneration())
+		if obj.Status.LastDeployResult == nil || obj.Status.LastDeployResult.ObjectsHash != objectsHash {
+			needDeploy = true
+		}
+		needPrune := obj.Spec.Prune && needDeploy
+		needValidate := needDeploy || nextValidateTime.Before(time.Now())
 
 		if needDeploy {
 			// deploy the kluctl project
 			deployResult, err := pt.kluctlDeploy(ctx, targetContext)
-			kluctlv1.SetDeployResult(obj, pp.source.GetArtifact().Revision, deployResult, err)
+			kluctlv1.SetDeployResult(obj, pp.source.GetArtifact().Revision, deployResult, objectsHash, err)
 			if err != nil {
 				kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
 				return err
@@ -76,7 +86,7 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 		if needPrune {
 			// run garbage collection for stale objects that do not have pruning disabled
 			pruneResult, err := pt.kluctlPrune(ctx, targetContext)
-			kluctlv1.SetPruneResult(obj, pp.source.GetArtifact().Revision, pruneResult, err)
+			kluctlv1.SetPruneResult(obj, pp.source.GetArtifact().Revision, pruneResult, objectsHash, err)
 			if err != nil {
 				kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
 				return err
@@ -85,7 +95,7 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 
 		if needValidate {
 			validateResult, err := pt.kluctlValidate(ctx, targetContext)
-			kluctlv1.SetValidateResult(obj, pp.source.GetArtifact().Revision, validateResult, err)
+			kluctlv1.SetValidateResult(obj, pp.source.GetArtifact().Revision, validateResult, objectsHash, err)
 			if err != nil {
 				kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.ValidateFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
 				return err
@@ -98,9 +108,12 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 	nextDeployTime = r.nextDeployTime(obj)
 	nextValidateTime = r.nextValidateTime(obj)
 
-	nextRunTime := nextDeployTime
-	if nextValidateTime.Before(nextRunTime) {
-		nextRunTime = nextValidateTime
+	nextRunTime := time.Now().Add(obj.Spec.Interval.Duration)
+	if nextDeployTime != nil && nextDeployTime.Before(nextRunTime) {
+		nextRunTime = *nextDeployTime
+	}
+	if nextValidateTime != nil && nextValidateTime.Before(nextRunTime) {
+		nextRunTime = *nextValidateTime
 	}
 
 	ctrlResult := ctrl.Result{
@@ -119,33 +132,38 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, fmt.Sprintf("Deployed revision: %s", pp.source.GetArtifact().Revision), obj.GetGeneration(), pp.source.GetArtifact().Revision)
 	}
 
-	return &ctrlResult, nil
+	obj.Status.ObservedGeneration = obj.GetGeneration()
+
+	return &ctrlResult, err
 }
 
-func (r *KluctlDeploymentReconcilerImpl) nextDeployTime(obj *kluctlv1.KluctlDeployment) time.Time {
+func (r *KluctlDeploymentReconcilerImpl) nextDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
 	if obj.Status.LastDeployResult == nil {
-		return time.Now()
+		now := time.Now()
+		return &now
 	}
 
-	nextRun := obj.Status.LastDeployResult.AttemptedAt.Add(obj.Spec.Interval.Duration)
-	nextRetryRun := obj.Status.LastDeployResult.AttemptedAt.Add(obj.GetKluctlTiming().GetRetryInterval())
-	if obj.Status.LastDeployResult != nil && obj.Status.LastDeployResult.Error != "" {
-		nextRun = nextRetryRun
-	}
-	if obj.Status.LastDeployResult != nil && len(obj.Status.LastDeployResult.Result.Errors) != 0 {
-		nextRun = nextRetryRun
+	if obj.Status.LastDeployResult.Error != "" || len(obj.Status.LastDeployResult.Result.Errors) != 0 {
+		nextRetryRun := obj.Status.LastDeployResult.AttemptedAt.Add(obj.GetKluctlTiming().GetRetryInterval())
+		return &nextRetryRun
 	}
 
-	return nextRun
+	if obj.Spec.DeployInterval == nil {
+		return nil
+	}
+
+	nextRun := obj.Status.LastDeployResult.AttemptedAt.Add(obj.Spec.DeployInterval.Duration)
+	return &nextRun
 }
 
-func (r *KluctlDeploymentReconcilerImpl) nextValidateTime(obj *kluctlv1.KluctlDeployment) time.Time {
+func (r *KluctlDeploymentReconcilerImpl) nextValidateTime(obj *kluctlv1.KluctlDeployment) *time.Time {
 	if obj.Status.LastValidateResult == nil {
-		return time.Now()
+		now := time.Now()
+		return &now
 	}
 
 	nextRun := obj.Status.LastValidateResult.AttemptedAt.Add(obj.Spec.ValidateInterval.Duration)
-	return nextRun
+	return &nextRun
 }
 
 func (r *KluctlDeploymentReconcilerImpl) Finalize(ctx context.Context, objIn KluctlProjectHolder) {
@@ -176,4 +194,29 @@ func (r *KluctlDeploymentReconcilerImpl) Finalize(ctx context.Context, objIn Klu
 	}
 
 	_, _ = pt.kluctlDelete(ctx, obj.Status.CommonLabels)
+}
+
+func (r *KluctlDeploymentReconcilerImpl) calcObjectsHash(targetContext *project.TargetContext) string {
+	h := sha256.New()
+	tw := tar.NewWriter(h)
+	var objects []any
+	for _, di := range targetContext.DeploymentCollection.Deployments {
+		for _, o := range di.Objects {
+			objects = append(objects, o)
+		}
+	}
+	sort.Slice(objects, func(i, j int) bool {
+		a := objects[i].(*uo.UnstructuredObject)
+		b := objects[i].(*uo.UnstructuredObject)
+		return a.GetK8sRef().String() < b.GetK8sRef().String()
+	})
+	err := yaml.WriteYamlAllStream(h, objects)
+	if err != nil {
+		panic(err)
+	}
+	err = tw.Flush()
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }

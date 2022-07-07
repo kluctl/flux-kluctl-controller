@@ -137,6 +137,12 @@ type KluctlDeploymentTemplateSpec struct {
 	// +optional
 	Prune bool `json:"prune,omitempty"`
 
+	// DeployInterval specifies the interval at which to deploy the KluctlDeployment.
+	// This is independent of the 'Interval' value, which only causes deployments if some deployment objects have
+	// changed.
+	// +optional
+	DeployInterval *metav1.Duration `json:"deployInterval"`
+
 	// ValidateInterval specifies the interval at which to validate the KluctlDeployment.
 	// Validation is performed the same way as with 'kluctl validate -t <target>'.
 	// Defaults to 1m.
@@ -218,6 +224,10 @@ type ReconcileResultBase struct {
 	// TargetName is the name of the target
 	// +required
 	TargetName string `json:"targetName"`
+
+	// ObjectsHash is the hash of all rendered objects
+	// +optional
+	ObjectsHash string `json:"objectsHash,omitempty"`
 }
 
 type LastCommandResult struct {
@@ -238,7 +248,7 @@ type LastValidateResult struct {
 	Error  string          `json:"error"`
 }
 
-func SetDeployResult(k *KluctlDeployment, revision string, result *CommandResult, err error) {
+func SetDeployResult(k *KluctlDeployment, revision string, result *CommandResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
@@ -248,13 +258,14 @@ func SetDeployResult(k *KluctlDeployment, revision string, result *CommandResult
 			AttemptedAt: metav1.Now(),
 			Revision:    revision,
 			TargetName:  k.Spec.Target,
+			ObjectsHash: objectHash,
 		},
 		Result: result,
 		Error:  errStr,
 	}
 }
 
-func SetPruneResult(k *KluctlDeployment, revision string, result *CommandResult, err error) {
+func SetPruneResult(k *KluctlDeployment, revision string, result *CommandResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
@@ -264,13 +275,14 @@ func SetPruneResult(k *KluctlDeployment, revision string, result *CommandResult,
 			AttemptedAt: metav1.Now(),
 			Revision:    revision,
 			TargetName:  k.Spec.Target,
+			ObjectsHash: objectHash,
 		},
 		Result: result,
 		Error:  errStr,
 	}
 }
 
-func SetValidateResult(k *KluctlDeployment, revision string, result *ValidateResult, err error) {
+func SetValidateResult(k *KluctlDeployment, revision string, result *ValidateResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
@@ -280,6 +292,7 @@ func SetValidateResult(k *KluctlDeployment, revision string, result *ValidateRes
 			AttemptedAt: metav1.Now(),
 			Revision:    revision,
 			TargetName:  k.Spec.Target,
+			ObjectsHash: objectHash,
 		},
 		Result: result,
 		Error:  errStr,
