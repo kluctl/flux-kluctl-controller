@@ -143,6 +143,7 @@ func (pt *preparedTarget) restConfigToKubeconfig(restConfig *rest.Config) *api.C
 	user.Username = restConfig.Username
 	user.Password = restConfig.Password
 	user.AuthProvider = restConfig.AuthProvider
+	user.Exec = restConfig.ExecProvider
 	kubeConfig.AuthInfos["default"] = user
 
 	kctx := api.NewContext()
