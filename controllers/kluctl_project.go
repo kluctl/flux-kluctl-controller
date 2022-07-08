@@ -402,7 +402,8 @@ func (pt *preparedTarget) buildImages(ctx context.Context) (*deployment.Images, 
 	if err != nil {
 		return nil, err
 	}
-	images, err := deployment.NewImages(rh, pt.spec.UpdateImages, false)
+	offline := !pt.spec.UpdateImages
+	images, err := deployment.NewImages(rh, pt.spec.UpdateImages, offline)
 	if err != nil {
 		return nil, err
 	}
