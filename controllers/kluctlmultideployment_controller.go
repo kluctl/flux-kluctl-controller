@@ -98,7 +98,7 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 	}
 
 	for _, x := range toDelete {
-		log.V(1).Info("Deleting KluctlDeployment %s", x.Name)
+		log.Info("Deleting KluctlDeployment %s", x.Name)
 
 		err = r.R.Delete(ctx, x)
 		if err != nil {
@@ -113,6 +113,8 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 
 func (r *KluctlMultiDeploymentReconcilerImpl) reconcileKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlMultiDeployment, target *types2.Target) error {
 	log := ctrl.LoggerFrom(ctx)
+
+	log.Info("Reconciling target %s", "target", target.Name)
 
 	baseName := fmt.Sprintf("%s-%s", obj.Name, target.Name)
 	kd := &kluctlv1.KluctlDeployment{
@@ -139,7 +141,7 @@ func (r *KluctlMultiDeploymentReconcilerImpl) reconcileKluctlDeployment(ctx cont
 	}
 
 	if mres != controllerutil.OperationResultNone {
-		log.V(1).Info("CreateOrUpdate returned %s", mres)
+		log.Info(fmt.Sprintf("CreateOrUpdate returned %v", mres), "target", target.Name)
 	}
 
 	return nil
