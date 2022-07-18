@@ -28,7 +28,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
-	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
+	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -469,7 +469,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 		return err
 	}
 
-	rp := repoprovider.NewLiveRepoProvider(ctx, ga, 0)
+	rp := repocache.NewGitRepoCache(ctx, ga, 0)
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
@@ -599,7 +599,7 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 		return nil, err
 	}
 	cmdResult, err := pt.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
-	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
+	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "prune")
 	return retCmdResult, err
 }
 
