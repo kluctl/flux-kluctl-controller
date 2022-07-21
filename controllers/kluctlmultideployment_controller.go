@@ -114,7 +114,7 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 func (r *KluctlMultiDeploymentReconcilerImpl) reconcileKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlMultiDeployment, target *types2.Target) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	log.Info("Reconciling target %s", "target", target.Name)
+	log.Info("Reconciling target", "target", target.Name)
 
 	baseName := fmt.Sprintf("%s-%s", obj.Name, target.Name)
 	kd := &kluctlv1.KluctlDeployment{
