@@ -591,6 +591,15 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	return retCmdResult, err
 }
 
+func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext) (*kluctlv1.CommandResult, error) {
+	var retCmdResult *kluctlv1.CommandResult
+	cmd := commands.NewPokeImagesCommand(targetContext.DeploymentCollection)
+
+	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
+	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images")
+	return retCmdResult, err
+}
+
 func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext) (*kluctlv1.CommandResult, error) {
 	var retCmdResult *kluctlv1.CommandResult
 	cmd := commands.NewPruneCommand(targetContext.DeploymentCollection)

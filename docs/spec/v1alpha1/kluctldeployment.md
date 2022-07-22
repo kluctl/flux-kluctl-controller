@@ -91,6 +91,29 @@ On-demand execution example:
 kubectl annotate --overwrite kluctldeployment/microservices-demo-prod fluxcd.io/reconcileAt="$(date +%s)"
 ```
 
+## Deploy Mode
+By default, the operator will perform a full deployment, which is equivalent to using the `kluctl deploy` command.
+As an alternative, the controller can be instructed to only perform a `kluctl poke-images` command. Please
+see https://kluctl.io/docs/reference/commands/poke-images/ for details on the command. To do so, set `spec.deployMode`
+field to `poke-images`.
+
+Example:
+```
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: microservices-demo-prod
+spec:
+  interval: 5m
+  path: "./microservices-demo/3-templating-and-multi-env/"
+  sourceRef:
+    kind: GitRepository
+    name: microservices-demo
+  timeout: 2m
+  target: prod
+  deployMode: poke-images
+```
+
 ## Pruning
 
 To enable pruning, set `spec.prune` to `true`. This will cause the controller to run `kluctl prune` after each
@@ -98,7 +121,7 @@ successful deployment.
 
 ## Kluctl Options
 The [kluctl deploy](https://kluctl.io/docs/reference/commands/deploy/) command has multiple arguments that influence
-how the deployment is performed. `KluctlDeployment`'s can set most of these arguements as well:
+how the deployment is performed. `KluctlDeployment`'s can set most of these arguments as well:
 
 ### args
 `spec.args` is a map of strings representing [arguments](https://kluctl.io/docs/reference/deployments/deployment-yml/#args)

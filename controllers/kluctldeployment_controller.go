@@ -75,7 +75,16 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 
 		if needDeploy {
 			// deploy the kluctl project
-			deployResult, err := pt.kluctlDeploy(ctx, targetContext)
+			var deployResult *kluctlv1.CommandResult
+			if obj.Spec.DeployMode == kluctlv1.KluctlDeployModeFull {
+				deployResult, err = pt.kluctlDeploy(ctx, targetContext)
+			} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
+				deployResult, err = pt.kluctlPokeImages(ctx, targetContext)
+			} else {
+				err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
+				kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
+				return err
+			}
 			kluctlv1.SetDeployResult(obj, pp.source.GetArtifact().Revision, deployResult, objectsHash, err)
 			if err != nil {
 				kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)

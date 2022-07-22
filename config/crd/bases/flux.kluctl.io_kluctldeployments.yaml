@@ -72,6 +72,13 @@ spec:
                   the KluctlDeployment. This is independent of the 'Interval' value,
                   which only causes deployments if some deployment objects have changed.
                 type: string
+              deployMode:
+                default: full-deploy
+                description: DeployMode specifies what deploy mode should be used
+                enum:
+                - full-deploy
+                - poke-images
+                type: string
               dryRun:
                 default: false
                 description: DryRun instructs kluctl to run everything in dry-run

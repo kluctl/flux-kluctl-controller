@@ -30,6 +30,9 @@ const (
 	MaxConditionMessageLength = 20000
 	DisabledValue             = "disabled"
 	MergeValue                = "merge"
+
+	KluctlDeployModeFull   = "full-deploy"
+	KluctlDeployPokeImages = "poke-images"
 )
 
 type KluctlDeploymentTemplateSpec struct {
@@ -131,6 +134,12 @@ type KluctlDeploymentTemplateSpec struct {
 	// Equivalent to using '--exclude-deployment-dir' when calling kluctl.
 	// +optional
 	ExcludeDeploymentDirs []string `json:"excludeDeploymentDirs,omitempty"`
+
+	// DeployMode specifies what deploy mode should be used
+	// +kubebuilder:default:=full-deploy
+	// +kubebuilder:validation:Enum=full-deploy;poke-images
+	// +optional
+	DeployMode string `json:"deployMode,omitempty"`
 
 	// Prune enables pruning after deploying.
 	// +kubebuilder:default:=false

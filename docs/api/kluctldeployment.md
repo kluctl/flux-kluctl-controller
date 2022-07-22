@@ -75,8 +75,8 @@ string
 <td>
 <code>newObjects</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ResourceRef">
-[]ResourceRef
+<a href="#flux.kluctl.io/v1alpha1.ObjectRef">
+[]ObjectRef
 </a>
 </em>
 </td>
@@ -87,8 +87,8 @@ string
 <td>
 <code>changedObjects</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ResourceRef">
-[]ResourceRef
+<a href="#flux.kluctl.io/v1alpha1.ObjectRef">
+[]ObjectRef
 </a>
 </em>
 </td>
@@ -99,8 +99,8 @@ string
 <td>
 <code>hookObjects</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ResourceRef">
-[]ResourceRef
+<a href="#flux.kluctl.io/v1alpha1.ObjectRef">
+[]ObjectRef
 </a>
 </em>
 </td>
@@ -111,8 +111,8 @@ string
 <td>
 <code>orphanObjects</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ResourceRef">
-[]ResourceRef
+<a href="#flux.kluctl.io/v1alpha1.ObjectRef">
+[]ObjectRef
 </a>
 </em>
 </td>
@@ -123,8 +123,8 @@ string
 <td>
 <code>deletedObjects</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ResourceRef">
-[]ResourceRef
+<a href="#flux.kluctl.io/v1alpha1.ObjectRef">
+[]ObjectRef
 </a>
 </em>
 </td>
@@ -260,8 +260,8 @@ string
 <td>
 <code>ref</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ResourceRef">
-ResourceRef
+<a href="#flux.kluctl.io/v1alpha1.ObjectRef">
+ObjectRef
 </a>
 </em>
 </td>
@@ -353,8 +353,8 @@ string
 <td>
 <code>object</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ResourceRef">
-ResourceRef
+<a href="#flux.kluctl.io/v1alpha1.ObjectRef">
+ObjectRef
 </a>
 </em>
 </td>
@@ -936,6 +936,18 @@ Equivalent to using &lsquo;&ndash;exclude-deployment-dir&rsquo; when calling klu
 </tr>
 <tr>
 <td>
+<code>deployMode</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployMode specifies what deploy mode should be used</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>prune</code><br>
 <em>
 bool
@@ -1505,6 +1517,18 @@ Equivalent to using &lsquo;&ndash;exclude-deployment-dir&rsquo; when calling klu
 </tr>
 <tr>
 <td>
+<code>deployMode</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployMode specifies what deploy mode should be used</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>prune</code><br>
 <em>
 bool
@@ -1930,6 +1954,80 @@ string
 </table>
 </div>
 </div>
+<h3 id="flux.kluctl.io/v1alpha1.ObjectRef">ObjectRef
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.CommandResult">CommandResult</a>, 
+<a href="#flux.kluctl.io/v1alpha1.DeploymentError">DeploymentError</a>, 
+<a href="#flux.kluctl.io/v1alpha1.FixedImage">FixedImage</a>, 
+<a href="#flux.kluctl.io/v1alpha1.ValidateResultEntry">ValidateResultEntry</a>)
+</p>
+<p>ObjectRef contains the information necessary to locate a resource within a cluster.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>group</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="flux.kluctl.io/v1alpha1.ReconcileResultBase">ReconcileResultBase
 </h3>
 <p>
@@ -2043,53 +2141,6 @@ string
 </table>
 </div>
 </div>
-<h3 id="flux.kluctl.io/v1alpha1.ResourceRef">ResourceRef
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.CommandResult">CommandResult</a>, 
-<a href="#flux.kluctl.io/v1alpha1.DeploymentError">DeploymentError</a>, 
-<a href="#flux.kluctl.io/v1alpha1.FixedImage">FixedImage</a>, 
-<a href="#flux.kluctl.io/v1alpha1.ValidateResultEntry">ValidateResultEntry</a>)
-</p>
-<p>ResourceRef contains the information necessary to locate a resource within a cluster.</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>id</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>ID is the string representation of the Kubernetes resource object&rsquo;s metadata,
-in the format &lsquo;<namespace><em><name></em><group>_<kind>&rsquo;.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>v</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Version is the API version of the Kubernetes resource object&rsquo;s kind.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <h3 id="flux.kluctl.io/v1alpha1.ValidateResult">ValidateResult
 </h3>
 <p>
@@ -2176,8 +2227,8 @@ bool
 <td>
 <code>ref</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.ResourceRef">
-ResourceRef
+<a href="#flux.kluctl.io/v1alpha1.ObjectRef">
+ObjectRef
 </a>
 </em>
 </td>
