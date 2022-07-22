@@ -1214,6 +1214,75 @@ KluctlProjectStatus
 </p>
 </td>
 </tr>
+<tr>
+<td>
+<code>targetCount</code><br>
+<em>
+int
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetCount is the number of targets detected</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targets</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlMultiDeploymentTargetStatus">
+[]KluctlMultiDeploymentTargetStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Targets is the list of detected targets</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="flux.kluctl.io/v1alpha1.KluctlMultiDeploymentTargetStatus">KluctlMultiDeploymentTargetStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlMultiDeploymentStatus">KluctlMultiDeploymentStatus</a>)
+</p>
+<p>KluctlMultiDeploymentTargetStatus describes the status of a single target</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>name</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Name is the name of the detected target</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kluctlDeploymentName</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>KluctlDeploymentName is the name of the generated KluctlDeployment object</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>

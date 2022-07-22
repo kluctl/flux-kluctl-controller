@@ -83,6 +83,8 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 		}
 	}
 
+	var statusTargets []kluctlv1.KluctlMultiDeploymentTargetStatus
+
 	for _, target := range targets {
 		if !pattern.MatchString(target.Name) {
 			continue
@@ -90,12 +92,20 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 
 		delete(toDelete, target.Name)
 
-		err := r.reconcileKluctlDeployment(ctx, obj, target)
+		kdName, err := r.reconcileKluctlDeployment(ctx, obj, target)
 		if err != nil {
 			kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), obj.GetGeneration(), pp.source.GetArtifact().Revision)
 			return nil, err
 		}
+
+		statusTargets = append(statusTargets, kluctlv1.KluctlMultiDeploymentTargetStatus{
+			Name:                 target.Name,
+			KluctlDeploymentName: kdName,
+		})
 	}
+
+	obj.Status.Targets = statusTargets
+	obj.Status.TargetCount = len(statusTargets)
 
 	for _, x := range toDelete {
 		log.Info("Deleting KluctlDeployment %s", x.Name)
@@ -111,7 +121,7 @@ func (r *KluctlMultiDeploymentReconcilerImpl) Reconcile(
 	return nil, nil
 }
 
-func (r *KluctlMultiDeploymentReconcilerImpl) reconcileKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlMultiDeployment, target *types2.Target) error {
+func (r *KluctlMultiDeploymentReconcilerImpl) reconcileKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlMultiDeployment, target *types2.Target) (string, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	log.Info("Reconciling target", "target", target.Name)
@@ -137,14 +147,14 @@ func (r *KluctlMultiDeploymentReconcilerImpl) reconcileKluctlDeployment(ctx cont
 		return nil
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if mres != controllerutil.OperationResultNone {
 		log.Info(fmt.Sprintf("CreateOrUpdate returned %v", mres), "target", target.Name)
 	}
 
-	return nil
+	return kd.Name, nil
 }
 
 func (r *KluctlMultiDeploymentReconcilerImpl) Finalize(ctx context.Context, obj KluctlProjectHolder) {

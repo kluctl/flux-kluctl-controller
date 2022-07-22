@@ -48,6 +48,23 @@ type KluctlMultiDeploymentTemplate struct {
 // KluctlMultiDeploymentStatus defines the observed state of KluctlMultiDeployment
 type KluctlMultiDeploymentStatus struct {
 	KluctlProjectStatus `json:",inline"`
+
+	// TargetCount is the number of targets detected
+	// +optional
+	TargetCount int `json:"targetCount,omitempty"`
+
+	// Targets is the list of detected targets
+	// +optional
+	Targets []KluctlMultiDeploymentTargetStatus `json:"targets,omitempty"`
+}
+
+// KluctlMultiDeploymentTargetStatus describes the status of a single target
+type KluctlMultiDeploymentTargetStatus struct {
+	// Name is the name of the detected target
+	Name string `json:"name"`
+
+	// KluctlDeploymentName is the name of the generated KluctlDeployment object
+	KluctlDeploymentName string `json:"kluctlDeploymentName"`
 }
 
 //+kubebuilder:object:root=true

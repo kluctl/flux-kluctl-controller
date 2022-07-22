@@ -452,6 +452,27 @@ spec:
                 description: ObservedGeneration is the last reconciled generation.
                 format: int64
                 type: integer
+              targetCount:
+                description: TargetCount is the number of targets detected
+                type: integer
+              targets:
+                description: Targets is the list of detected targets
+                items:
+                  description: KluctlMultiDeploymentTargetStatus describes the status
+                    of a single target
+                  properties:
+                    kluctlDeploymentName:
+                      description: KluctlDeploymentName is the name of the generated
+                        KluctlDeployment object
+                      type: string
+                    name:
+                      description: Name is the name of the detected target
+                      type: string
+                  required:
+                  - kluctlDeploymentName
+                  - name
+                  type: object
+                type: array
             type: object
         type: object
     served: true
