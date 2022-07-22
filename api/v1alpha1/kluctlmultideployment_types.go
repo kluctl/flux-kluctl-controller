@@ -69,6 +69,11 @@ type KluctlMultiDeploymentTargetStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Pattern",type="string",JSONPath=".spec.targetPattern",description=""
+//+kubebuilder:printcolumn:name="Targets",type="integer",JSONPath=".status.targetCount",description=""
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
+//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 
 // KluctlMultiDeployment is the Schema for the kluctlmultideployments API
 type KluctlMultiDeployment struct {

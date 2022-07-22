@@ -16,7 +16,23 @@ spec:
     singular: kluctlmultideployment
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.targetPattern
+      name: Pattern
+      type: string
+    - jsonPath: .status.targetCount
+      name: Targets
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: KluctlMultiDeployment is the Schema for the kluctlmultideployments
