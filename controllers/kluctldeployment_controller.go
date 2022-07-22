@@ -66,7 +66,7 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 
 		objectsHash := r.calcObjectsHash(targetContext)
 
-		needDeploy := nextDeployTime != nil && (nextDeployTime.Before(time.Now()) || obj.Status.ObservedGeneration != obj.GetGeneration())
+		needDeploy := (nextDeployTime != nil && nextDeployTime.Before(time.Now())) || obj.Status.ObservedGeneration != obj.GetGeneration()
 		if obj.Status.LastDeployResult == nil || obj.Status.LastDeployResult.ObjectsHash != objectsHash {
 			needDeploy = true
 		}
