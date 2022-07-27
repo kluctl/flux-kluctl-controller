@@ -255,11 +255,13 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// set the reconciliation status to progressing
-	kluctlv1.KluctlProjectProgressing(obj.GetKluctlStatus(), "reconciliation in progress")
-	if err := r.patchProjectStatus(ctx, req, *obj.GetKluctlStatus()); err != nil {
-		return ctrl.Result{Requeue: true}, err
+	if obj.GetKluctlStatus().ObservedGeneration == 0 {
+		kluctlv1.KluctlProjectProgressing(obj.GetKluctlStatus(), "reconciliation in progress")
+		if err := r.patchProjectStatus(ctx, req, *obj.GetKluctlStatus()); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+		r.recordReadiness(ctx, obj)
 	}
-	r.recordReadiness(ctx, obj)
 
 	// record the value of the reconciliation request, if any
 	if v, ok := meta.ReconcileAnnotationValue(obj.GetAnnotations()); ok {
