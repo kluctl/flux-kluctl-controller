@@ -137,8 +137,43 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 	pruneOk := obj.Status.LastPruneResult == nil || (obj.Status.LastPruneResult.Error == "" && len(obj.Status.LastPruneResult.Result.Errors) == 0)
 	validateOk := obj.Status.LastValidateResult != nil && obj.Status.LastValidateResult.Error == "" && len(obj.Status.LastValidateResult.Result.Errors) == 0 && obj.Status.LastValidateResult.Result.Ready
 
+	finalStatus := ""
+
+	if obj.Status.LastDeployResult != nil {
+		finalStatus += "deploy: "
+		if deployOk {
+			finalStatus += "ok"
+		} else {
+			finalStatus += "failed"
+		}
+	}
+	if obj.Status.LastPruneResult != nil {
+		if finalStatus != "" {
+			finalStatus += ", "
+		}
+		finalStatus += "prune: "
+		if pruneOk {
+			finalStatus += "ok"
+		} else {
+			finalStatus += "failed"
+		}
+	}
+	if obj.Status.LastValidateResult != nil {
+		if finalStatus != "" {
+			finalStatus += ", "
+		}
+		finalStatus += "validate: "
+		if validateOk {
+			finalStatus += "ok"
+		} else {
+			finalStatus += "failed"
+		}
+	}
+
 	if deployOk && pruneOk && validateOk {
-		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, fmt.Sprintf("Deployed revision: %s", pp.source.GetArtifact().Revision), obj.GetGeneration(), pp.source.GetArtifact().Revision)
+		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, finalStatus, obj.GetGeneration(), pp.source.GetArtifact().Revision)
+	} else {
+		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.DeployFailedReason, finalStatus, obj.GetGeneration(), pp.source.GetArtifact().Revision)
 	}
 
 	obj.Status.ObservedGeneration = obj.GetGeneration()
