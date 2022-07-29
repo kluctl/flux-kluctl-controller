@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"os"
 	"time"
 
@@ -142,6 +143,7 @@ func main() {
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsH.MetricsRecorder,
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
+		SshPool:               &ssh_pool.SshPool{},
 	}
 
 	kluctlDeploymentReconciler := r

@@ -469,7 +469,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 		return err
 	}
 
-	rp := repocache.NewGitRepoCache(ctx, ga, 0)
+	rp := repocache.NewGitRepoCache(ctx, pp.r.SshPool, ga, 0)
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{

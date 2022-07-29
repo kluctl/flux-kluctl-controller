@@ -22,6 +22,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
+	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"io"
 	"net/http"
@@ -73,6 +74,8 @@ type KluctlProjectReconciler struct {
 	statusManager         string
 	NoCrossNamespaceRefs  bool
 	DefaultServiceAccount string
+
+	SshPool *ssh_pool.SshPool
 
 	Impl KluctlProjectReconcilerImpl
 }
