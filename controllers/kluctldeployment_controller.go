@@ -170,11 +170,21 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 		}
 	}
 
-	if deployOk && pruneOk && validateOk {
-		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, finalStatus, obj.GetGeneration(), pp.source.GetArtifact().Revision)
+	var conditionStatus metav1.ConditionStatus
+	var reason string
+	if deployOk && pruneOk {
+		if validateOk {
+			conditionStatus = metav1.ConditionTrue
+			reason = kluctlv1.ReconciliationSucceededReason
+		} else {
+			conditionStatus = metav1.ConditionFalse
+			reason = kluctlv1.ValidateFailedReason
+		}
 	} else {
-		kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.DeployFailedReason, finalStatus, obj.GetGeneration(), pp.source.GetArtifact().Revision)
+		conditionStatus = metav1.ConditionFalse
+		reason = kluctlv1.DeployFailedReason
 	}
+	kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), conditionStatus, reason, finalStatus, obj.GetGeneration(), pp.source.GetArtifact().Revision)
 
 	obj.Status.ObservedGeneration = obj.GetGeneration()
 
