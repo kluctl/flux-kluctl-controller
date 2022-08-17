@@ -120,7 +120,7 @@ spec:
                 description: TargetPattern is the regex pattern used to match targets
                 type: string
               template:
-                description: Template is the object template used to create KluctlDeploymet
+                description: Template is the object template used to create KluctlDeployment
                   objects
                 properties:
                   spec:

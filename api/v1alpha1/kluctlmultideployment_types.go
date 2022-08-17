@@ -31,7 +31,7 @@ type KluctlMultiDeploymentSpec struct {
 	// +required
 	TargetPattern string `json:"targetPattern"`
 
-	// Template is the object template used to create KluctlDeploymet objects
+	// Template is the object template used to create KluctlDeployment objects
 	// +required
 	Template KluctlMultiDeploymentTemplate `json:"template"`
 }
