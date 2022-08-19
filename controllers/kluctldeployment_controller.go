@@ -10,6 +10,7 @@ import (
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	project "github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,6 +64,7 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 
 	err = pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		obj.Status.CommonLabels = targetContext.DeploymentProject.GetCommonLabels()
+		obj.Status.SetRawTarget(targetContext.Target)
 
 		objectsHash := r.calcObjectsHash(targetContext)
 
@@ -75,7 +77,7 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 
 		if needDeploy {
 			// deploy the kluctl project
-			var deployResult *kluctlv1.CommandResult
+			var deployResult *types.CommandResult
 			if obj.Spec.DeployMode == kluctlv1.KluctlDeployModeFull {
 				deployResult, err = pt.kluctlDeploy(ctx, targetContext)
 			} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
@@ -133,9 +135,13 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 		ctrlResult.Requeue = true
 	}
 
-	deployOk := obj.Status.LastDeployResult != nil && obj.Status.LastDeployResult.Error == "" && len(obj.Status.LastDeployResult.Result.Errors) == 0
-	pruneOk := obj.Status.LastPruneResult == nil || (obj.Status.LastPruneResult.Error == "" && len(obj.Status.LastPruneResult.Result.Errors) == 0)
-	validateOk := obj.Status.LastValidateResult != nil && obj.Status.LastValidateResult.Error == "" && len(obj.Status.LastValidateResult.Result.Errors) == 0 && obj.Status.LastValidateResult.Result.Ready
+	lastDeployResult := obj.Status.LastDeployResult.ParseResult()
+	lastPruneResult := obj.Status.LastPruneResult.ParseResult()
+	lastValidateResult := obj.Status.LastValidateResult.ParseResult()
+
+	deployOk := lastDeployResult != nil && obj.Status.LastDeployResult.Error == "" && len(lastDeployResult.Errors) == 0
+	pruneOk := lastPruneResult == nil || (obj.Status.LastPruneResult.Error == "" && len(lastPruneResult.Errors) == 0)
+	validateOk := lastValidateResult != nil && obj.Status.LastValidateResult.Error == "" && len(lastValidateResult.Errors) == 0 && lastValidateResult.Ready
 
 	finalStatus := ""
 
@@ -192,12 +198,14 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 }
 
 func (r *KluctlDeploymentReconcilerImpl) nextDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
-	if obj.Status.LastDeployResult == nil {
+	lastDeployResult := obj.Status.LastDeployResult.ParseResult()
+
+	if lastDeployResult == nil {
 		now := time.Now()
 		return &now
 	}
 
-	if obj.Status.LastDeployResult.Error != "" || len(obj.Status.LastDeployResult.Result.Errors) != 0 {
+	if obj.Status.LastDeployResult.Error != "" || len(lastDeployResult.Errors) != 0 {
 		nextRetryRun := obj.Status.LastDeployResult.AttemptedAt.Add(obj.GetKluctlTiming().GetRetryInterval())
 		return &nextRetryRun
 	}

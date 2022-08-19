@@ -527,10 +527,12 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 	})
 }
 
-func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *types2.CommandResult, commandName string) (*kluctlv1.CommandResult, error) {
+func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *types2.CommandResult, commandName string) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
+
+	kluctlv1.RemoveObjectsFromCommandResult(cmdResult)
 
 	revision := ""
 	if pt.pp.source != nil {
@@ -539,7 +541,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 
 	if cmdErr != nil {
 		pt.pp.r.event(ctx, pt.pp.obj, revision, events.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
-		return kluctlv1.ConvertCommandResult(cmdResult), cmdErr
+		return cmdErr
 	}
 
 	msg := fmt.Sprintf("%s succeeded.", commandName)
@@ -573,11 +575,10 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	}
 	pt.pp.r.event(ctx, pt.pp.obj, revision, severity, msg, nil)
 
-	return kluctlv1.ConvertCommandResult(cmdResult), err
+	return err
 }
 
-func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext) (*kluctlv1.CommandResult, error) {
-	var retCmdResult *kluctlv1.CommandResult
+func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
 	cmd := commands.NewDeployCommand(targetContext.DeploymentCollection)
 	cmd.ForceApply = pt.spec.ForceApply
 	cmd.ReplaceOnError = pt.spec.ReplaceOnError
@@ -587,48 +588,41 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	cmd.NoWait = pt.spec.NoWait
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K, nil)
-	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
-	return retCmdResult, err
+	err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
+	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext) (*kluctlv1.CommandResult, error) {
-	var retCmdResult *kluctlv1.CommandResult
+func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
 	cmd := commands.NewPokeImagesCommand(targetContext.DeploymentCollection)
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
-	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images")
-	return retCmdResult, err
+	err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images")
+	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext) (*kluctlv1.CommandResult, error) {
-	var retCmdResult *kluctlv1.CommandResult
+func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
 	cmd := commands.NewPruneCommand(targetContext.DeploymentCollection)
 	refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
 	if err != nil {
 		return nil, err
 	}
 	cmdResult, err := pt.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
-	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "prune")
-	return retCmdResult, err
+	err = pt.handleCommandResult(ctx, err, cmdResult, "prune")
+	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext) (*kluctlv1.ValidateResult, error) {
-	var retCmdResult *kluctlv1.ValidateResult
+func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.ValidateResult, error) {
 	cmd := commands.NewValidateCommand(ctx, targetContext.DeploymentCollection)
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
-	if cmdResult != nil {
-		retCmdResult = kluctlv1.ConvertValidateResult(cmdResult)
-	}
-	return retCmdResult, err
+	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[string]string) (*kluctlv1.CommandResult, error) {
+func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[string]string) (*types2.CommandResult, error) {
 	if !pt.spec.Prune {
 		return nil, nil
 	}
 
-	var retCmdResult *kluctlv1.CommandResult
 	cmd := commands.NewDeleteCommand(nil)
 	cmd.OverrideDeleteByLabels = commonLabels
 
@@ -650,8 +644,8 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[str
 		return nil, err
 	}
 	cmdResult, err := pt.doDeleteObjects(ctx, k, refs)
-	retCmdResult, err = pt.handleCommandResult(ctx, err, cmdResult, "delete")
-	return retCmdResult, err
+	err = pt.handleCommandResult(ctx, err, cmdResult, "delete")
+	return cmdResult, err
 }
 
 func (pt *preparedTarget) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluster, refs []k8s.ObjectRef) (*types2.CommandResult, error) {

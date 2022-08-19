@@ -97,87 +97,15 @@ func ConvertFixedImagesToKluctl(fi []FixedImage) []types.FixedImage {
 	return ret
 }
 
-type Change struct {
-	Type        string `json:"type"`
-	JsonPath    string `json:"jsonPath"`
-	UnifiedDiff string `json:"unifiedDiff,omitempty"`
-}
-
-type DeploymentError struct {
-	Ref   ObjectRef `json:"ref"`
-	Error string    `json:"error"`
-}
-
-type CommandResult struct {
-	NewObjects     []ObjectRef       `json:"newObjects,omitempty"`
-	ChangedObjects []ObjectRef       `json:"changedObjects,omitempty"`
-	HookObjects    []ObjectRef       `json:"hookObjects,omitempty"`
-	OrphanObjects  []ObjectRef       `json:"orphanObjects,omitempty"`
-	DeletedObjects []ObjectRef       `json:"deletedObjects,omitempty"`
-	Errors         []DeploymentError `json:"errors,omitempty"`
-	Warnings       []DeploymentError `json:"warnings,omitempty"`
-	SeenImages     []FixedImage      `json:"seenImages,omitempty"`
-}
-
-func ConvertCommandResult(cmdResult *types.CommandResult) *CommandResult {
-	if cmdResult == nil {
-		return nil
+func RemoveObjectsFromCommandResult(r *types.CommandResult) {
+	for _, x := range r.NewObjects {
+		x.Object = nil
 	}
-	var ret CommandResult
-	for _, x := range cmdResult.NewObjects {
-		ret.NewObjects = append(ret.NewObjects, *ConvertObjectRef(&x.Ref))
+	for _, x := range r.ChangedObjects {
+		x.NewObject = nil
+		x.OldObject = nil
 	}
-	for _, x := range cmdResult.ChangedObjects {
-		ret.ChangedObjects = append(ret.ChangedObjects, *ConvertObjectRef(&x.Ref))
+	for _, x := range r.HookObjects {
+		x.Object = nil
 	}
-	for _, x := range cmdResult.HookObjects {
-		ret.HookObjects = append(ret.HookObjects, *ConvertObjectRef(&x.Ref))
-	}
-	for _, x := range cmdResult.OrphanObjects {
-		ret.OrphanObjects = append(ret.OrphanObjects, *ConvertObjectRef(&x))
-	}
-	for _, x := range cmdResult.DeletedObjects {
-		ret.DeletedObjects = append(ret.DeletedObjects, *ConvertObjectRef(&x))
-	}
-	for _, x := range cmdResult.Errors {
-		ret.Errors = append(ret.Errors, DeploymentError{Ref: *ConvertObjectRef(&x.Ref), Error: x.Error})
-	}
-	for _, x := range cmdResult.Warnings {
-		ret.Warnings = append(ret.Warnings, DeploymentError{Ref: *ConvertObjectRef(&x.Ref), Error: x.Error})
-	}
-	for _, x := range cmdResult.SeenImages {
-		ret.SeenImages = append(ret.SeenImages, *ConvertFixedImage(x))
-	}
-	return &ret
-}
-
-type ValidateResultEntry struct {
-	Ref        ObjectRef `json:"ref"`
-	Annotation string    `json:"annotation"`
-	Message    string    `json:"message"`
-}
-
-type ValidateResult struct {
-	Ready    bool                  `json:"ready"`
-	Warnings []DeploymentError     `json:"warnings,omitempty"`
-	Errors   []DeploymentError     `json:"errors,omitempty"`
-	Results  []ValidateResultEntry `json:"results,omitempty"`
-}
-
-func ConvertValidateResult(cmdResult *types.ValidateResult) *ValidateResult {
-	if cmdResult == nil {
-		return nil
-	}
-	var ret ValidateResult
-	ret.Ready = cmdResult.Ready
-	for _, x := range cmdResult.Warnings {
-		ret.Warnings = append(ret.Warnings, DeploymentError{Ref: *ConvertObjectRef(&x.Ref), Error: x.Error})
-	}
-	for _, x := range cmdResult.Errors {
-		ret.Errors = append(ret.Errors, DeploymentError{Ref: *ConvertObjectRef(&x.Ref), Error: x.Error})
-	}
-	for _, x := range cmdResult.Results {
-		ret.Results = append(ret.Results, ValidateResultEntry{Ref: *ConvertObjectRef(&x.Ref), Annotation: x.Annotation, Message: x.Message})
-	}
-	return &ret
 }

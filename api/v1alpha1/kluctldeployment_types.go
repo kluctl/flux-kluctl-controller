@@ -19,8 +19,11 @@ package v1alpha1
 import (
 	"github.com/fluxcd/pkg/apis/meta"
 	meta2 "github.com/fluxcd/pkg/apis/meta"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kluctl/kluctl/v2/pkg/types"
 )
 
 const (
@@ -218,6 +221,9 @@ type KluctlDeploymentStatus struct {
 	// This is used to perform cleanup/deletion in case the KluctlDeployment project is deleted
 	// +optional
 	CommonLabels map[string]string `json:"commonLabels,omitempty"`
+
+	// +optional
+	RawTarget *string `json:"rawTarget,omitempty"`
 }
 
 type ReconcileResultBase struct {
@@ -243,7 +249,7 @@ type LastCommandResult struct {
 	ReconcileResultBase `json:",inline"`
 
 	// +optional
-	Result *CommandResult `json:"result,omitempty"`
+	RawResult *string `json:"rawResult,omitempty"`
 
 	// +optional
 	Error string `json:"error,omitempty"`
@@ -253,15 +259,63 @@ type LastValidateResult struct {
 	ReconcileResultBase `json:",inline"`
 
 	// +optional
-	Result *ValidateResult `json:"result,omitempty"`
-	Error  string          `json:"error"`
+	RawResult *string `json:"rawResult,omitempty"`
+
+	// +optional
+	Error string `json:"error"`
 }
 
-func SetDeployResult(k *KluctlDeployment, revision string, result *CommandResult, objectHash string, err error) {
+func (r *LastCommandResult) ParseResult() *types.CommandResult {
+	if r == nil || r.RawResult == nil {
+		return nil
+	}
+
+	var ret types.CommandResult
+	err := yaml.ReadYamlString(*r.RawResult, &ret)
+	if err != nil {
+		return nil
+	}
+	return &ret
+}
+
+func (r *LastValidateResult) ParseResult() *types.ValidateResult {
+	if r == nil || r.RawResult == nil {
+		return nil
+	}
+
+	var ret types.ValidateResult
+	err := yaml.ReadYamlString(*r.RawResult, &ret)
+	if err != nil {
+		return nil
+	}
+	return &ret
+}
+
+func (d *KluctlDeploymentStatus) SetRawTarget(target *types.Target) {
+	y, err := yaml.WriteYamlString(target)
+	if err == nil {
+		d.RawTarget = &y
+	}
+}
+
+func (d *KluctlDeploymentStatus) ParseRawTarget() *types.Target {
+	if d.RawTarget == nil {
+		return nil
+	}
+	var ret types.Target
+	err := yaml.ReadYamlString(*d.RawTarget, &ret)
+	if err != nil {
+		return nil
+	}
+	return &ret
+}
+
+func SetDeployResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
 	}
+
 	k.Status.LastDeployResult = &LastCommandResult{
 		ReconcileResultBase: ReconcileResultBase{
 			AttemptedAt: metav1.Now(),
@@ -269,16 +323,22 @@ func SetDeployResult(k *KluctlDeployment, revision string, result *CommandResult
 			TargetName:  k.Spec.Target,
 			ObjectsHash: objectHash,
 		},
-		Result: result,
-		Error:  errStr,
+		Error: errStr,
+	}
+	if result != nil {
+		raw, err := yaml.WriteYamlString(result)
+		if err == nil {
+			k.Status.LastDeployResult.RawResult = &raw
+		}
 	}
 }
 
-func SetPruneResult(k *KluctlDeployment, revision string, result *CommandResult, objectHash string, err error) {
+func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
 	}
+
 	k.Status.LastPruneResult = &LastCommandResult{
 		ReconcileResultBase: ReconcileResultBase{
 			AttemptedAt: metav1.Now(),
@@ -286,16 +346,22 @@ func SetPruneResult(k *KluctlDeployment, revision string, result *CommandResult,
 			TargetName:  k.Spec.Target,
 			ObjectsHash: objectHash,
 		},
-		Result: result,
-		Error:  errStr,
+		Error: errStr,
+	}
+	if result != nil {
+		raw, err := yaml.WriteYamlString(result)
+		if err == nil {
+			k.Status.LastPruneResult.RawResult = &raw
+		}
 	}
 }
 
-func SetValidateResult(k *KluctlDeployment, revision string, result *ValidateResult, objectHash string, err error) {
+func SetValidateResult(k *KluctlDeployment, revision string, result *types.ValidateResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
 	}
+
 	k.Status.LastValidateResult = &LastValidateResult{
 		ReconcileResultBase: ReconcileResultBase{
 			AttemptedAt: metav1.Now(),
@@ -303,8 +369,13 @@ func SetValidateResult(k *KluctlDeployment, revision string, result *ValidateRes
 			TargetName:  k.Spec.Target,
 			ObjectsHash: objectHash,
 		},
-		Result: result,
-		Error:  errStr,
+		Error: errStr,
+	}
+	if result != nil {
+		raw, err := yaml.WriteYamlString(result)
+		if err == nil {
+			k.Status.LastValidateResult.RawResult = &raw
+		}
 	}
 }
 
