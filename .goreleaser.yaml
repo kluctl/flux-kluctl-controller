@@ -1,8 +1,5 @@
 project_name: flux-kluctl-controller
 
-before:
-  hooks:
-    - make vendor-gen
 builds:
   - binary: manager
     env:
