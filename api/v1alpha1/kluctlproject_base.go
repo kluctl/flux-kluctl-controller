@@ -23,7 +23,7 @@ type KluctlProjectSpec struct {
 	// The authentication secrets from the source are also used to authenticate
 	// dependent git repositories which are cloned while deploying the kluctl project.
 	// +required
-	SourceRef CrossNamespaceSourceReference `json:"sourceRef"`
+	SourceRef meta.NamespacedObjectKindReference `json:"sourceRef"`
 
 	// This flag tells the controller to suspend subsequent kluctl executions,
 	// it does not apply to already started executions. Defaults to false.

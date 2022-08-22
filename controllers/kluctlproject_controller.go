@@ -190,7 +190,7 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	source, err := r.getSource(ctx, obj)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Source '%s' not found", projectSpec.SourceRef.String())
+			msg := fmt.Sprintf("Source '%s' not found", projectSpec.SourceRef)
 			kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.ArtifactFailedReason, msg, obj.GetGeneration(), "")
 			if err := r.patchProjectStatus(ctx, req, *obj.GetKluctlStatus()); err != nil {
 				return ctrl.Result{Requeue: true}, err
