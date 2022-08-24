@@ -36,6 +36,8 @@ const (
 
 	KluctlDeployModeFull   = "full-deploy"
 	KluctlDeployPokeImages = "poke-images"
+
+	KluctlDeployRequestAnnotation = "deploy.flux.kluctl.io/requestedAt"
 )
 
 type KluctlDeploymentTemplateSpec struct {

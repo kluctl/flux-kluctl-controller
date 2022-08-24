@@ -198,6 +198,38 @@ func (r *KluctlDeploymentReconcilerImpl) Reconcile(
 }
 
 func (r *KluctlDeploymentReconcilerImpl) nextDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
+	t1 := r.nextRequestedDeployTime(obj)
+	t2 := r.nextRetryDeployTime(obj)
+	if t1 != nil && t2 == nil {
+		return t1
+	} else if t1 == nil && t2 != nil {
+		return t2
+	} else if t1 != nil && t2 != nil {
+		if t1.Before(*t2) {
+			return t1
+		} else {
+			return t2
+		}
+	}
+	return nil
+}
+
+func (r *KluctlDeploymentReconcilerImpl) nextRequestedDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
+	v, ok := obj.Annotations[kluctlv1.KluctlDeployRequestAnnotation]
+	if !ok {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		return nil
+	}
+	if obj.Status.LastDeployResult == nil || obj.Status.LastDeployResult.AttemptedAt.Time.Before(t) {
+		return &t
+	}
+	return nil
+}
+
+func (r *KluctlDeploymentReconcilerImpl) nextRetryDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
 	lastDeployResult := obj.Status.LastDeployResult.ParseResult()
 
 	if lastDeployResult == nil {
