@@ -36,7 +36,6 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -82,9 +81,8 @@ type KluctlProjectReconciler struct {
 
 // KluctlProjectReconcilerOptions contains options for the KluctlProjectReconciler.
 type KluctlProjectReconcilerOptions struct {
-	MaxConcurrentReconciles   int
-	HTTPRetry                 int
-	DependencyRequeueInterval time.Duration
+	MaxConcurrentReconciles int
+	HTTPRetry               int
 }
 
 type KluctlProjectReconcilerImpl interface {
@@ -113,7 +111,6 @@ func (r *KluctlProjectReconciler) SetupWithManager(mgr ctrl.Manager, opts Kluctl
 		return fmt.Errorf("failed setting index fields: %w", err)
 	}
 
-	r.requeueDependency = opts.DependencyRequeueInterval
 	r.statusManager = fmt.Sprintf("gotk-%s", r.ControllerName)
 
 	// Configure the retryable http client used for fetching artifacts.
@@ -229,25 +226,6 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{RequeueAfter: timingSpec.GetRetryInterval()}, nil
 	}
 
-	// check dependencies
-	if len(projectSpec.DependsOn) > 0 {
-		if err := r.checkDependencies(source, obj); err != nil {
-			kluctlv1.SetKluctlProjectReadiness(obj.GetKluctlStatus(), metav1.ConditionFalse, kluctlv1.DependencyNotReadyReason, err.Error(), obj.GetGeneration(), source.GetArtifact().Revision)
-			if err := r.patchProjectStatus(ctx, req, *obj.GetKluctlStatus()); err != nil {
-				log.Error(err, "unable to update status for dependency not ready")
-				return ctrl.Result{Requeue: true}, err
-			}
-			// we can't rely on exponential backoff because it will prolong the execution too much,
-			// instead we requeue on a fix interval.
-			msg := fmt.Sprintf("Dependencies do not meet ready condition, retrying in %s", r.requeueDependency.String())
-			log.Info(msg)
-			r.event(ctx, obj, source.GetArtifact().Revision, events.EventSeverityInfo, msg, nil)
-			r.recordReadiness(ctx, obj)
-			return ctrl.Result{RequeueAfter: r.requeueDependency}, nil
-		}
-		log.Info("All dependencies are ready, proceeding with reconciliation")
-	}
-
 	// record reconciliation duration
 	if r.MetricsRecorder != nil {
 		objRef, err := reference.GetReference(r.Scheme, obj)
@@ -306,43 +284,6 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	r.event(ctx, obj, source.GetArtifact().Revision, events.EventSeverityInfo,
 		msg, map[string]string{kluctlv1.GroupVersion.Group + "/commit_status": "update"})
 	return *ctrlResult, nil
-}
-
-func (r *KluctlProjectReconciler) checkDependencies(source sourcev1.Source, obj KluctlProjectHolder) error {
-	projectSpec := obj.GetKluctlProject()
-
-	for _, d := range projectSpec.DependsOn {
-		if d.Namespace == "" {
-			d.Namespace = obj.GetNamespace()
-		}
-		dName := types.NamespacedName{
-			Namespace: d.Namespace,
-			Name:      d.Name,
-		}
-		var k kluctlv1.KluctlDeployment
-		err := r.Get(context.Background(), dName, &k)
-		if err != nil {
-			return fmt.Errorf("unable to get '%s' dependency: %w", dName, err)
-		}
-
-		if len(k.Status.Conditions) == 0 || k.Generation != k.Status.ObservedGeneration {
-			return fmt.Errorf("dependency '%s' is not ready", dName)
-		}
-
-		if !apimeta.IsStatusConditionTrue(k.Status.Conditions, meta.ReadyCondition) {
-			return fmt.Errorf("dependency '%s' is not ready", dName)
-		}
-
-		if k.Spec.SourceRef.Name == projectSpec.SourceRef.Name &&
-			k.Spec.SourceRef.Namespace == projectSpec.SourceRef.Namespace &&
-			k.Spec.SourceRef.Kind == projectSpec.SourceRef.Kind &&
-			k.Status.LastDeployResult != nil &&
-			source.GetArtifact().Revision != k.Status.LastDeployResult.Revision {
-			return fmt.Errorf("dependency '%s' is not updated yet", dName)
-		}
-	}
-
-	return nil
 }
 
 func (r *KluctlProjectReconciler) download(source sourcev1.Source, tmpDir string) error {

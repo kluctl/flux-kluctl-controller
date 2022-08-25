@@ -8,12 +8,6 @@ import (
 )
 
 type KluctlProjectSpec struct {
-	// DependsOn may contain a meta.NamespacedObjectReference slice
-	// with references to resources that must be ready before this
-	// kluctl project can be deployed.
-	// +optional
-	DependsOn []meta.NamespacedObjectReference `json:"dependsOn,omitempty"`
-
 	// Path to the directory containing the .kluctl.yaml file, or the
 	// Defaults to 'None', which translates to the root path of the SourceRef.
 	// +optional
@@ -62,11 +56,6 @@ type KluctlProjectStatus struct {
 	// LastAttemptedRevision is the revision of the last reconciliation attempt.
 	// +optional
 	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
-}
-
-// GetDependsOn returns the list of dependencies across-namespaces.
-func (in KluctlProjectSpec) GetDependsOn() []meta.NamespacedObjectReference {
-	return in.DependsOn
 }
 
 // GetTimeout returns the timeout with default.

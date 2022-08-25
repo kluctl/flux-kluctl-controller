@@ -70,7 +70,6 @@ func main() {
 		eventsAddr            string
 		healthAddr            string
 		concurrent            int
-		requeueDependency     time.Duration
 		clientOptions         client.Options
 		logOptions            logger.Options
 		leaderElectionOptions leaderelection.Options
@@ -84,7 +83,6 @@ func main() {
 	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 	flag.StringVar(&healthAddr, "health-addr", ":9440", "The address the health endpoint binds to.")
 	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kluctl deployments.")
-	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
@@ -156,17 +154,15 @@ func main() {
 	}
 
 	if err = kluctlDeploymentReconciler.SetupWithManager(mgr, controllers.KluctlProjectReconcilerOptions{
-		MaxConcurrentReconciles:   concurrent,
-		DependencyRequeueInterval: requeueDependency,
-		HTTPRetry:                 httpRetry,
+		MaxConcurrentReconciles: concurrent,
+		HTTPRetry:               httpRetry,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlDeploymentKind)
 		os.Exit(1)
 	}
 	if err = kluctlMultiDeploymentReconciler.SetupWithManager(mgr, controllers.KluctlProjectReconcilerOptions{
-		MaxConcurrentReconciles:   concurrent,
-		DependencyRequeueInterval: requeueDependency,
-		HTTPRetry:                 httpRetry,
+		MaxConcurrentReconciles: concurrent,
+		HTTPRetry:               httpRetry,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlMultiDeploymentKind)
 		os.Exit(1)

@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/fluxcd/pkg/apis/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -98,10 +97,6 @@ func (in *KluctlMultiDeployment) SetConditions(conditions []metav1.Condition) {
 // Deprecated: use GetConditions instead.
 func (in *KluctlMultiDeployment) GetStatusConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
-}
-
-func (in *KluctlMultiDeployment) GetDependsOn() []meta.NamespacedObjectReference {
-	return in.Spec.DependsOn
 }
 
 func (in *KluctlMultiDeployment) GetKluctlProject() *KluctlProjectSpec {

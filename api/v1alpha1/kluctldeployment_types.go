@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"github.com/fluxcd/pkg/apis/meta"
-	meta2 "github.com/fluxcd/pkg/apis/meta"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -413,10 +412,6 @@ func (in *KluctlDeployment) SetConditions(conditions []metav1.Condition) {
 // Deprecated: use GetConditions instead.
 func (in *KluctlDeployment) GetStatusConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
-}
-
-func (in *KluctlDeployment) GetDependsOn() []meta2.NamespacedObjectReference {
-	return in.Spec.DependsOn
 }
 
 func (in *KluctlDeployment) GetKluctlProject() *KluctlProjectSpec {

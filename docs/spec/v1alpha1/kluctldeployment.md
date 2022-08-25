@@ -231,12 +231,6 @@ These are equivalent to calling `kluctl deploy -t prod --include-tag <tag1>` and
 inclusion/exclusion logic while deploying. These are equivalent to calling `kluctl deploy -t prod --include-tag <tag1>`
 and `kluctl deploy -t prod --exclude-tag <tag2>`.
 
-## Dependencies
-
-KluctlDeployment's can specify dependencies via `spec.dependsOn`. The functionality is equivalent to
-[kustomization-dependencies](https://fluxcd.io/docs/components/kustomize/kustomization/#kustomization-dependencies)
-but with KluctlDeployments as dependency objects.
-
 ## Kubeconfigs and RBAC
 
 As Kluctl is meant to be a CLI-first tool, it expects a kubeconfig to be present while deployments are

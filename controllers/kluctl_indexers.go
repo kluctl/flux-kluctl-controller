@@ -19,10 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/fluxcd/pkg/runtime/dependency"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 )
 
@@ -47,7 +47,7 @@ func (r *KluctlProjectReconciler) requestsForRevisionChangeOf(indexKey string) f
 		}); err != nil {
 			return nil
 		}
-		var dd []dependency.Dependent
+		var reqs []reconcile.Request
 		for _, d := range list.GetItems() {
 			d := d.(KluctlProjectHolder)
 			// If the revision of the artifact equals to the last attempted revision,
@@ -55,16 +55,12 @@ func (r *KluctlProjectReconciler) requestsForRevisionChangeOf(indexKey string) f
 			if repo.GetArtifact().Revision == d.GetKluctlStatus().LastAttemptedRevision {
 				continue
 			}
-			dd = append(dd, d.DeepCopyObject().(dependency.Dependent))
-		}
-		sorted, err := dependency.Sort(dd)
-		if err != nil {
-			return nil
-		}
-		reqs := make([]reconcile.Request, len(sorted))
-		for i := range sorted {
-			reqs[i].NamespacedName.Name = sorted[i].Name
-			reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+			reqs = append(reqs, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: d.GetNamespace(),
+					Name:      d.GetName(),
+				},
+			})
 		}
 		return reqs
 	}

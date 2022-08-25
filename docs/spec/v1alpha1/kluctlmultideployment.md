@@ -52,7 +52,7 @@ that defines the target pattern and KluctlDeployment template.
 
 Reconciliation of deployments is performed whenever the interval time passes or the source changes. Each matching target will
 result in a single KluctlDeployment object which is based on the specified template. The template spec is
-identical to the KluctlDeployment spec, but without `dependsOn`, `sourceRef`, `path`, `suspend` and `target`. The first
+identical to the KluctlDeployment spec, but without `sourceRef`, `path`, `suspend` and `target`. The first
 4 omitted fields are reused from the KluctlMultiDeployment spec. `target` is set to the target name that matched the
 targetPattern.
 
