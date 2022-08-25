@@ -184,7 +184,7 @@ func (r *KluctlProjectReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// resolve source reference
-	source, err := r.getSource(ctx, obj)
+	source, err := getSource(ctx, r.Client, projectSpec.SourceRef, obj.GetNamespace(), r.NoCrossNamespaceRefs)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("Source '%s' not found", projectSpec.SourceRef)
@@ -349,53 +349,6 @@ func (r *KluctlProjectReconciler) verifyArtifact(artifact *sourcev1.Artifact, bu
 	}
 
 	return nil
-}
-
-func (r *KluctlProjectReconciler) getSource(ctx context.Context, obj KluctlProjectHolder) (sourcev1.Source, error) {
-	projectSpec := obj.GetKluctlProject()
-
-	var source sourcev1.Source
-	sourceNamespace := obj.GetNamespace()
-	if projectSpec.SourceRef.Namespace != "" {
-		sourceNamespace = projectSpec.SourceRef.Namespace
-	}
-	namespacedName := types.NamespacedName{
-		Namespace: sourceNamespace,
-		Name:      projectSpec.SourceRef.Name,
-	}
-
-	if r.NoCrossNamespaceRefs && sourceNamespace != obj.GetNamespace() {
-		return source, acl.AccessDeniedError(
-			fmt.Sprintf("can't access '%s/%s', cross-namespace references have been blocked",
-				projectSpec.SourceRef.Kind, namespacedName))
-	}
-
-	switch projectSpec.SourceRef.Kind {
-	case sourcev1.GitRepositoryKind:
-		var repository sourcev1.GitRepository
-		err := r.Client.Get(ctx, namespacedName, &repository)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return source, err
-			}
-			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
-		}
-		source = &repository
-	case sourcev1.BucketKind:
-		var bucket sourcev1.Bucket
-		err := r.Client.Get(ctx, namespacedName, &bucket)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				return source, err
-			}
-			return source, fmt.Errorf("unable to get source '%s': %w", namespacedName, err)
-		}
-		source = &bucket
-	default:
-		return source, fmt.Errorf("source `%s` kind '%s' not supported",
-			projectSpec.SourceRef.Name, projectSpec.SourceRef.Kind)
-	}
-	return source, nil
 }
 
 func (r *KluctlProjectReconciler) doFinalize(ctx context.Context, obj KluctlProjectHolder) {
