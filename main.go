@@ -133,7 +133,7 @@ func main() {
 	metricsH := helper.MustMakeMetrics(mgr)
 	sshPool := &ssh_pool.SshPool{}
 
-	r := controllers.KluctlProjectReconciler{
+	r := controllers.KluctlDeploymentReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
 		Client:                mgr.GetClient(),
@@ -144,12 +144,7 @@ func main() {
 		SshPool:               sshPool,
 	}
 
-	kluctlDeploymentReconciler := r
-	kluctlDeploymentReconciler.Impl = &controllers.KluctlDeploymentReconcilerImpl{
-		R: &kluctlDeploymentReconciler,
-	}
-
-	if err = kluctlDeploymentReconciler.SetupWithManager(mgr, controllers.KluctlProjectReconcilerOptions{
+	if err = r.SetupWithManager(mgr, controllers.KluctlDeploymentReconcilerOpts{
 		MaxConcurrentReconciles: concurrent,
 		HTTPRetry:               httpRetry,
 	}); err != nil {

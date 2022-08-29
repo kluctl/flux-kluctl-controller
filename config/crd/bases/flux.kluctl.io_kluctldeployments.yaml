@@ -67,25 +67,6 @@ spec:
                 description: Args specifies dynamic target args. Only arguments defined
                   by 'dynamicArgs' of the target are allowed.
                 type: object
-              dependsOn:
-                description: DependsOn may contain a meta.NamespacedObjectReference
-                  slice with references to resources that must be ready before this
-                  kluctl project can be deployed.
-                items:
-                  description: NamespacedObjectReference contains enough information
-                    to locate the referenced Kubernetes resource object in any namespace.
-                  properties:
-                    name:
-                      description: Name of the referent.
-                      type: string
-                    namespace:
-                      description: Namespace of the referent, when not specified it
-                        acts as LocalObjectReference.
-                      type: string
-                  required:
-                  - name
-                  type: object
-                type: array
               deployInterval:
                 description: DeployInterval specifies the interval at which to deploy
                   the KluctlDeployment. This is independent of the 'Interval' value,

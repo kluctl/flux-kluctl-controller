@@ -16,7 +16,6 @@ import (
 	"github.com/fluxcd/pkg/runtime/events"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -28,7 +27,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -39,8 +37,8 @@ import (
 )
 
 type preparedProject struct {
-	r      *KluctlProjectReconciler
-	obj    KluctlProjectHolder
+	r      *KluctlDeploymentReconciler
+	obj    *kluctlv1.KluctlDeployment
 	source sourcev1.Source
 
 	tmpDir     string
@@ -58,8 +56,8 @@ type preparedTarget struct {
 }
 
 func prepareProject(ctx context.Context,
-	r *KluctlProjectReconciler,
-	obj KluctlProjectHolder,
+	r *KluctlDeploymentReconciler,
+	obj *kluctlv1.KluctlDeployment,
 	source sourcev1.Source) (*preparedProject, error) {
 
 	pp := &preparedProject{
@@ -93,7 +91,7 @@ func prepareProject(ctx context.Context,
 		pp.repoDir = filepath.Join(tmpDir, "source")
 
 		// check kluctl project path exists
-		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.GetKluctlProject().Path)
+		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.Spec.Path)
 		if err != nil {
 			return pp, err
 		}
@@ -255,64 +253,6 @@ func (pt *preparedTarget) renameContexts(cfg *api.Config) error {
 	return nil
 }
 
-func (pp *preparedProject) getGitSecret(ctx context.Context) (*corev1.Secret, error) {
-	if gitRepo, ok := pp.source.(*sourcev1.GitRepository); ok {
-		if gitRepo.Spec.SecretRef == nil {
-			return nil, nil
-		}
-		// Attempt to retrieve secret
-		name := types.NamespacedName{
-			Namespace: pp.obj.GetNamespace(),
-			Name:      gitRepo.Spec.SecretRef.Name,
-		}
-		var secret corev1.Secret
-		if err := pp.r.Client.Get(ctx, name, &secret); err != nil {
-			return nil, fmt.Errorf("failed to get secret '%s': %w", name.String(), err)
-		}
-		return &secret, nil
-	}
-	return nil, nil
-}
-
-func (pp *preparedProject) buildGitAuth(ctx context.Context) (*auth.GitAuthProviders, error) {
-	ga := auth.NewDefaultAuthProviders()
-
-	gitSecret, err := pp.getGitSecret(ctx)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
-
-	if gitSecret == nil {
-		return ga, nil
-	}
-
-	e := auth.AuthEntry{
-		Host:     "*",
-		Username: "*",
-	}
-
-	if x, ok := gitSecret.Data["username"]; ok {
-		e.Username = string(x)
-	}
-	if x, ok := gitSecret.Data["password"]; ok {
-		e.Password = string(x)
-	}
-	if x, ok := gitSecret.Data["caFile"]; ok {
-		e.CABundle = x
-	}
-	if x, ok := gitSecret.Data["known_hosts"]; ok {
-		e.KnownHosts = x
-	}
-	if x, ok := gitSecret.Data["identity"]; ok {
-		e.SshKey = x
-	}
-
-	var la auth.ListAuthProvider
-	la.AddEntry(e)
-	ga.RegisterAuthProvider(&la, false)
-	return ga, nil
-}
-
 func (pt *preparedTarget) getRegistrySecrets(ctx context.Context) ([]*corev1.Secret, error) {
 	var ret []*corev1.Secret
 	for _, ref := range pt.spec.RegistrySecrets {
@@ -321,7 +261,7 @@ func (pt *preparedTarget) getRegistrySecrets(ctx context.Context) ([]*corev1.Sec
 			Name:      ref.Name,
 		}
 		var secret corev1.Secret
-		if err := pt.pp.r.Client.Get(ctx, name, &secret); err != nil {
+		if err := pt.pp.r.Get(ctx, name, &secret); err != nil {
 			return nil, fmt.Errorf("failed to get secret '%s': %w", name.String(), err)
 		}
 		ret = append(ret, &secret)
@@ -464,7 +404,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 	}
 	defer j2.Close()
 
-	ga, err := pp.buildGitAuth(ctx)
+	ga, err := pp.r.buildGitAuth(ctx, pp.source, pp.obj.GetNamespace())
 	if err != nil {
 		return err
 	}

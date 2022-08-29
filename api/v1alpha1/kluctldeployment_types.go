@@ -18,11 +18,9 @@ package v1alpha1
 
 import (
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/kluctl/kluctl/v2/pkg/types"
 )
 
 const (
@@ -407,36 +405,6 @@ func (in *KluctlDeployment) SetConditions(conditions []metav1.Condition) {
 	in.Status.Conditions = conditions
 }
 
-// GetStatusConditions returns a pointer to the Status.Conditions slice.
-// Deprecated: use GetConditions instead.
-func (in *KluctlDeployment) GetStatusConditions() *[]metav1.Condition {
-	return &in.Status.Conditions
-}
-
-func (in *KluctlDeployment) GetKluctlProject() *KluctlProjectSpec {
-	return &in.Spec.KluctlProjectSpec
-}
-
-func (in *KluctlDeployment) GetKluctlTiming() *KluctlTimingSpec {
-	return &in.Spec.KluctlTimingSpec
-}
-
-func (in *KluctlDeployment) GetKluctlStatus() *KluctlProjectStatus {
-	return &in.Status.KluctlProjectStatus
-}
-
-func (in *KluctlDeployment) GetFullStatus() any {
-	return &in.Status
-}
-
-func (in *KluctlDeployment) SetFullStatus(s any) {
-	s2, ok := s.(*KluctlDeploymentStatus)
-	if !ok {
-		panic("not a KluctlDeploymentStatus")
-	}
-	in.Status = *s2
-}
-
 //+kubebuilder:object:root=true
 
 // KluctlDeploymentList contains a list of KluctlDeployment
@@ -444,16 +412,6 @@ type KluctlDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []KluctlDeployment `json:"items"`
-}
-
-func (in *KluctlDeploymentList) GetItems() []client.Object {
-	var ret []client.Object
-	for _, x := range in.Items {
-		x := x
-		ret = append(ret, &x)
-	}
-
-	return ret
 }
 
 func init() {

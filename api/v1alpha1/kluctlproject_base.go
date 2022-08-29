@@ -18,11 +18,6 @@ type KluctlProjectSpec struct {
 	// dependent git repositories which are cloned while deploying the kluctl project.
 	// +required
 	SourceRef meta.NamespacedObjectKindReference `json:"sourceRef"`
-
-	// This flag tells the controller to suspend subsequent kluctl executions,
-	// it does not apply to already started executions. Defaults to false.
-	// +optional
-	Suspend bool `json:"suspend,omitempty"`
 }
 
 type KluctlTimingSpec struct {
@@ -40,6 +35,11 @@ type KluctlTimingSpec struct {
 	// Defaults to 'Interval' duration.
 	// +optional
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
+
+	// This flag tells the controller to suspend subsequent kluctl executions,
+	// it does not apply to already started executions. Defaults to false.
+	// +optional
+	Suspend bool `json:"suspend,omitempty"`
 }
 
 // KluctlProjectStatus defines the observed state of KluctlProjectStatus
