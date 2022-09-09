@@ -3,5 +3,4 @@
 # It should be run by config/default
 resources:
 - bases/flux.kluctl.io_kluctldeployments.yaml
-- bases/flux.kluctl.io_kluctlmultideployments.yaml
 #+kubebuilder:scaffold:crdkustomizeresource

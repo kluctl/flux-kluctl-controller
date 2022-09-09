@@ -12,12 +12,4 @@ resources:
   kind: KluctlDeployment
   path: github.com/kluctl/flux-kluctl-controller/api/v1alpha1
   version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: flux.kluctl.io
-  kind: KluctlMultiDeployment
-  path: github.com/kluctl/flux-kluctl-controller/api/v1alpha1
-  version: v1alpha1
 version: "3"

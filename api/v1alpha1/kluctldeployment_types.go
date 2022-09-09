@@ -27,7 +27,6 @@ import (
 
 const (
 	KluctlDeploymentKind      = "KluctlDeployment"
-	KluctlMultiDeploymentKind = "KluctlMultiDeployment"
 	KluctlDeploymentFinalizer = "finalizers.flux.kluctl.io"
 	MaxConditionMessageLength = 20000
 	DisabledValue             = "disabled"
