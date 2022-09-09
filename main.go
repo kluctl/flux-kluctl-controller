@@ -20,7 +20,6 @@ import (
 	"fmt"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"os"
-	"time"
 
 	helper "github.com/fluxcd/pkg/runtime/controller"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -134,6 +133,7 @@ func main() {
 	}
 
 	metricsH := helper.MustMakeMetrics(mgr)
+	sshPool := &ssh_pool.SshPool{}
 
 	r := controllers.KluctlProjectReconciler{
 		ControllerName:        controllerName,
@@ -143,7 +143,7 @@ func main() {
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsH.MetricsRecorder,
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
-		SshPool:               &ssh_pool.SshPool{},
+		SshPool:               sshPool,
 	}
 
 	kluctlDeploymentReconciler := r

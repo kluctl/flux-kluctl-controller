@@ -59,7 +59,7 @@ import (
 
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 
-	_ "github.com/kluctl/kluctl/v2/pkg/jinja2"
+	_ "github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 )
 
 // KluctlProjectReconciler reconciles a KluctlDeployment object

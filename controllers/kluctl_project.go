@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,7 +30,6 @@ import (
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
@@ -458,7 +458,7 @@ func (pt *preparedTarget) clientConfigGetter(ctx context.Context) func(context *
 }
 
 func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTarget, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
-	j2, err := jinja2.NewJinja2()
+	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
 	if err != nil {
 		return err
 	}
