@@ -38,7 +38,7 @@ that describes a pipeline such as:
 - **compare** the current deployment with the last deployed one and bail out if nothing changed
 - **deploy** the specified target via [kluctl deploy](https://kluctl.io/docs/reference/commands/deploy/)
 - **prune** orphaned objects via [kluctl prune](https://kluctl.io/docs/reference/commands/prune/)
-- **validate** the deployment status via [kluctl validate](https://kluctl.io/docs/reference/commands/prune/)
+- **validate** the deployment status via [kluctl validate](https://kluctl.io/docs/reference/commands/validate/)
 - **alert** if something went wrong
 - **notify** if the cluster state changed 
 
