@@ -558,7 +558,7 @@ func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *klu
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlDelete(ctx context.Context, dryRun bool, commonLabels map[string]string) (*types2.CommandResult, error) {
+func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[string]string) (*types2.CommandResult, error) {
 	if !pt.spec.Prune {
 		return nil, nil
 	}
@@ -574,7 +574,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, dryRun bool, commonL
 	if err != nil {
 		return nil, err
 	}
-	k, err := k8s2.NewK8sCluster(ctx, clientFactory, dryRun)
+	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.spec.DryRun)
 	if err != nil {
 		return nil, err
 	}

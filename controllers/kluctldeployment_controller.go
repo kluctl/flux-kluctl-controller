@@ -486,7 +486,7 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 		return
 	}
 
-	_, _ = pt.kluctlDelete(ctx, obj.Spec.DryRun, obj.Status.CommonLabels)
+	_, _ = pt.kluctlDelete(ctx, obj.Status.CommonLabels)
 }
 
 func (r *KluctlDeploymentReconciler) calcObjectsHash(targetContext *project.TargetContext) string {
