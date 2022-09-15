@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	"github.com/fluxcd/pkg/apis/meta"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
@@ -82,41 +81,4 @@ func (in KluctlTimingSpec) GetRetryInterval() time.Duration {
 // reconciled again.
 func (in KluctlTimingSpec) GetRequeueAfter() time.Duration {
 	return in.Interval.Duration
-}
-
-// KluctlProjectProgressing resets the conditions of the given KluctlProjectStatus to a single
-// ReadyCondition with status ConditionUnknown.
-func KluctlProjectProgressing(k *KluctlProjectStatus, message string) {
-	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  metav1.ConditionUnknown,
-		Reason:  meta.ProgressingReason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(&k.Conditions, newCondition)
-}
-
-// SetKluctlProjectHealthiness sets the HealthyCondition status for a KluctlProjectStatus.
-func SetKluctlProjectHealthiness(k *KluctlProjectStatus, status metav1.ConditionStatus, reason, message string) {
-	newCondition := metav1.Condition{
-		Type:    HealthyCondition,
-		Status:  status,
-		Reason:  reason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(&k.Conditions, newCondition)
-}
-
-// SetKluctlProjectReadiness sets the ReadyCondition, ObservedGeneration, and LastAttemptedReconcile, on the KluctlProjectStatus.
-func SetKluctlProjectReadiness(k *KluctlProjectStatus, status metav1.ConditionStatus, reason, message string, generation int64, revision string) {
-	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  status,
-		Reason:  reason,
-		Message: trimString(message, MaxConditionMessageLength),
-	}
-	apimeta.SetStatusCondition(&k.Conditions, newCondition)
-
-	k.ObservedGeneration = generation
-	k.LastAttemptedRevision = revision
 }
