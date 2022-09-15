@@ -45,6 +45,9 @@ type KluctlTimingSpec struct {
 type KluctlProjectStatus struct {
 	meta.ReconcileRequestStatus `json:",inline"`
 
+	// +optional
+	LastHandledDeployAt string `json:"lastHandledDeployAt,omitempty"`
+
 	// ObservedGeneration is the last reconciled generation.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

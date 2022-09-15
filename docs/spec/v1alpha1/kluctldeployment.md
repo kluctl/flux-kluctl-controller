@@ -83,12 +83,12 @@ interval at which forced deployments must be performed by the controller.
 The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`.
 
 The controller can be told to reconcile the KluctlDeployment outside of the specified interval
-by annotating the KluctlDeployment object with `fluxcd.io/reconcileAt`.
+by annotating the KluctlDeployment object with `reconcile.fluxcd.io/requestedAt`.
 
 On-demand execution example:
 
 ```bash
-kubectl annotate --overwrite kluctldeployment/microservices-demo-prod fluxcd.io/reconcileAt="$(date +%s)"
+kubectl annotate --overwrite kluctldeployment/microservices-demo-prod reconcile.fluxcd.io/requestedAt="$(date +%s)"
 ```
 
 ## Deploy Mode

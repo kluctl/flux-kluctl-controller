@@ -41,7 +41,7 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(mgr ctrl.Manager, opts Klu
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kluctlv1.KluctlDeployment{}, builder.WithPredicates(
-			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}),
+			predicate.Or(predicate.GenerationChangedPredicate{}, predicates.ReconcileRequestedPredicate{}, DeployRequestedPredicate{}),
 		)).
 		Watches(
 			&source.Kind{Type: &sourcev1.GitRepository{}},

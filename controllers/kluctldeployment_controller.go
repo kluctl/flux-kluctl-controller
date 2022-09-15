@@ -293,6 +293,9 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return nil
 	})
 	obj.Status.ObservedGeneration = obj.GetGeneration()
+	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlDeployRequestAnnotation]; ok {
+		obj.Status.LastHandledDeployAt = v
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -404,11 +407,8 @@ func (r *KluctlDeploymentReconciler) nextRequestedDeployTime(obj *kluctlv1.Kluct
 	if !ok {
 		return nil
 	}
-	t, err := time.Parse(time.RFC3339, v)
-	if err != nil {
-		return nil
-	}
-	if obj.Status.LastDeployResult == nil || obj.Status.LastDeployResult.AttemptedAt.Time.Before(t) {
+	if v != obj.Status.LastHandledDeployAt {
+		t := time.Now()
 		return &t
 	}
 	return nil
