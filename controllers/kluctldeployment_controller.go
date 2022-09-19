@@ -444,7 +444,16 @@ func (r *KluctlDeploymentReconciler) calcTimeout(obj *kluctlv1.KluctlDeployment)
 }
 
 func (r *KluctlDeploymentReconciler) nextReconcileTime(obj *kluctlv1.KluctlDeployment) time.Time {
-	return time.Now().Add(obj.Spec.Interval.Duration)
+	t1 := time.Now().Add(obj.Spec.Interval.Duration)
+	t2 := r.nextDeployTime(obj)
+	t3 := r.nextValidateTime(obj)
+	if t2.Before(t1) {
+		t1 = t2
+	}
+	if t3.Before(t1) {
+		t1 = t3
+	}
+	return t1
 }
 
 func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployment) time.Time {
