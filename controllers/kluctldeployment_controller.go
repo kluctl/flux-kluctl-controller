@@ -76,7 +76,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, obj.Spec.GetTimeout())
+	ctx, cancel = context.WithTimeout(ctx, r.calcTimeout(obj))
 	defer cancel()
 
 	retryInterval := obj.Spec.GetRetryInterval()
@@ -429,6 +429,18 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeploy
 		return
 	}
 	return
+}
+
+func (r *KluctlDeploymentReconciler) calcTimeout(obj *kluctlv1.KluctlDeployment) time.Duration {
+	var d time.Duration
+	if obj.Spec.Timeout != nil {
+		d = obj.Spec.Timeout.Duration
+	} else if obj.Spec.DeployInterval != nil {
+		d = obj.Spec.DeployInterval.Duration
+	} else {
+		d = obj.Spec.Interval.Duration
+	}
+	return d
 }
 
 func (r *KluctlDeploymentReconciler) nextReconcileTime(obj *kluctlv1.KluctlDeployment) time.Time {

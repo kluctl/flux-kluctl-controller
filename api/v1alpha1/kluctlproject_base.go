@@ -82,18 +82,6 @@ type KluctlProjectStatus struct {
 	LastAttemptedRevision string `json:"lastAttemptedRevision,omitempty"`
 }
 
-// GetTimeout returns the timeout with default.
-func (in KluctlTimingSpec) GetTimeout() time.Duration {
-	duration := in.Interval.Duration - 30*time.Second
-	if in.Timeout != nil {
-		duration = in.Timeout.Duration
-	}
-	if duration < 30*time.Second {
-		return 30 * time.Second
-	}
-	return duration
-}
-
 // GetRetryInterval returns the retry interval
 func (in KluctlTimingSpec) GetRetryInterval() time.Duration {
 	if in.RetryInterval != nil {
