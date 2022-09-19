@@ -223,6 +223,12 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	obj *kluctlv1.KluctlDeployment,
 	source sourcev1.Source) (*ctrl.Result, error) {
 
+	mustDownscale, err := r.calcDownTime(obj)
+	if err != nil {
+		return nil, err
+	}
+	isDownscaled := obj.Status.DownscaledAt != nil
+
 	pp, err := prepareProject(ctx, r, obj, source)
 	if err != nil {
 		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.source.GetArtifact().Revision)
@@ -242,15 +248,23 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 		objectsHash := r.calcObjectsHash(targetContext)
 
-		nextDeployTime := r.nextDeployTime(obj)
-		nextValidateTime := r.nextValidateTime(obj)
+		needDeploy := false
+		needPrune := false
+		needDownscale := false
+		needValidate := false
+		if mustDownscale {
+			needDownscale = !isDownscaled
+		} else {
+			nextDeployTime := r.nextDeployTime(obj)
+			nextValidateTime := r.nextValidateTime(obj)
+			needDeploy = (nextDeployTime != nil && nextDeployTime.Before(time.Now())) || obj.Status.ObservedGeneration != obj.GetGeneration()
+			if obj.Status.LastDeployResult == nil || obj.Status.LastDeployResult.ObjectsHash != objectsHash {
+				needDeploy = true
+			}
 
-		needDeploy := (nextDeployTime != nil && nextDeployTime.Before(time.Now())) || obj.Status.ObservedGeneration != obj.GetGeneration()
-		if obj.Status.LastDeployResult == nil || obj.Status.LastDeployResult.ObjectsHash != objectsHash {
-			needDeploy = true
+			needPrune = obj.Spec.Prune && needDeploy
+			needValidate = !mustDownscale && (needDeploy || nextValidateTime.Before(time.Now()))
 		}
-		needPrune := obj.Spec.Prune && needDeploy
-		needValidate := needDeploy || nextValidateTime.Before(time.Now())
 
 		if needDeploy {
 			// deploy the kluctl project
@@ -269,6 +283,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.source.GetArtifact().Revision)
 				return err
 			}
+			obj.Status.DownscaledAt = nil
 		}
 
 		if needPrune {
@@ -279,6 +294,17 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), pp.source.GetArtifact().Revision)
 				return err
 			}
+		}
+
+		if needDownscale {
+			downscaleResult, err := pt.kluctlDownscale(ctx, targetContext)
+			kluctlv1.SetDownscaleResult(obj, pp.source.GetArtifact().Revision, downscaleResult, objectsHash, err)
+			if err != nil {
+				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DownscaleFailedReason, err.Error(), pp.source.GetArtifact().Revision)
+				return err
+			}
+			t := metav1.Now()
+			obj.Status.DownscaledAt = &t
 		}
 
 		if needValidate {
@@ -314,6 +340,40 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		ctrlResult.Requeue = true
 	}
 	return &ctrlResult, nil
+}
+
+func (r *KluctlDeploymentReconciler) calcDownTime(obj *kluctlv1.KluctlDeployment) (bool, error) {
+	var isUpTime bool
+	if obj.Spec.Downscale != nil {
+		isUpTime = false
+		if obj.Spec.Downscale.Enabled && len(obj.Spec.Downscale.UpTime) == 0 && len(obj.Spec.Downscale.DownTime) == 0 {
+			return false, fmt.Errorf("either upTime or downTime must be specified when downscaling is enabled")
+		}
+		for _, s := range obj.Spec.Downscale.UpTime {
+			x, err := MatchesTimeSpec(time.Now(), s)
+			if err != nil {
+				return false, err
+			}
+			if x {
+				isUpTime = true
+			}
+		}
+		if len(obj.Spec.Downscale.UpTime) == 0 {
+			isUpTime = true
+		}
+		for _, s := range obj.Spec.Downscale.DownTime {
+			x, err := MatchesTimeSpec(time.Now(), s)
+			if err != nil {
+				return false, err
+			}
+			if x {
+				isUpTime = false
+			}
+		}
+	} else {
+		isUpTime = true
+	}
+	return !isUpTime, nil
 }
 
 func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeployment) (finalStatus string, reason string) {

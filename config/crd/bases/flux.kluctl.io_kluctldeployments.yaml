@@ -79,6 +79,30 @@ spec:
                 - full-deploy
                 - poke-images
                 type: string
+              downscale:
+                description: Downscale configures automatic downscaling of deployments.
+                  Look into the "kluctl downscale" command for details on what downscaling
+                  means.
+                properties:
+                  downTime:
+                    description: DownTime specifies the time period in which the deployment
+                      must be down
+                    items:
+                      type: string
+                    type: array
+                  enabled:
+                    description: Enabled specifies whether automatic downscaling is
+                      enabled or not
+                    type: boolean
+                  upTime:
+                    description: UpTime specifies the time period in which the deployment
+                      must be up
+                    items:
+                      type: string
+                    type: array
+                required:
+                - enabled
+                type: object
               dryRun:
                 default: false
                 description: DryRun instructs kluctl to run everything in dry-run
@@ -319,7 +343,7 @@ spec:
                 default: 5m
                 description: ValidateInterval specifies the interval at which to validate
                   the KluctlDeployment. Validation is performed the same way as with
-                  'kluctl validate -t <target>'. Defaults to 1m.
+                  'kluctl validate -t <target>'. Defaults to 5m.
                 type: string
             required:
             - interval
@@ -406,12 +430,42 @@ spec:
                   - type
                   type: object
                 type: array
+              downscaledAt:
+                format: date-time
+                type: string
               lastAttemptedRevision:
                 description: LastAttemptedRevision is the revision of the last reconciliation
                   attempt.
                 type: string
               lastDeployResult:
                 description: LastDeployResult is the result of the last deploy command
+                properties:
+                  error:
+                    type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
+                  rawResult:
+                    type: string
+                  revision:
+                    description: Revision is the source revision. Please note that
+                      kluctl projects have dependent git repositories which are not
+                      considered in the source revision
+                    type: string
+                  targetName:
+                    description: TargetName is the name of the target
+                    type: string
+                  time:
+                    description: AttemptedAt is the time when the attempt was performed
+                    format: date-time
+                    type: string
+                required:
+                - targetName
+                - time
+                type: object
+              lastDownscaleResult:
+                description: LastDownscaleResult is the result of the last downscale
+                  command
                 properties:
                   error:
                     type: string

@@ -551,6 +551,14 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	return cmdResult, err
 }
 
+func (pt *preparedTarget) kluctlDownscale(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
+	cmd := commands.NewDownscaleCommand(targetContext.DeploymentCollection)
+
+	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
+	err = pt.handleCommandResult(ctx, err, cmdResult, "downscale")
+	return cmdResult, err
+}
+
 func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.ValidateResult, error) {
 	cmd := commands.NewValidateCommand(ctx, targetContext.DeploymentCollection)
 

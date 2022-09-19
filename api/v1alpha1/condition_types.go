@@ -31,6 +31,10 @@ const (
 	// pruning of the KluctlDeployment failed.
 	PruneFailedReason string = "PruneFailed"
 
+	// DownscaleFailedReason represents the fact that the
+	// downscale of the KluctlDeployment failed.
+	DownscaleFailedReason string = "DownscaleFailed"
+
 	// ValidateFailedReason represents the fact that the
 	// validate of the KluctlDeployment failed.
 	ValidateFailedReason string = "ValidateFailed"
