@@ -30,6 +30,19 @@ type KluctlTimingSpec struct {
 	// +optional
 	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
 
+	// DeployInterval specifies the interval at which to deploy the KluctlDeployment.
+	// This is independent of the 'Interval' value, which only causes deployments if some deployment objects have
+	// changed.
+	// +optional
+	DeployInterval *metav1.Duration `json:"deployInterval"`
+
+	// ValidateInterval specifies the interval at which to validate the KluctlDeployment.
+	// Validation is performed the same way as with 'kluctl validate -t <target>'.
+	// Defaults to 5m.
+	// +kubebuilder:default:="5m"
+	// +optional
+	ValidateInterval metav1.Duration `json:"validateInterval"`
+
 	// Timeout for all operations.
 	// Defaults to 'Interval' duration.
 	// +optional

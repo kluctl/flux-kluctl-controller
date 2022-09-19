@@ -151,19 +151,6 @@ type KluctlDeploymentTemplateSpec struct {
 	// Look into the "kluctl downscale" command for details on what downscaling means.
 	// +optional
 	Downscale *DownscaleSpec `json:"downscale,omitempty"`
-
-	// DeployInterval specifies the interval at which to deploy the KluctlDeployment.
-	// This is independent of the 'Interval' value, which only causes deployments if some deployment objects have
-	// changed.
-	// +optional
-	DeployInterval *metav1.Duration `json:"deployInterval"`
-
-	// ValidateInterval specifies the interval at which to validate the KluctlDeployment.
-	// Validation is performed the same way as with 'kluctl validate -t <target>'.
-	// Defaults to 5m.
-	// +kubebuilder:default:="5m"
-	// +optional
-	ValidateInterval metav1.Duration `json:"validateInterval"`
 }
 
 type DownscaleSpec struct {
