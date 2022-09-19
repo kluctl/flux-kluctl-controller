@@ -363,7 +363,11 @@ func (in *KluctlTimingSpec) DeepCopyInto(out *KluctlTimingSpec) {
 		*out = new(v1.Duration)
 		**out = **in
 	}
-	out.ValidateInterval = in.ValidateInterval
+	if in.ValidateInterval != nil {
+		in, out := &in.ValidateInterval, &out.ValidateInterval
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	if in.Timeout != nil {
 		in, out := &in.Timeout, &out.Timeout
 		*out = new(v1.Duration)

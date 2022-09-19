@@ -21,27 +21,36 @@ type KluctlProjectSpec struct {
 
 type KluctlTimingSpec struct {
 	// The interval at which to reconcile the KluctlDeployment.
+	// By default, the controller will re-deploy and validate the deployment on each reconciliation.
+	// To override this behavior, change the DeployInterval and/or ValidateInterval values.
 	// +required
 	Interval metav1.Duration `json:"interval"`
 
 	// The interval at which to retry a previously failed reconciliation.
-	// When not specified, the controller uses the KluctlDeploymentSpec.Interval
+	// When not specified, the controller uses the Interval
 	// value to retry failures.
 	// +optional
 	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
 
 	// DeployInterval specifies the interval at which to deploy the KluctlDeployment.
-	// This is independent of the 'Interval' value, which only causes deployments if some deployment objects have
-	// changed.
+	// It defaults to the Interval value, meaning that it will re-deploy on every reconciliation.
+	// If you set DeployInterval to a different value,
 	// +optional
 	DeployInterval *metav1.Duration `json:"deployInterval"`
 
+	// DeployOnChanges will cause a re-deployment whenever the rendered resources change in the deployment.
+	// This check is performed on every reconciliation. This means that a deployment will be triggered even before
+	// the DeployInterval has passed in case something has changed in the rendered resources.
+	// +optional
+	// +kubebuilder:default:=true
+	DeployOnChanges bool `json:"deployOnChanges"`
+
 	// ValidateInterval specifies the interval at which to validate the KluctlDeployment.
 	// Validation is performed the same way as with 'kluctl validate -t <target>'.
-	// Defaults to 5m.
-	// +kubebuilder:default:="5m"
+	// Defaults to the same value as specified in Interval.
+	// Validate is also performed whenever a deployment is performed, independent of the value of ValidateInterval
 	// +optional
-	ValidateInterval metav1.Duration `json:"validateInterval"`
+	ValidateInterval *metav1.Duration `json:"validateInterval"`
 
 	// Timeout for all operations.
 	// Defaults to 'Interval' duration.
@@ -90,11 +99,5 @@ func (in KluctlTimingSpec) GetRetryInterval() time.Duration {
 	if in.RetryInterval != nil {
 		return in.RetryInterval.Duration
 	}
-	return in.GetRequeueAfter()
-}
-
-// GetRequeueAfter returns the duration after which the KluctlDeployment must be
-// reconciled again.
-func (in KluctlTimingSpec) GetRequeueAfter() time.Duration {
 	return in.Interval.Duration
 }

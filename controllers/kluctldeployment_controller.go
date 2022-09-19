@@ -257,13 +257,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		} else {
 			nextDeployTime := r.nextDeployTime(obj)
 			nextValidateTime := r.nextValidateTime(obj)
-			needDeploy = (nextDeployTime != nil && nextDeployTime.Before(time.Now())) || obj.Status.ObservedGeneration != obj.GetGeneration()
-			if obj.Status.LastDeployResult == nil || obj.Status.LastDeployResult.ObjectsHash != objectsHash {
+			needDeploy = nextDeployTime.Before(time.Now()) || obj.Status.ObservedGeneration != obj.GetGeneration()
+			if obj.Status.LastDeployResult == nil || (obj.Spec.DeployOnChanges && obj.Status.LastDeployResult.ObjectsHash != objectsHash) {
 				needDeploy = true
 			}
 
 			needPrune = obj.Spec.Prune && needDeploy
-			needValidate = !mustDownscale && (needDeploy || nextValidateTime.Before(time.Now()))
+			needValidate = needDeploy || nextValidateTime.Before(time.Now())
 		}
 
 		if needDeploy {
@@ -326,19 +326,20 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return nil, err
 	}
 
-	finalStatus, reason := r.buildFinalStatus(obj)
-	if reason != kluctlv1.ReconciliationSucceededReason {
-		setReadinessWithRevision(obj, metav1.ConditionFalse, reason, finalStatus, pp.source.GetArtifact().Revision)
-		return nil, fmt.Errorf(finalStatus)
-	}
-	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.source.GetArtifact().Revision)
-
 	var ctrlResult ctrl.Result
 	ctrlResult.RequeueAfter = r.nextReconcileTime(obj).Sub(time.Now())
 	if ctrlResult.RequeueAfter < 0 {
 		ctrlResult.RequeueAfter = 0
 		ctrlResult.Requeue = true
 	}
+
+	finalStatus, reason := r.buildFinalStatus(obj)
+	if reason != kluctlv1.ReconciliationSucceededReason {
+		setReadinessWithRevision(obj, metav1.ConditionFalse, reason, finalStatus, pp.source.GetArtifact().Revision)
+		return &ctrlResult, fmt.Errorf(finalStatus)
+	}
+	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.source.GetArtifact().Revision)
+
 	return &ctrlResult, nil
 }
 
@@ -431,78 +432,41 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeploy
 }
 
 func (r *KluctlDeploymentReconciler) nextReconcileTime(obj *kluctlv1.KluctlDeployment) time.Time {
-	nextDeployTime := r.nextDeployTime(obj)
-	nextValidateTime := r.nextValidateTime(obj)
-
-	nextRunTime := time.Now().Add(obj.Spec.Interval.Duration)
-	if nextDeployTime != nil && nextDeployTime.Before(nextRunTime) {
-		nextRunTime = *nextDeployTime
-	}
-	if nextValidateTime != nil && nextValidateTime.Before(nextRunTime) {
-		nextRunTime = *nextValidateTime
-	}
-
-	return nextRunTime
+	return time.Now().Add(obj.Spec.Interval.Duration)
 }
 
-func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
-	t1 := r.nextRequestedDeployTime(obj)
-	t2 := r.nextRetryDeployTime(obj)
-	if t1 != nil && t2 == nil {
-		return t1
-	} else if t1 == nil && t2 != nil {
-		return t2
-	} else if t1 != nil && t2 != nil {
-		if t1.Before(*t2) {
-			return t1
-		} else {
-			return t2
-		}
+func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployment) time.Time {
+	if r.checkRequestedDeployTime(obj) {
+		return time.Now()
 	}
-	return nil
+	d := obj.Spec.Interval.Duration
+	if obj.Spec.DeployInterval != nil {
+		d = obj.Spec.DeployInterval.Duration
+	}
+
+	if obj.Status.LastDeployResult == nil {
+		return time.Now()
+	}
+	return obj.Status.LastDeployResult.AttemptedAt.Time.Add(d)
 }
 
-func (r *KluctlDeploymentReconciler) nextRequestedDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
+func (r *KluctlDeploymentReconciler) checkRequestedDeployTime(obj *kluctlv1.KluctlDeployment) bool {
 	v, ok := obj.Annotations[kluctlv1.KluctlDeployRequestAnnotation]
 	if !ok {
-		return nil
+		return false
 	}
 	if v != obj.Status.LastHandledDeployAt {
-		t := time.Now()
-		return &t
+		return true
 	}
-	return nil
+	return false
 }
 
-func (r *KluctlDeploymentReconciler) nextRetryDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
-	lastDeployResult := obj.Status.LastDeployResult.ParseResult()
-
-	if lastDeployResult == nil {
-		now := time.Now()
-		return &now
-	}
-
-	if obj.Status.LastDeployResult.Error != "" || len(lastDeployResult.Errors) != 0 {
-		nextRetryRun := obj.Status.LastDeployResult.AttemptedAt.Add(obj.Spec.GetRetryInterval())
-		return &nextRetryRun
-	}
-
-	if obj.Spec.DeployInterval == nil {
-		return nil
-	}
-
-	nextRun := obj.Status.LastDeployResult.AttemptedAt.Add(obj.Spec.DeployInterval.Duration)
-	return &nextRun
-}
-
-func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeployment) *time.Time {
+func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeployment) time.Time {
 	if obj.Status.LastValidateResult == nil {
-		now := time.Now()
-		return &now
+		return time.Now()
 	}
 
-	nextRun := obj.Status.LastValidateResult.AttemptedAt.Add(obj.Spec.ValidateInterval.Duration)
-	return &nextRun
+	return obj.Status.LastValidateResult.AttemptedAt.Add(obj.Spec.ValidateInterval.Duration)
 }
 
 func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1.KluctlDeployment) (ctrl.Result, error) {

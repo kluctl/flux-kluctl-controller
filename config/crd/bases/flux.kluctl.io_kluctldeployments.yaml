@@ -69,8 +69,9 @@ spec:
                 type: object
               deployInterval:
                 description: DeployInterval specifies the interval at which to deploy
-                  the KluctlDeployment. This is independent of the 'Interval' value,
-                  which only causes deployments if some deployment objects have changed.
+                  the KluctlDeployment. It defaults to the Interval value, meaning
+                  that it will re-deploy on every reconciliation. If you set DeployInterval
+                  to a different value,
                 type: string
               deployMode:
                 default: full-deploy
@@ -79,6 +80,14 @@ spec:
                 - full-deploy
                 - poke-images
                 type: string
+              deployOnChanges:
+                default: true
+                description: DeployOnChanges will cause a re-deployment whenever the
+                  rendered resources change in the deployment. This check is performed
+                  on every reconciliation. This means that a deployment will be triggered
+                  even before the DeployInterval has passed in case something has
+                  changed in the rendered resources.
+                type: boolean
               downscale:
                 description: Downscale configures automatic downscaling of deployments.
                   Look into the "kluctl downscale" command for details on what downscaling
@@ -202,6 +211,9 @@ spec:
                 type: array
               interval:
                 description: The interval at which to reconcile the KluctlDeployment.
+                  By default, the controller will re-deploy and validate the deployment
+                  on each reconciliation. To override this behavior, change the DeployInterval
+                  and/or ValidateInterval values.
                 type: string
               kubeConfig:
                 description: The KubeConfig for deploying to the target cluster. Specifies
@@ -290,8 +302,8 @@ spec:
                 type: boolean
               retryInterval:
                 description: The interval at which to retry a previously failed reconciliation.
-                  When not specified, the controller uses the KluctlDeploymentSpec.Interval
-                  value to retry failures.
+                  When not specified, the controller uses the Interval value to retry
+                  failures.
                 type: string
               serviceAccountName:
                 description: The name of the Kubernetes service account to use while
@@ -340,10 +352,11 @@ spec:
                   Equivalent to using '-u' when calling kluctl.
                 type: boolean
               validateInterval:
-                default: 5m
                 description: ValidateInterval specifies the interval at which to validate
                   the KluctlDeployment. Validation is performed the same way as with
-                  'kluctl validate -t <target>'. Defaults to 5m.
+                  'kluctl validate -t <target>'. Defaults to the same value as specified
+                  in Interval. Validate is also performed whenever a deployment is
+                  performed, independent of the value of ValidateInterval
                 type: string
             required:
             - interval
