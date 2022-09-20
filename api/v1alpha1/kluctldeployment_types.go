@@ -21,6 +21,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -67,7 +68,8 @@ type KluctlDeploymentTemplateSpec struct {
 	// Args specifies dynamic target args.
 	// Only arguments defined by 'dynamicArgs' of the target are allowed.
 	// +optional
-	Args map[string]string `json:"args,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Args runtime.RawExtension `json:"args,omitempty"`
 
 	// UpdateImages instructs kluctl to update dynamic images.
 	// Equivalent to using '-u' when calling kluctl.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -455,7 +456,11 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 		}
 		inclusion := pt.buildInclusion()
 
-		targetContext, err := p.NewTargetContext(ctx, pt.targetName, nil, pt.spec.DryRun, pt.spec.Args, false, images, inclusion, renderOutputDir)
+		externalArgs, err := uo.FromString(string(pt.spec.Args.Raw))
+		if err != nil {
+			return err
+		}
+		targetContext, err := p.NewTargetContext(ctx, pt.targetName, nil, pt.spec.DryRun, externalArgs, false, images, inclusion, renderOutputDir)
 		if err != nil {
 			return err
 		}

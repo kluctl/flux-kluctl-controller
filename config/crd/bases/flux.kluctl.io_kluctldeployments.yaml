@@ -62,11 +62,10 @@ spec:
                   when calling kluctl.
                 type: boolean
               args:
-                additionalProperties:
-                  type: string
                 description: Args specifies dynamic target args. Only arguments defined
                   by 'dynamicArgs' of the target are allowed.
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               deployInterval:
                 description: DeployInterval specifies the interval at which to deploy
                   the KluctlDeployment. It defaults to the Interval value, meaning
