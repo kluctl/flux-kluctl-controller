@@ -36,7 +36,7 @@ type KluctlTimingSpec struct {
 	// It defaults to the Interval value, meaning that it will re-deploy on every reconciliation.
 	// If you set DeployInterval to a different value,
 	// +optional
-	DeployInterval *metav1.Duration `json:"deployInterval"`
+	DeployInterval *metav1.Duration `json:"deployInterval,omitempty"`
 
 	// DeployOnChanges will cause a re-deployment whenever the rendered resources change in the deployment.
 	// This check is performed on every reconciliation. This means that a deployment will be triggered even before
@@ -50,7 +50,7 @@ type KluctlTimingSpec struct {
 	// Defaults to the same value as specified in Interval.
 	// Validate is also performed whenever a deployment is performed, independent of the value of ValidateInterval
 	// +optional
-	ValidateInterval *metav1.Duration `json:"validateInterval"`
+	ValidateInterval *metav1.Duration `json:"validateInterval,omitempty"`
 
 	// Timeout for all operations.
 	// Defaults to 'Interval' duration.
