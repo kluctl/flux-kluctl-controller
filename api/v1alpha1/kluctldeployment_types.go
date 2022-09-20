@@ -144,6 +144,11 @@ type KluctlDeploymentTemplateSpec struct {
 	// +optional
 	DeployMode string `json:"deployMode,omitempty"`
 
+	// Validate enables validation after deploying
+	// +kubebuilder:default:=true
+	// +optional
+	Validate bool `json:"validate"`
+
 	// Prune enables pruning after deploying.
 	// +kubebuilder:default:=false
 	// +optional

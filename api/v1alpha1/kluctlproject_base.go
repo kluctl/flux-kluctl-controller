@@ -19,6 +19,50 @@ type KluctlProjectSpec struct {
 	SourceRef meta.NamespacedObjectKindReference `json:"sourceRef"`
 }
 
+// +kubebuilder:validation:Type=string
+type DurationOrNever struct {
+	Duration metav1.Duration
+	Never    bool
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface.
+func (d *DurationOrNever) UnmarshalJSON(b []byte) error {
+	if string(b) == `"never"` {
+		d.Never = true
+		d.Duration.Reset()
+		return nil
+	} else {
+		d.Never = false
+		return d.Duration.UnmarshalJSON(b)
+	}
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (d DurationOrNever) MarshalJSON() ([]byte, error) {
+	if d.Never {
+		return []byte(`"never"`), nil
+	}
+	return d.Duration.MarshalJSON()
+}
+
+// ToUnstructured implements the value.UnstructuredConverter interface.
+func (d DurationOrNever) ToUnstructured() interface{} {
+	if d.Never {
+		return "never"
+	}
+	return d.Duration.ToUnstructured()
+}
+
+// OpenAPISchemaType is used by the kube-openapi generator when constructing
+// the OpenAPI spec of this type.
+//
+// See: https://github.com/kubernetes/kube-openapi/tree/master/pkg/generators
+func (_ DurationOrNever) OpenAPISchemaType() []string { return []string{"string"} }
+
+// OpenAPISchemaFormat is used by the kube-openapi generator when constructing
+// the OpenAPI spec of this type.
+func (_ DurationOrNever) OpenAPISchemaFormat() string { return "" }
+
 type KluctlTimingSpec struct {
 	// The interval at which to reconcile the KluctlDeployment.
 	// By default, the controller will re-deploy and validate the deployment on each reconciliation.
@@ -36,7 +80,7 @@ type KluctlTimingSpec struct {
 	// It defaults to the Interval value, meaning that it will re-deploy on every reconciliation.
 	// If you set DeployInterval to a different value,
 	// +optional
-	DeployInterval *metav1.Duration `json:"deployInterval,omitempty"`
+	DeployInterval *DurationOrNever `json:"deployInterval,omitempty"`
 
 	// DeployOnChanges will cause a re-deployment whenever the rendered resources change in the deployment.
 	// This check is performed on every reconciliation. This means that a deployment will be triggered even before
@@ -50,7 +94,7 @@ type KluctlTimingSpec struct {
 	// Defaults to the same value as specified in Interval.
 	// Validate is also performed whenever a deployment is performed, independent of the value of ValidateInterval
 	// +optional
-	ValidateInterval *metav1.Duration `json:"validateInterval,omitempty"`
+	ValidateInterval *DurationOrNever `json:"validateInterval,omitempty"`
 
 	// Timeout for all operations.
 	// Defaults to 'Interval' duration.

@@ -255,15 +255,38 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if mustDownscale {
 			needDownscale = !isDownscaled
 		} else {
-			nextDeployTime := r.nextDeployTime(obj)
-			nextValidateTime := r.nextValidateTime(obj)
-			needDeploy = nextDeployTime.Before(time.Now()) || obj.Status.ObservedGeneration != obj.GetGeneration()
 			if obj.Status.LastDeployResult == nil || (obj.Spec.DeployOnChanges && obj.Status.LastDeployResult.ObjectsHash != objectsHash) {
+				// either never deployed or source code changed
 				needDeploy = true
+			} else if r.checkRequestedDeploy(obj) {
+				// explicitly requested a deploy
+				needDeploy = true
+			} else if obj.Status.ObservedGeneration != obj.GetGeneration() {
+				// spec has changed
+				needDeploy = true
+			} else {
+				// was deployed before, let's check if we need to do periodic deployments
+				nextDeployTime := r.nextDeployTime(obj)
+				if nextDeployTime != nil {
+					needDeploy = nextDeployTime.Before(time.Now())
+				}
 			}
 
-			needPrune = obj.Spec.Prune && needDeploy
-			needValidate = needDeploy || nextValidateTime.Before(time.Now())
+			if obj.Spec.Validate {
+				if obj.Status.LastValidateResult == nil || needDeploy {
+					// either never validated before or a deployment requested (which required re-validation)
+					needValidate = true
+				} else {
+					nextValidateTime := r.nextValidateTime(obj)
+					if nextValidateTime != nil {
+						needValidate = nextValidateTime.Before(time.Now())
+					}
+				}
+			}
+
+			if obj.Spec.Prune {
+				needPrune = needDeploy
+			}
 		}
 
 		if needDeploy {
@@ -386,6 +409,13 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeploy
 	pruneOk := lastPruneResult == nil || (obj.Status.LastPruneResult.Error == "" && len(lastPruneResult.Errors) == 0)
 	validateOk := lastValidateResult != nil && obj.Status.LastValidateResult.Error == "" && len(lastValidateResult.Errors) == 0 && lastValidateResult.Ready
 
+	if !obj.Spec.Prune {
+		pruneOk = true
+	}
+	if !obj.Spec.Validate {
+		validateOk = true
+	}
+
 	if obj.Status.LastDeployResult != nil {
 		finalStatus += "deploy: "
 		if deployOk {
@@ -394,7 +424,7 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeploy
 			finalStatus += "failed"
 		}
 	}
-	if obj.Status.LastPruneResult != nil {
+	if obj.Spec.Prune && obj.Status.LastPruneResult != nil {
 		if finalStatus != "" {
 			finalStatus += ", "
 		}
@@ -405,7 +435,7 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeploy
 			finalStatus += "failed"
 		}
 	}
-	if obj.Status.LastValidateResult != nil {
+	if obj.Spec.Validate && obj.Status.LastValidateResult != nil {
 		if finalStatus != "" {
 			finalStatus += ", "
 		}
@@ -435,8 +465,8 @@ func (r *KluctlDeploymentReconciler) calcTimeout(obj *kluctlv1.KluctlDeployment)
 	var d time.Duration
 	if obj.Spec.Timeout != nil {
 		d = obj.Spec.Timeout.Duration
-	} else if obj.Spec.DeployInterval != nil {
-		d = obj.Spec.DeployInterval.Duration
+	} else if obj.Spec.DeployInterval != nil && !obj.Spec.DeployInterval.Never {
+		d = obj.Spec.DeployInterval.Duration.Duration
 	} else {
 		d = obj.Spec.Interval.Duration
 	}
@@ -450,31 +480,34 @@ func (r *KluctlDeploymentReconciler) nextReconcileTime(obj *kluctlv1.KluctlDeplo
 	t1 := time.Now().Add(obj.Spec.Interval.Duration)
 	t2 := r.nextDeployTime(obj)
 	t3 := r.nextValidateTime(obj)
-	if t2.Before(t1) {
-		t1 = t2
+	if t2 != nil && t2.Before(t1) {
+		t1 = *t2
 	}
-	if t3.Before(t1) {
-		t1 = t3
+	if obj.Spec.Validate && t3 != nil && t3.Before(t1) {
+		t1 = *t3
 	}
 	return t1
 }
 
-func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployment) time.Time {
-	if r.checkRequestedDeployTime(obj) {
-		return time.Now()
+func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
+	if obj.Status.LastDeployResult == nil {
+		// was never deployed before. Return early.
+		return nil
+	}
+	if obj.Spec.DeployInterval != nil && obj.Spec.DeployInterval.Never {
+		// periodic deployments got disabled
+		return nil
 	}
 	d := obj.Spec.Interval.Duration
 	if obj.Spec.DeployInterval != nil {
-		d = obj.Spec.DeployInterval.Duration
+		d = obj.Spec.DeployInterval.Duration.Duration
 	}
 
-	if obj.Status.LastDeployResult == nil {
-		return time.Now()
-	}
-	return obj.Status.LastDeployResult.AttemptedAt.Time.Add(d)
+	t := obj.Status.LastDeployResult.AttemptedAt.Time.Add(d)
+	return &t
 }
 
-func (r *KluctlDeploymentReconciler) checkRequestedDeployTime(obj *kluctlv1.KluctlDeployment) bool {
+func (r *KluctlDeploymentReconciler) checkRequestedDeploy(obj *kluctlv1.KluctlDeployment) bool {
 	v, ok := obj.Annotations[kluctlv1.KluctlDeployRequestAnnotation]
 	if !ok {
 		return false
@@ -485,12 +518,22 @@ func (r *KluctlDeploymentReconciler) checkRequestedDeployTime(obj *kluctlv1.Kluc
 	return false
 }
 
-func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeployment) time.Time {
+func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeployment) *time.Time {
 	if obj.Status.LastValidateResult == nil {
-		return time.Now()
+		// was never validated before. Return early.
+		return nil
+	}
+	if obj.Spec.ValidateInterval != nil && obj.Spec.ValidateInterval.Never {
+		// periodic validations got disabled
+		return nil
+	}
+	d := obj.Spec.Interval.Duration
+	if obj.Spec.ValidateInterval != nil {
+		d = obj.Spec.ValidateInterval.Duration.Duration
 	}
 
-	return obj.Status.LastValidateResult.AttemptedAt.Add(obj.Spec.ValidateInterval.Duration)
+	t := obj.Status.LastValidateResult.AttemptedAt.Time.Add(d)
+	return &t
 }
 
 func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1.KluctlDeployment) (ctrl.Result, error) {
