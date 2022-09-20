@@ -440,6 +440,9 @@ func (r *KluctlDeploymentReconciler) calcTimeout(obj *kluctlv1.KluctlDeployment)
 	} else {
 		d = obj.Spec.Interval.Duration
 	}
+	if d < time.Second*30 {
+		d = time.Second * 30
+	}
 	return d
 }
 
