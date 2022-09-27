@@ -460,7 +460,7 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 		if err != nil {
 			return err
 		}
-		targetContext, err := p.NewTargetContext(ctx, pt.targetName, nil, pt.spec.DryRun, externalArgs, false, images, inclusion, renderOutputDir)
+		targetContext, err := p.NewTargetContext(ctx, pt.targetName, nil, false, pt.spec.DryRun, externalArgs, false, images, inclusion, renderOutputDir)
 		if err != nil {
 			return err
 		}
@@ -553,14 +553,6 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	}
 	cmdResult, err := pt.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "prune")
-	return cmdResult, err
-}
-
-func (pt *preparedTarget) kluctlDownscale(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
-	cmd := commands.NewDownscaleCommand(targetContext.DeploymentCollection)
-
-	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
-	err = pt.handleCommandResult(ctx, err, cmdResult, "downscale")
 	return cmdResult, err
 }
 

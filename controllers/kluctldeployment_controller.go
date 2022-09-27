@@ -223,12 +223,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	obj *kluctlv1.KluctlDeployment,
 	source sourcev1.Source) (*ctrl.Result, error) {
 
-	mustDownscale, err := r.calcDownTime(obj)
-	if err != nil {
-		return nil, err
-	}
-	isDownscaled := obj.Status.DownscaledAt != nil
-
 	pp, err := prepareProject(ctx, r, obj, source)
 	if err != nil {
 		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.source.GetArtifact().Revision)
@@ -250,43 +244,39 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 		needDeploy := false
 		needPrune := false
-		needDownscale := false
 		needValidate := false
-		if mustDownscale {
-			needDownscale = !isDownscaled
+
+		if obj.Status.LastDeployResult == nil || (obj.Spec.DeployOnChanges && obj.Status.LastDeployResult.ObjectsHash != objectsHash) {
+			// either never deployed or source code changed
+			needDeploy = true
+		} else if r.checkRequestedDeploy(obj) {
+			// explicitly requested a deploy
+			needDeploy = true
+		} else if obj.Status.ObservedGeneration != obj.GetGeneration() {
+			// spec has changed
+			needDeploy = true
 		} else {
-			if obj.Status.LastDeployResult == nil || (obj.Spec.DeployOnChanges && obj.Status.LastDeployResult.ObjectsHash != objectsHash) {
-				// either never deployed or source code changed
-				needDeploy = true
-			} else if r.checkRequestedDeploy(obj) {
-				// explicitly requested a deploy
-				needDeploy = true
-			} else if obj.Status.ObservedGeneration != obj.GetGeneration() {
-				// spec has changed
-				needDeploy = true
+			// was deployed before, let's check if we need to do periodic deployments
+			nextDeployTime := r.nextDeployTime(obj)
+			if nextDeployTime != nil {
+				needDeploy = nextDeployTime.Before(time.Now())
+			}
+		}
+
+		if obj.Spec.Validate {
+			if obj.Status.LastValidateResult == nil || needDeploy {
+				// either never validated before or a deployment requested (which required re-validation)
+				needValidate = true
 			} else {
-				// was deployed before, let's check if we need to do periodic deployments
-				nextDeployTime := r.nextDeployTime(obj)
-				if nextDeployTime != nil {
-					needDeploy = nextDeployTime.Before(time.Now())
+				nextValidateTime := r.nextValidateTime(obj)
+				if nextValidateTime != nil {
+					needValidate = nextValidateTime.Before(time.Now())
 				}
 			}
+		}
 
-			if obj.Spec.Validate {
-				if obj.Status.LastValidateResult == nil || needDeploy {
-					// either never validated before or a deployment requested (which required re-validation)
-					needValidate = true
-				} else {
-					nextValidateTime := r.nextValidateTime(obj)
-					if nextValidateTime != nil {
-						needValidate = nextValidateTime.Before(time.Now())
-					}
-				}
-			}
-
-			if obj.Spec.Prune {
-				needPrune = needDeploy
-			}
+		if obj.Spec.Prune {
+			needPrune = needDeploy
 		}
 
 		if needDeploy {
@@ -306,7 +296,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.source.GetArtifact().Revision)
 				return err
 			}
-			obj.Status.DownscaledAt = nil
 		}
 
 		if needPrune {
@@ -317,17 +306,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), pp.source.GetArtifact().Revision)
 				return err
 			}
-		}
-
-		if needDownscale {
-			downscaleResult, err := pt.kluctlDownscale(ctx, targetContext)
-			kluctlv1.SetDownscaleResult(obj, pp.source.GetArtifact().Revision, downscaleResult, objectsHash, err)
-			if err != nil {
-				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DownscaleFailedReason, err.Error(), pp.source.GetArtifact().Revision)
-				return err
-			}
-			t := metav1.Now()
-			obj.Status.DownscaledAt = &t
 		}
 
 		if needValidate {
@@ -364,40 +342,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.source.GetArtifact().Revision)
 
 	return &ctrlResult, nil
-}
-
-func (r *KluctlDeploymentReconciler) calcDownTime(obj *kluctlv1.KluctlDeployment) (bool, error) {
-	var isUpTime bool
-	if obj.Spec.Downscale != nil {
-		isUpTime = false
-		if obj.Spec.Downscale.Enabled && len(obj.Spec.Downscale.UpTime) == 0 && len(obj.Spec.Downscale.DownTime) == 0 {
-			return false, fmt.Errorf("either upTime or downTime must be specified when downscaling is enabled")
-		}
-		for _, s := range obj.Spec.Downscale.UpTime {
-			x, err := MatchesTimeSpec(time.Now(), s)
-			if err != nil {
-				return false, err
-			}
-			if x {
-				isUpTime = true
-			}
-		}
-		if len(obj.Spec.Downscale.UpTime) == 0 {
-			isUpTime = true
-		}
-		for _, s := range obj.Spec.Downscale.DownTime {
-			x, err := MatchesTimeSpec(time.Now(), s)
-			if err != nil {
-				return false, err
-			}
-			if x {
-				isUpTime = false
-			}
-		}
-	} else {
-		isUpTime = true
-	}
-	return !isUpTime, nil
 }
 
 func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeployment) (finalStatus string, reason string) {

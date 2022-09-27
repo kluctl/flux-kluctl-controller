@@ -153,25 +153,6 @@ type KluctlDeploymentTemplateSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Prune bool `json:"prune,omitempty"`
-
-	// Downscale configures automatic downscaling of deployments.
-	// Look into the "kluctl downscale" command for details on what downscaling means.
-	// +optional
-	Downscale *DownscaleSpec `json:"downscale,omitempty"`
-}
-
-type DownscaleSpec struct {
-	// Enabled specifies whether automatic downscaling is enabled or not
-	// +required
-	Enabled bool `json:"enabled"`
-
-	// UpTime specifies the time period in which the deployment must be up
-	// +optional
-	UpTime []string `json:"upTime,omitempty"`
-
-	// DownTime specifies the time period in which the deployment must be down
-	// +optional
-	DownTime []string `json:"downTime,omitempty"`
 }
 
 // KluctlDeploymentSpec defines the desired state of KluctlDeployment
@@ -224,10 +205,6 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	LastPruneResult *LastCommandResult `json:"lastPruneResult,omitempty"`
 
-	// LastDownscaleResult is the result of the last downscale command
-	// +optional
-	LastDownscaleResult *LastCommandResult `json:"lastDownscaleResult,omitempty"`
-
 	// LastValidateResult is the result of the last validate command
 	// +optional
 	LastValidateResult *LastValidateResult `json:"lastValidateResult,omitempty"`
@@ -239,9 +216,6 @@ type KluctlDeploymentStatus struct {
 
 	// +optional
 	RawTarget *string `json:"rawTarget,omitempty"`
-
-	// +optional
-	DownscaledAt *metav1.Time `json:"downscaledAt"`
 }
 
 type ReconcileResultBase struct {
@@ -370,29 +344,6 @@ func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandR
 		raw, err := yaml.WriteYamlString(result)
 		if err == nil {
 			k.Status.LastPruneResult.RawResult = &raw
-		}
-	}
-}
-
-func SetDownscaleResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
-	errStr := ""
-	if err != nil {
-		errStr = err.Error()
-	}
-
-	k.Status.LastDownscaleResult = &LastCommandResult{
-		ReconcileResultBase: ReconcileResultBase{
-			AttemptedAt: metav1.Now(),
-			Revision:    revision,
-			TargetName:  k.Spec.Target,
-			ObjectsHash: objectHash,
-		},
-		Error: errStr,
-	}
-	if result != nil {
-		raw, err := yaml.WriteYamlString(result)
-		if err == nil {
-			k.Status.LastDownscaleResult.RawResult = &raw
 		}
 	}
 }
