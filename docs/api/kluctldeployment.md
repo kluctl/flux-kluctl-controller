@@ -9,6 +9,48 @@
 <p>Package v1alpha1 contains API Schema definitions for the flux.kluctl.io v1alpha1 API group.</p>
 Resource Types:
 <ul class="simple"></ul>
+<h3 id="flux.kluctl.io/v1alpha1.DurationOrNever">DurationOrNever
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlTimingSpec">KluctlTimingSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>Duration</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>Never</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="flux.kluctl.io/v1alpha1.FixedImage">FixedImage
 </h3>
 <p>
@@ -503,7 +545,7 @@ service accounts, in which case the context name is always &ldquo;default&rdquo;
 <td>
 <code>args</code><br>
 <em>
-map[string]string
+k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
 </td>
 <td>
@@ -684,6 +726,18 @@ string
 </tr>
 <tr>
 <td>
+<code>validate</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Validate enables validation after deploying</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>prune</code><br>
 <em>
 bool
@@ -692,38 +746,6 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Prune enables pruning after deploying.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>deployInterval</code><br>
-<em>
-<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
-Kubernetes meta/v1.Duration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeployInterval specifies the interval at which to deploy the KluctlDeployment.
-This is independent of the &lsquo;Interval&rsquo; value, which only causes deployments if some deployment objects have
-changed.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>validateInterval</code><br>
-<em>
-<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
-Kubernetes meta/v1.Duration
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ValidateInterval specifies the interval at which to validate the KluctlDeployment.
-Validation is performed the same way as with &lsquo;kluctl validate -t <target>&rsquo;.
-Defaults to 1m.</p>
 </td>
 </tr>
 </tbody>
@@ -812,6 +834,17 @@ github.com/fluxcd/pkg/apis/meta.ReconcileRequestStatus
 </tr>
 <tr>
 <td>
+<code>lastHandledDeployAt</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
 <code>observedGeneration</code><br>
 <em>
 int64
@@ -877,7 +910,9 @@ Kubernetes meta/v1.Duration
 </em>
 </td>
 <td>
-<p>The interval at which to reconcile the KluctlDeployment.</p>
+<p>The interval at which to reconcile the KluctlDeployment.
+By default, the controller will re-deploy and validate the deployment on each reconciliation.
+To override this behavior, change the DeployInterval and/or ValidateInterval values.</p>
 </td>
 </tr>
 <tr>
@@ -892,8 +927,55 @@ Kubernetes meta/v1.Duration
 <td>
 <em>(Optional)</em>
 <p>The interval at which to retry a previously failed reconciliation.
-When not specified, the controller uses the KluctlDeploymentSpec.Interval
+When not specified, the controller uses the Interval
 value to retry failures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployInterval</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.DurationOrNever">
+DurationOrNever
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployInterval specifies the interval at which to deploy the KluctlDeployment.
+It defaults to the Interval value, meaning that it will re-deploy on every reconciliation.
+If you set DeployInterval to a different value,</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployOnChanges</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployOnChanges will cause a re-deployment whenever the rendered resources change in the deployment.
+This check is performed on every reconciliation. This means that a deployment will be triggered even before
+the DeployInterval has passed in case something has changed in the rendered resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validateInterval</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.DurationOrNever">
+DurationOrNever
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ValidateInterval specifies the interval at which to validate the KluctlDeployment.
+Validation is performed the same way as with &lsquo;kluctl validate -t <target>&rsquo;.
+Defaults to the same value as specified in Interval.
+Validate is also performed whenever a deployment is performed, independent of the value of ValidateInterval</p>
 </td>
 </tr>
 <tr>
