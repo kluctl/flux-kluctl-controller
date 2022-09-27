@@ -10,7 +10,7 @@ require (
 	github.com/fluxcd/pkg/untar v0.2.0
 	github.com/fluxcd/source-controller/api v0.29.0
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	github.com/kluctl/kluctl/v2 v2.15.0
+	github.com/kluctl/kluctl/v2 v2.15.1-0.20220927152104-545bff744d53
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.2
 	github.com/spf13/pflag v1.0.5
