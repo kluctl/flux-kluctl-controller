@@ -59,3 +59,11 @@ patchesJson6902:
   path: 'alerts-crd-patch.yaml' # The downloaded patch in your flux repository
 
 ```
+
+## CLI support
+
+Currently kluctl cli supports experimental subcommands to interact with KluctlDeployment Objects and it's source. <br>
+
+You can install kluctl cli following the guideline [here](https://kluctl.io/docs/installation/).
+
+Usage guidelines can be found [here](https://kluctl.io/docs/reference/commands/flux/).
