@@ -40,26 +40,6 @@ patchesJson6902:
 ```
 
 
-_NOTE: To set up Flux Alerts from KluctlDeployments you will need to patch the enum in the Alerts CRD.
-There is a [patch](../config/patch/alerts-crd-patch.yaml) included in this repository that can do this for you. You can apply it directly or include the [yaml](../config/patch/alerts-crd-patch.yaml) version in `gotk-patch.yaml` with your `flux bootstrap`.
-You can also add something like the following to your cluster's `kustomization.yaml`:_
-
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-- gotk-components.yaml
-- gotk-sync.yaml
-patchesJson6902:
-- target:
-    group: apiextensions.k8s.io
-    version: v1
-    kind: CustomResourceDefinition
-    name: alerts.notification.toolkit.fluxcd.io
-  path: 'alerts-crd-patch.yaml' # The downloaded patch in your flux repository
-
-```
-
 ## CLI support
 
 Currently kluctl cli supports experimental subcommands to interact with KluctlDeployment Objects and it's source. <br>
