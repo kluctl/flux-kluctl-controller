@@ -23,9 +23,17 @@ const (
 )
 
 const (
+	// DeployFailedReason represents the fact that the
+	// kluctl deploy command failed.
+	DeployFailedReason string = "DeployFailed"
+
 	// PruneFailedReason represents the fact that the
 	// pruning of the KluctlDeployment failed.
 	PruneFailedReason string = "PruneFailed"
+
+	// ValidateFailedReason represents the fact that the
+	// validate of the KluctlDeployment failed.
+	ValidateFailedReason string = "ValidateFailed"
 
 	// ArtifactFailedReason represents the fact that the
 	// source artifact download failed.
@@ -33,10 +41,6 @@ const (
 
 	// PrepareFailedReason represents failure in the kluctl preparation phase
 	PrepareFailedReason string = "PrepareFailed"
-
-	// DeployFailedReason represents the fact that the
-	// kluctl deploy command failed.
-	DeployFailedReason string = "DeployFailed"
 
 	// DependencyNotReadyReason represents the fact that
 	// one of the dependencies is not ready.

@@ -16,7 +16,26 @@ spec:
     singular: kluctldeployment
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.lastDeployResult.time
+      name: Deployed
+      type: date
+    - jsonPath: .status.lastPruneResult.time
+      name: Pruned
+      type: date
+    - jsonPath: .status.lastValidateResult.time
+      name: Validated
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: KluctlDeployment is the Schema for the kluctldeployments API
@@ -43,30 +62,31 @@ spec:
                   when calling kluctl.
                 type: boolean
               args:
-                additionalProperties:
-                  type: string
                 description: Args specifies dynamic target args. Only arguments defined
                   by 'dynamicArgs' of the target are allowed.
                 type: object
-              dependsOn:
-                description: DependsOn may contain a meta.NamespacedObjectReference
-                  slice with references to resources that must be ready before this
-                  kluctl project can be deployed.
-                items:
-                  description: NamespacedObjectReference contains enough information
-                    to locate the referenced Kubernetes resource object in any namespace.
-                  properties:
-                    name:
-                      description: Name of the referent.
-                      type: string
-                    namespace:
-                      description: Namespace of the referent, when not specified it
-                        acts as LocalObjectReference.
-                      type: string
-                  required:
-                  - name
-                  type: object
-                type: array
+                x-kubernetes-preserve-unknown-fields: true
+              deployInterval:
+                description: DeployInterval specifies the interval at which to deploy
+                  the KluctlDeployment. It defaults to the Interval value, meaning
+                  that it will re-deploy on every reconciliation. If you set DeployInterval
+                  to a different value,
+                type: string
+              deployMode:
+                default: full-deploy
+                description: DeployMode specifies what deploy mode should be used
+                enum:
+                - full-deploy
+                - poke-images
+                type: string
+              deployOnChanges:
+                default: true
+                description: DeployOnChanges will cause a re-deployment whenever the
+                  rendered resources change in the deployment. This check is performed
+                  on every reconciliation. This means that a deployment will be triggered
+                  even before the DeployInterval has passed in case something has
+                  changed in the rendered resources.
+                type: boolean
               dryRun:
                 default: false
                 description: DryRun instructs kluctl to run everything in dry-run
@@ -119,20 +139,25 @@ spec:
                     namespace:
                       type: string
                     object:
-                      description: ResourceRef contains the information necessary
-                        to locate a resource within a cluster.
+                      description: ObjectRef contains the information necessary to
+                        locate a resource within a cluster.
                       properties:
-                        id:
-                          description: ID is the string representation of the Kubernetes
-                            resource object's metadata, in the format '<namespace>_<name>_<group>_<kind>'.
+                        group:
                           type: string
-                        v:
-                          description: Version is the API version of the Kubernetes
-                            resource object's kind.
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        version:
                           type: string
                       required:
-                      - id
-                      - v
+                      - group
+                      - kind
+                      - name
+                      - namespace
+                      - version
                       type: object
                     registryImage:
                       type: string
@@ -161,6 +186,9 @@ spec:
                 type: array
               interval:
                 description: The interval at which to reconcile the KluctlDeployment.
+                  By default, the controller will re-deploy and validate the deployment
+                  on each reconciliation. To override this behavior, change the DeployInterval
+                  and/or ValidateInterval values.
                 type: string
               kubeConfig:
                 description: The KubeConfig for deploying to the target cluster. Specifies
@@ -249,8 +277,8 @@ spec:
                 type: boolean
               retryInterval:
                 description: The interval at which to retry a previously failed reconciliation.
-                  When not specified, the controller uses the KluctlDeploymentSpec.Interval
-                  value to retry failures.
+                  When not specified, the controller uses the Interval value to retry
+                  failures.
                 type: string
               serviceAccountName:
                 description: The name of the Kubernetes service account to use while
@@ -263,20 +291,18 @@ spec:
                   kluctl project.
                 properties:
                   apiVersion:
-                    description: API version of the referent.
+                    description: API version of the referent, if not specified the
+                      Kubernetes preferred version will be used.
                     type: string
                   kind:
                     description: Kind of the referent.
-                    enum:
-                    - GitRepository
-                    - Bucket
                     type: string
                   name:
                     description: Name of the referent.
                     type: string
                   namespace:
-                    description: Namespace of the referent, defaults to the namespace
-                      of the Kubernetes resource object that contains the reference.
+                    description: Namespace of the referent, when not specified it
+                      acts as LocalObjectReference.
                     type: string
                 required:
                 - kind
@@ -300,6 +326,17 @@ spec:
                 description: UpdateImages instructs kluctl to update dynamic images.
                   Equivalent to using '-u' when calling kluctl.
                 type: boolean
+              validate:
+                default: true
+                description: Validate enables validation after deploying
+                type: boolean
+              validateInterval:
+                description: ValidateInterval specifies the interval at which to validate
+                  the KluctlDeployment. Validation is performed the same way as with
+                  'kluctl validate -t <target>'. Defaults to the same value as specified
+                  in Interval. Validate is also performed whenever a deployment is
+                  performed, independent of the value of ValidateInterval
+                type: string
             required:
             - interval
             - sourceRef
@@ -320,13 +357,14 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    \n \ttype FooStatus struct{ \t    // Represents the observations
+                    of a foo's current state. \t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\" \t    //
+                    +patchMergeKey=type \t    // +patchStrategy=merge \t    // +listType=map
+                    \t    // +listMapKey=type \t    Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n \t    // other fields
+                    \t}"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -384,410 +422,20 @@ spec:
                   - type
                   type: object
                 type: array
-              lastAttemptedReconcile:
-                description: The last attempted reconcile.
+              lastAttemptedRevision:
+                description: LastAttemptedRevision is the revision of the last reconciliation
+                  attempt.
+                type: string
+              lastDeployResult:
+                description: LastDeployResult is the result of the last deploy command
                 properties:
-                  deployResult:
-                    description: DeployResult is the command result of the deploy
-                      command
-                    properties:
-                      changedObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      deletedObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      errors:
-                        items:
-                          properties:
-                            error:
-                              type: string
-                            ref:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                          required:
-                          - error
-                          - ref
-                          type: object
-                        type: array
-                      hookObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      newObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      orphanObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      seenImages:
-                        items:
-                          properties:
-                            container:
-                              type: string
-                            deployTags:
-                              items:
-                                type: string
-                              type: array
-                            deployedImage:
-                              type: string
-                            deployment:
-                              type: string
-                            deploymentDir:
-                              type: string
-                            image:
-                              type: string
-                            namespace:
-                              type: string
-                            object:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                            registryImage:
-                              type: string
-                            resultImage:
-                              type: string
-                            versionFilter:
-                              type: string
-                          required:
-                          - image
-                          - resultImage
-                          type: object
-                        type: array
-                      warnings:
-                        items:
-                          properties:
-                            error:
-                              type: string
-                            ref:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                          required:
-                          - error
-                          - ref
-                          type: object
-                        type: array
-                    type: object
-                  pruneResult:
-                    description: PruneResult is the command result of the prune command
-                    properties:
-                      changedObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      deletedObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      errors:
-                        items:
-                          properties:
-                            error:
-                              type: string
-                            ref:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                          required:
-                          - error
-                          - ref
-                          type: object
-                        type: array
-                      hookObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      newObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      orphanObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      seenImages:
-                        items:
-                          properties:
-                            container:
-                              type: string
-                            deployTags:
-                              items:
-                                type: string
-                              type: array
-                            deployedImage:
-                              type: string
-                            deployment:
-                              type: string
-                            deploymentDir:
-                              type: string
-                            image:
-                              type: string
-                            namespace:
-                              type: string
-                            object:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                            registryImage:
-                              type: string
-                            resultImage:
-                              type: string
-                            versionFilter:
-                              type: string
-                          required:
-                          - image
-                          - resultImage
-                          type: object
-                        type: array
-                      warnings:
-                        items:
-                          properties:
-                            error:
-                              type: string
-                            ref:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                          required:
-                          - error
-                          - ref
-                          type: object
-                        type: array
-                    type: object
+                  error:
+                    type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
+                  rawResult:
+                    type: string
                   revision:
                     description: Revision is the source revision. Please note that
                       kluctl projects have dependent git repositories which are not
@@ -804,419 +452,50 @@ spec:
                 - targetName
                 - time
                 type: object
-              lastAttemptedRevision:
-                description: LastAttemptedRevision is the revision of the last reconciliation
-                  attempt.
+              lastHandledDeployAt:
                 type: string
               lastHandledReconcileAt:
                 description: LastHandledReconcileAt holds the value of the most recent
                   reconcile request value, so a change of the annotation value can
                   be detected.
                 type: string
-              lastSuccessfulReconcile:
-                description: The last successfully reconcile attempt.
+              lastPruneResult:
+                description: LastDeployResult is the result of the last prune command
                 properties:
-                  deployResult:
-                    description: DeployResult is the command result of the deploy
-                      command
-                    properties:
-                      changedObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      deletedObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      errors:
-                        items:
-                          properties:
-                            error:
-                              type: string
-                            ref:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                          required:
-                          - error
-                          - ref
-                          type: object
-                        type: array
-                      hookObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      newObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      orphanObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      seenImages:
-                        items:
-                          properties:
-                            container:
-                              type: string
-                            deployTags:
-                              items:
-                                type: string
-                              type: array
-                            deployedImage:
-                              type: string
-                            deployment:
-                              type: string
-                            deploymentDir:
-                              type: string
-                            image:
-                              type: string
-                            namespace:
-                              type: string
-                            object:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                            registryImage:
-                              type: string
-                            resultImage:
-                              type: string
-                            versionFilter:
-                              type: string
-                          required:
-                          - image
-                          - resultImage
-                          type: object
-                        type: array
-                      warnings:
-                        items:
-                          properties:
-                            error:
-                              type: string
-                            ref:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                          required:
-                          - error
-                          - ref
-                          type: object
-                        type: array
-                    type: object
-                  pruneResult:
-                    description: PruneResult is the command result of the prune command
-                    properties:
-                      changedObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      deletedObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      errors:
-                        items:
-                          properties:
-                            error:
-                              type: string
-                            ref:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                          required:
-                          - error
-                          - ref
-                          type: object
-                        type: array
-                      hookObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      newObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      orphanObjects:
-                        items:
-                          description: ResourceRef contains the information necessary
-                            to locate a resource within a cluster.
-                          properties:
-                            id:
-                              description: ID is the string representation of the
-                                Kubernetes resource object's metadata, in the format
-                                '<namespace>_<name>_<group>_<kind>'.
-                              type: string
-                            v:
-                              description: Version is the API version of the Kubernetes
-                                resource object's kind.
-                              type: string
-                          required:
-                          - id
-                          - v
-                          type: object
-                        type: array
-                      seenImages:
-                        items:
-                          properties:
-                            container:
-                              type: string
-                            deployTags:
-                              items:
-                                type: string
-                              type: array
-                            deployedImage:
-                              type: string
-                            deployment:
-                              type: string
-                            deploymentDir:
-                              type: string
-                            image:
-                              type: string
-                            namespace:
-                              type: string
-                            object:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                            registryImage:
-                              type: string
-                            resultImage:
-                              type: string
-                            versionFilter:
-                              type: string
-                          required:
-                          - image
-                          - resultImage
-                          type: object
-                        type: array
-                      warnings:
-                        items:
-                          properties:
-                            error:
-                              type: string
-                            ref:
-                              description: ResourceRef contains the information necessary
-                                to locate a resource within a cluster.
-                              properties:
-                                id:
-                                  description: ID is the string representation of
-                                    the Kubernetes resource object's metadata, in
-                                    the format '<namespace>_<name>_<group>_<kind>'.
-                                  type: string
-                                v:
-                                  description: Version is the API version of the Kubernetes
-                                    resource object's kind.
-                                  type: string
-                              required:
-                              - id
-                              - v
-                              type: object
-                          required:
-                          - error
-                          - ref
-                          type: object
-                        type: array
-                    type: object
+                  error:
+                    type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
+                  rawResult:
+                    type: string
+                  revision:
+                    description: Revision is the source revision. Please note that
+                      kluctl projects have dependent git repositories which are not
+                      considered in the source revision
+                    type: string
+                  targetName:
+                    description: TargetName is the name of the target
+                    type: string
+                  time:
+                    description: AttemptedAt is the time when the attempt was performed
+                    format: date-time
+                    type: string
+                required:
+                - targetName
+                - time
+                type: object
+              lastValidateResult:
+                description: LastValidateResult is the result of the last validate
+                  command
+                properties:
+                  error:
+                    type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
+                  rawResult:
+                    type: string
                   revision:
                     description: Revision is the source revision. Please note that
                       kluctl projects have dependent git repositories which are not
@@ -1237,6 +516,8 @@ spec:
                 description: ObservedGeneration is the last reconciled generation.
                 format: int64
                 type: integer
+              rawTarget:
+                type: string
             type: object
         type: object
     served: true

@@ -18,18 +18,23 @@ package v1alpha1
 
 import (
 	"github.com/fluxcd/pkg/apis/meta"
-	meta2 "github.com/fluxcd/pkg/apis/meta"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
 	KluctlDeploymentKind      = "KluctlDeployment"
-	KluctlMultiDeploymentKind = "KluctlMultiDeployment"
 	KluctlDeploymentFinalizer = "finalizers.flux.kluctl.io"
 	MaxConditionMessageLength = 20000
 	DisabledValue             = "disabled"
 	MergeValue                = "merge"
+
+	KluctlDeployModeFull   = "full-deploy"
+	KluctlDeployPokeImages = "poke-images"
+
+	KluctlDeployRequestAnnotation = "deploy.flux.kluctl.io/requestedAt"
 )
 
 type KluctlDeploymentTemplateSpec struct {
@@ -63,7 +68,8 @@ type KluctlDeploymentTemplateSpec struct {
 	// Args specifies dynamic target args.
 	// Only arguments defined by 'dynamicArgs' of the target are allowed.
 	// +optional
-	Args map[string]string `json:"args,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Args runtime.RawExtension `json:"args,omitempty"`
 
 	// UpdateImages instructs kluctl to update dynamic images.
 	// Equivalent to using '-u' when calling kluctl.
@@ -132,6 +138,17 @@ type KluctlDeploymentTemplateSpec struct {
 	// +optional
 	ExcludeDeploymentDirs []string `json:"excludeDeploymentDirs,omitempty"`
 
+	// DeployMode specifies what deploy mode should be used
+	// +kubebuilder:default:=full-deploy
+	// +kubebuilder:validation:Enum=full-deploy;poke-images
+	// +optional
+	DeployMode string `json:"deployMode,omitempty"`
+
+	// Validate enables validation after deploying
+	// +kubebuilder:default:=true
+	// +optional
+	Validate bool `json:"validate"`
+
 	// Prune enables pruning after deploying.
 	// +kubebuilder:default:=false
 	// +optional
@@ -180,22 +197,28 @@ type RenameContext struct {
 type KluctlDeploymentStatus struct {
 	KluctlProjectStatus `json:",inline"`
 
-	// The last attempted reconcile.
+	// LastDeployResult is the result of the last deploy command
 	// +optional
-	LastAttemptedReconcile *ReconcileAttempt `json:"lastAttemptedReconcile,omitempty"`
+	LastDeployResult *LastCommandResult `json:"lastDeployResult,omitempty"`
 
-	// The last successfully reconcile attempt.
+	// LastDeployResult is the result of the last prune command
 	// +optional
-	LastSuccessfulReconcile *ReconcileAttempt `json:"lastSuccessfulReconcile,omitempty"`
+	LastPruneResult *LastCommandResult `json:"lastPruneResult,omitempty"`
+
+	// LastValidateResult is the result of the last validate command
+	// +optional
+	LastValidateResult *LastValidateResult `json:"lastValidateResult,omitempty"`
 
 	// CommonLabels are the commonLabels found in the deployment project when the last deployment was done.
 	// This is used to perform cleanup/deletion in case the KluctlDeployment project is deleted
 	// +optional
 	CommonLabels map[string]string `json:"commonLabels,omitempty"`
+
+	// +optional
+	RawTarget *string `json:"rawTarget,omitempty"`
 }
 
-// ReconcileAttempt describes an attempt to reconcile
-type ReconcileAttempt struct {
+type ReconcileResultBase struct {
 	// AttemptedAt is the time when the attempt was performed
 	// +required
 	AttemptedAt metav1.Time `json:"time"`
@@ -209,32 +232,153 @@ type ReconcileAttempt struct {
 	// +required
 	TargetName string `json:"targetName"`
 
-	// DeployResult is the command result of the deploy command
+	// ObjectsHash is the hash of all rendered objects
 	// +optional
-	DeployResult *CommandResult `json:"deployResult,omitempty"`
-
-	// PruneResult is the command result of the prune command
-	// +optional
-	PruneResult *CommandResult `json:"pruneResult,omitempty"`
+	ObjectsHash string `json:"objectsHash,omitempty"`
 }
 
-func SetKluctlDeploymentReadiness(k *KluctlDeployment, status metav1.ConditionStatus, reason, message string, revision string, deployResult *CommandResult, pruneResult *CommandResult) {
-	SetKluctlProjectReadiness(k.GetKluctlStatus(), status, reason, message, k.GetGeneration(), revision)
+type LastCommandResult struct {
+	ReconcileResultBase `json:",inline"`
 
-	k.Status.LastAttemptedReconcile = &ReconcileAttempt{
-		AttemptedAt:  metav1.Now(),
-		Revision:     revision,
-		TargetName:   k.Spec.Target,
-		DeployResult: deployResult,
-		PruneResult:  pruneResult,
+	// +optional
+	RawResult *string `json:"rawResult,omitempty"`
+
+	// +optional
+	Error string `json:"error,omitempty"`
+}
+
+type LastValidateResult struct {
+	ReconcileResultBase `json:",inline"`
+
+	// +optional
+	RawResult *string `json:"rawResult,omitempty"`
+
+	// +optional
+	Error string `json:"error"`
+}
+
+func (r *LastCommandResult) ParseResult() *types.CommandResult {
+	if r == nil || r.RawResult == nil {
+		return nil
 	}
-	if status == metav1.ConditionTrue {
-		k.Status.LastSuccessfulReconcile = k.Status.LastAttemptedReconcile
+
+	var ret types.CommandResult
+	err := yaml.ReadYamlString(*r.RawResult, &ret)
+	if err != nil {
+		return nil
+	}
+	return &ret
+}
+
+func (r *LastValidateResult) ParseResult() *types.ValidateResult {
+	if r == nil || r.RawResult == nil {
+		return nil
+	}
+
+	var ret types.ValidateResult
+	err := yaml.ReadYamlString(*r.RawResult, &ret)
+	if err != nil {
+		return nil
+	}
+	return &ret
+}
+
+func (d *KluctlDeploymentStatus) SetRawTarget(target *types.Target) {
+	y, err := yaml.WriteYamlString(target)
+	if err == nil {
+		d.RawTarget = &y
+	}
+}
+
+func (d *KluctlDeploymentStatus) ParseRawTarget() *types.Target {
+	if d.RawTarget == nil {
+		return nil
+	}
+	var ret types.Target
+	err := yaml.ReadYamlString(*d.RawTarget, &ret)
+	if err != nil {
+		return nil
+	}
+	return &ret
+}
+
+func SetDeployResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+
+	k.Status.LastDeployResult = &LastCommandResult{
+		ReconcileResultBase: ReconcileResultBase{
+			AttemptedAt: metav1.Now(),
+			Revision:    revision,
+			TargetName:  k.Spec.Target,
+			ObjectsHash: objectHash,
+		},
+		Error: errStr,
+	}
+	if result != nil {
+		raw, err := yaml.WriteYamlString(result)
+		if err == nil {
+			k.Status.LastDeployResult.RawResult = &raw
+		}
+	}
+}
+
+func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+
+	k.Status.LastPruneResult = &LastCommandResult{
+		ReconcileResultBase: ReconcileResultBase{
+			AttemptedAt: metav1.Now(),
+			Revision:    revision,
+			TargetName:  k.Spec.Target,
+			ObjectsHash: objectHash,
+		},
+		Error: errStr,
+	}
+	if result != nil {
+		raw, err := yaml.WriteYamlString(result)
+		if err == nil {
+			k.Status.LastPruneResult.RawResult = &raw
+		}
+	}
+}
+
+func SetValidateResult(k *KluctlDeployment, revision string, result *types.ValidateResult, objectHash string, err error) {
+	errStr := ""
+	if err != nil {
+		errStr = err.Error()
+	}
+
+	k.Status.LastValidateResult = &LastValidateResult{
+		ReconcileResultBase: ReconcileResultBase{
+			AttemptedAt: metav1.Now(),
+			Revision:    revision,
+			TargetName:  k.Spec.Target,
+			ObjectsHash: objectHash,
+		},
+		Error: errStr,
+	}
+	if result != nil {
+		raw, err := yaml.WriteYamlString(result)
+		if err == nil {
+			k.Status.LastValidateResult.RawResult = &raw
+		}
 	}
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.time",description=""
+//+kubebuilder:printcolumn:name="Pruned",type="date",JSONPath=".status.lastPruneResult.time",description=""
+//+kubebuilder:printcolumn:name="Validated",type="date",JSONPath=".status.lastValidateResult.time",description=""
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
+//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 
 // KluctlDeployment is the Schema for the kluctldeployments API
 type KluctlDeployment struct {
@@ -255,40 +399,6 @@ func (in *KluctlDeployment) SetConditions(conditions []metav1.Condition) {
 	in.Status.Conditions = conditions
 }
 
-// GetStatusConditions returns a pointer to the Status.Conditions slice.
-// Deprecated: use GetConditions instead.
-func (in *KluctlDeployment) GetStatusConditions() *[]metav1.Condition {
-	return &in.Status.Conditions
-}
-
-func (in *KluctlDeployment) GetDependsOn() []meta2.NamespacedObjectReference {
-	return in.Spec.DependsOn
-}
-
-func (in *KluctlDeployment) GetKluctlProject() *KluctlProjectSpec {
-	return &in.Spec.KluctlProjectSpec
-}
-
-func (in *KluctlDeployment) GetKluctlTiming() *KluctlTimingSpec {
-	return &in.Spec.KluctlTimingSpec
-}
-
-func (in *KluctlDeployment) GetKluctlStatus() *KluctlProjectStatus {
-	return &in.Status.KluctlProjectStatus
-}
-
-func (in *KluctlDeployment) GetFullStatus() any {
-	return &in.Status
-}
-
-func (in *KluctlDeployment) SetFullStatus(s any) {
-	s2, ok := s.(*KluctlDeploymentStatus)
-	if !ok {
-		panic("not a KluctlDeploymentStatus")
-	}
-	in.Status = *s2
-}
-
 //+kubebuilder:object:root=true
 
 // KluctlDeploymentList contains a list of KluctlDeployment
@@ -296,16 +406,6 @@ type KluctlDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []KluctlDeployment `json:"items"`
-}
-
-func (in *KluctlDeploymentList) GetItems() []client.Object {
-	var ret []client.Object
-	for _, x := range in.Items {
-		x := x
-		ret = append(ret, &x)
-	}
-
-	return ret
 }
 
 func init() {

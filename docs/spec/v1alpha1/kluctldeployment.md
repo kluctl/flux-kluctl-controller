@@ -73,15 +73,45 @@ the controller will re-use the credentials from the root project's GitRepository
 The KluctlDeployment `spec.interval` tells the controller at which interval to try reconciliations.
 The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
 
+At each reconciliation run, the controller will check if any rendered objects have been changes since the last
+deployment and then perform a new deployment if changes are detected. Changes are tracked via a hash consisting of
+all rendered objects.
+
+To enforce periodic full deployments even if nothing has changed, `spec.deployInterval` can be used to specify an
+interval at which forced deployments must be performed by the controller.
+
 The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`.
 
 The controller can be told to reconcile the KluctlDeployment outside of the specified interval
-by annotating the KluctlDeployment object with `fluxcd.io/reconcileAt`.
+by annotating the KluctlDeployment object with `reconcile.fluxcd.io/requestedAt`.
 
 On-demand execution example:
 
 ```bash
-kubectl annotate --overwrite kluctldeployment/microservices-demo-prod fluxcd.io/reconcileAt="$(date +%s)"
+kubectl annotate --overwrite kluctldeployment/microservices-demo-prod reconcile.fluxcd.io/requestedAt="$(date +%s)"
+```
+
+## Deploy Mode
+By default, the operator will perform a full deployment, which is equivalent to using the `kluctl deploy` command.
+As an alternative, the controller can be instructed to only perform a `kluctl poke-images` command. Please
+see https://kluctl.io/docs/reference/commands/poke-images/ for details on the command. To do so, set `spec.deployMode`
+field to `poke-images`.
+
+Example:
+```
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: microservices-demo-prod
+spec:
+  interval: 5m
+  path: "./microservices-demo/3-templating-and-multi-env/"
+  sourceRef:
+    kind: GitRepository
+    name: microservices-demo
+  timeout: 2m
+  target: prod
+  deployMode: poke-images
 ```
 
 ## Pruning
@@ -91,7 +121,7 @@ successful deployment.
 
 ## Kluctl Options
 The [kluctl deploy](https://kluctl.io/docs/reference/commands/deploy/) command has multiple arguments that influence
-how the deployment is performed. `KluctlDeployment`'s can set most of these arguements as well:
+how the deployment is performed. `KluctlDeployment`'s can set most of these arguments as well:
 
 ### args
 `spec.args` is a map of strings representing [arguments](https://kluctl.io/docs/reference/deployments/deployment-yml/#args)
@@ -201,12 +231,6 @@ These are equivalent to calling `kluctl deploy -t prod --include-tag <tag1>` and
 inclusion/exclusion logic while deploying. These are equivalent to calling `kluctl deploy -t prod --include-tag <tag1>`
 and `kluctl deploy -t prod --exclude-tag <tag2>`.
 
-## Dependencies
-
-KluctlDeployment's can specify dependencies via `spec.dependsOn`. The functionality is equivalent to
-[kustomization-dependencies](https://fluxcd.io/docs/components/kustomize/kustomization/#kustomization-dependencies)
-but with KluctlDeployments as dependency objects.
-
 ## Kubeconfigs and RBAC
 
 As Kluctl is meant to be a CLI-first tool, it expects a kubeconfig to be present while deployments are
@@ -256,40 +280,49 @@ A successful reconciliation sets the ready condition to `true` and updates the r
 
 ```yaml
 status:
+  commonLabels:
+    examples.kluctl.io/deployment-project: microservices-demo
+    examples.kluctl.io/deployment-target: prod
   conditions:
-  - lastTransitionTime: "2022-05-04T10:08:39Z"
-    message: 'Deployed revision: main/b285d08164011fb642072bc9e3c62c898eba96f5'
+  - lastTransitionTime: "2022-07-07T11:48:14Z"
+    message: Deployed revision: master/2129450c9fc867f5a9b25760bb512054d7df6c43
     reason: ReconciliationSucceeded
     status: "True"
     type: Ready
-  - lastTransitionTime: "2022-05-04T10:08:39Z"
-    message: ReconciliationSucceeded
-    reason: ReconciliationSucceeded
-    status: "True"
-    type: Healthy
-  lastAttemptedReconcile:
-    deployResult:
-      newObjects:
-      - id: ms-demo-test__Namespace
-        v: v1
-      ...
-    pruneResult: {}
-    revision: main/b285d08164011fb642072bc9e3c62c898eba96f5
-    targetHash: 0669d6dbc5be975f90a685bebcf83bc6049f6cf48538c78a7b3862621b8015df
-    targetName: test
-    time: "2022-05-04T10:08:39Z"
-  lastForceReconcileHash: acad6b40f8556cf0b7752d0286e1b45d2855e3c4ba38cb4f515e03ac62236cc0
-  lastSuccessfulReconcile:
-    deployResult:
-      newObjects:
-      - id: ms-demo-test__Namespace
-        v: v1
-      ...
-    pruneResult: {}
-    revision: main/b285d08164011fb642072bc9e3c62c898eba96f5
-    targetHash: 0669d6dbc5be975f90a685bebcf83bc6049f6cf48538c78a7b3862621b8015df
-    targetName: test
-    time: "2022-05-04T10:08:39Z"
+  lastDeployResult:
+    objectsHash: bc4d2b9f717088a395655b8d8d28fa66a9a91015f244bdba3c755cd87361f9e2
+    result:
+      hookObjects:
+      - ...
+      orphanObjects:
+      - ...
+      seenImages:
+      - ...
+      warnings:
+      - ...
+    revision: master/2129450c9fc867f5a9b25760bb512054d7df6c43
+    targetName: prod
+    time: "2022-07-07T11:49:29Z"
+  lastPruneResult:
+    objectsHash: bc4d2b9f717088a395655b8d8d28fa66a9a91015f244bdba3c755cd87361f9e2
+    result:
+      deletedObjects:
+      - ...
+    revision: master/2129450c9fc867f5a9b25760bb512054d7df6c43
+    targetName: prod
+    time: "2022-07-07T11:49:48Z"
+  lastValidateResult:
+    error: ""
+    objectsHash: bc4d2b9f717088a395655b8d8d28fa66a9a91015f244bdba3c755cd87361f9e2
+    result:
+      errors:
+      - ...
+      ready: false
+      results:
+      - ...
+    revision: master/2129450c9fc867f5a9b25760bb512054d7df6c43
+    targetName: prod
+    time: "2022-07-07T12:05:53Z"
   observedGeneration: 1
 ```
 
@@ -309,10 +342,12 @@ status:
     reason: PrepareFailed
     status: "False"
     type: Ready
-  lastAttemptedReconcile:
-    revision: main/b285d08164011fb642072bc9e3c62c898eba96f5
-    targetName: invalid-name
-    time: "2022-05-04T10:18:11Z"
-``` 
+  lastDeployResult:
+    ...
+  lastPruneResult:
+    ...
+  lastValidateResult:
+    ...
+```
 
-> **Note** that the lastSuccessfulReconcile is updated only on a successful reconciliation.
+> **Note** that the lastDeployResult, lastPruneResult and lastValidateResult are only updated on a successful reconciliation.

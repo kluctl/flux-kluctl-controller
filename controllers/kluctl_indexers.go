@@ -19,14 +19,15 @@ package controllers
 import (
 	"context"
 	"fmt"
+	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/fluxcd/pkg/runtime/dependency"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 )
 
-func (r *KluctlProjectReconciler) requestsForRevisionChangeOf(indexKey string) func(obj client.Object) []reconcile.Request {
+func (r *KluctlDeploymentReconciler) requestsForRevisionChangeOf(indexKey string) func(obj client.Object) []reconcile.Request {
 	return func(obj client.Object) []reconcile.Request {
 		repo, ok := obj.(interface {
 			GetArtifact() *sourcev1.Artifact
@@ -40,51 +41,44 @@ func (r *KluctlProjectReconciler) requestsForRevisionChangeOf(indexKey string) f
 		}
 
 		ctx := context.Background()
-		list := r.Impl.NewObjectList()
+		list := &kluctlv1.KluctlDeploymentList{}
 
 		if err := r.List(ctx, list, client.MatchingFields{
 			indexKey: client.ObjectKeyFromObject(obj).String(),
 		}); err != nil {
 			return nil
 		}
-		var dd []dependency.Dependent
-		for _, d := range list.GetItems() {
-			d := d.(KluctlProjectHolder)
+		var reqs []reconcile.Request
+		for _, d := range list.Items {
 			// If the revision of the artifact equals to the last attempted revision,
 			// we should not make a request for this Kustomization
-			if repo.GetArtifact().Revision == d.GetKluctlStatus().LastAttemptedRevision {
+			if repo.GetArtifact().Revision == d.Status.LastAttemptedRevision {
 				continue
 			}
-			dd = append(dd, d.DeepCopyObject().(dependency.Dependent))
-		}
-		sorted, err := dependency.Sort(dd)
-		if err != nil {
-			return nil
-		}
-		reqs := make([]reconcile.Request, len(sorted))
-		for i := range sorted {
-			reqs[i].NamespacedName.Name = sorted[i].Name
-			reqs[i].NamespacedName.Namespace = sorted[i].Namespace
+			reqs = append(reqs, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: d.GetNamespace(),
+					Name:      d.GetName(),
+				},
+			})
 		}
 		return reqs
 	}
 }
 
-func (r *KluctlProjectReconciler) indexBy(kind string) func(o client.Object) []string {
+func (r *KluctlDeploymentReconciler) indexBy(kind string) func(o client.Object) []string {
 	return func(o client.Object) []string {
-		k, ok := o.(KluctlProjectHolder)
+		k, ok := o.(*kluctlv1.KluctlDeployment)
 		if !ok {
-			panic(fmt.Sprintf("Expected a KluctlProjectHolder, got %T", o))
+			return nil
 		}
 
-		sourceRef := k.GetKluctlProject().SourceRef
-
-		if sourceRef.Kind == kind {
+		if k.Spec.SourceRef.Kind == kind {
 			namespace := k.GetNamespace()
-			if sourceRef.Namespace != "" {
-				namespace = sourceRef.Namespace
+			if k.Spec.SourceRef.Namespace != "" {
+				namespace = k.Spec.SourceRef.Namespace
 			}
-			return []string{fmt.Sprintf("%s/%s", namespace, sourceRef.Name)}
+			return []string{fmt.Sprintf("%s/%s", namespace, k.Spec.SourceRef.Name)}
 		}
 
 		return nil

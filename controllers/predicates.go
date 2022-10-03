@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -51,5 +52,23 @@ func (SourceRevisionChangePredicate) Update(e event.UpdateEvent) bool {
 		return true
 	}
 
+	return false
+}
+
+type DeployRequestedPredicate struct {
+	predicate.Funcs
+}
+
+func (DeployRequestedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil || e.ObjectNew == nil {
+		return false
+	}
+
+	if val, ok := e.ObjectNew.GetAnnotations()[kluctlv1.KluctlDeployRequestAnnotation]; ok {
+		if valOld, okOld := e.ObjectOld.GetAnnotations()[kluctlv1.KluctlDeployRequestAnnotation]; okOld {
+			return val != valOld
+		}
+		return true
+	}
 	return false
 }

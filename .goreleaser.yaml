@@ -1,8 +1,5 @@
 project_name: flux-kluctl-controller
 
-before:
-  hooks:
-    - make vendor-gen
 builds:
   - binary: manager
     env:
@@ -61,6 +58,7 @@ docker_manifests:
       - "ghcr.io/kluctl/flux-kluctl-controller:v{{ .Version }}-arm64"
 
 release:
+  draft: true
   prerelease: "true"
   extra_files:
     - glob: config/release/*.yaml

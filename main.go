@@ -18,8 +18,8 @@ package main
 
 import (
 	"fmt"
+	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"os"
-	"time"
 
 	helper "github.com/fluxcd/pkg/runtime/controller"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -70,7 +70,6 @@ func main() {
 		eventsAddr            string
 		healthAddr            string
 		concurrent            int
-		requeueDependency     time.Duration
 		clientOptions         client.Options
 		logOptions            logger.Options
 		leaderElectionOptions leaderelection.Options
@@ -84,7 +83,6 @@ func main() {
 	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 	flag.StringVar(&healthAddr, "health-addr", ":9440", "The address the health endpoint binds to.")
 	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kluctl deployments.")
-	flag.DurationVar(&requeueDependency, "requeue-dependency", 30*time.Second, "The interval at which failing dependencies are reevaluated.")
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
@@ -133,8 +131,9 @@ func main() {
 	}
 
 	metricsH := helper.MustMakeMetrics(mgr)
+	sshPool := &ssh_pool.SshPool{}
 
-	r := controllers.KluctlProjectReconciler{
+	r := controllers.KluctlDeploymentReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
 		Client:                mgr.GetClient(),
@@ -142,31 +141,14 @@ func main() {
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsH.MetricsRecorder,
 		NoCrossNamespaceRefs:  aclOptions.NoCrossNamespaceRefs,
+		SshPool:               sshPool,
 	}
 
-	kluctlDeploymentReconciler := r
-	kluctlDeploymentReconciler.Impl = &controllers.KluctlDeploymentReconcilerImpl{
-		R: &kluctlDeploymentReconciler,
-	}
-	kluctlMultiDeploymentReconciler := r
-	kluctlMultiDeploymentReconciler.Impl = &controllers.KluctlMultiDeploymentReconcilerImpl{
-		R: &kluctlMultiDeploymentReconciler,
-	}
-
-	if err = kluctlDeploymentReconciler.SetupWithManager(mgr, controllers.KluctlProjectReconcilerOptions{
-		MaxConcurrentReconciles:   concurrent,
-		DependencyRequeueInterval: requeueDependency,
-		HTTPRetry:                 httpRetry,
+	if err = r.SetupWithManager(mgr, controllers.KluctlDeploymentReconcilerOpts{
+		MaxConcurrentReconciles: concurrent,
+		HTTPRetry:               httpRetry,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlDeploymentKind)
-		os.Exit(1)
-	}
-	if err = kluctlMultiDeploymentReconciler.SetupWithManager(mgr, controllers.KluctlProjectReconcilerOptions{
-		MaxConcurrentReconciles:   concurrent,
-		DependencyRequeueInterval: requeueDependency,
-		HTTPRetry:                 httpRetry,
-	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", kluctliov1alpha1.KluctlMultiDeploymentKind)
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

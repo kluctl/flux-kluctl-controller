@@ -105,13 +105,8 @@ vet:
 	go vet ./...
 	cd api; go vet ./...
 
-.PHONY: vendor-gen
-vendor-gen:
-	go mod vendor
-	(cd vendor/github.com/kluctl/kluctl/v2/pkg/jinja2 && go run ./generate) && (cd vendor/github.com/kluctl/kluctl/v2/pkg/python && go run ./generate)
-
 # Generate code
-generate: controller-gen vendor-gen
+generate: controller-gen
 	cd api; $(CONTROLLER_GEN) object:headerFile="../hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
