@@ -293,12 +293,12 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			} else {
 				err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.source.GetArtifact().Revision)
-				return err
+				return nil
 			}
 			kluctlv1.SetDeployResult(obj, pp.source.GetArtifact().Revision, deployResult, objectsHash, err)
 			if err != nil {
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.source.GetArtifact().Revision)
-				return err
+				return nil
 			}
 		}
 
@@ -308,7 +308,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			kluctlv1.SetPruneResult(obj, pp.source.GetArtifact().Revision, pruneResult, objectsHash, err)
 			if err != nil {
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), pp.source.GetArtifact().Revision)
-				return err
+				return nil
 			}
 		}
 
@@ -317,7 +317,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			kluctlv1.SetValidateResult(obj, pp.source.GetArtifact().Revision, validateResult, objectsHash, err)
 			if err != nil {
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.ValidateFailedReason, err.Error(), pp.source.GetArtifact().Revision)
-				return err
+				return nil
 			}
 		}
 
@@ -328,6 +328,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		obj.Status.LastHandledDeployAt = v
 	}
 	if err != nil {
+		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.source.GetArtifact().Revision)
 		return nil, err
 	}
 
