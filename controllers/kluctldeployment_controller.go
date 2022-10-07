@@ -273,10 +273,14 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 					needValidate = nextValidateTime.Before(time.Now())
 				}
 			}
+		} else {
+			obj.Status.LastValidateResult = nil
 		}
 
 		if obj.Spec.Prune {
 			needPrune = needDeploy
+		} else {
+			obj.Status.LastPruneResult = nil
 		}
 
 		if needDeploy {
