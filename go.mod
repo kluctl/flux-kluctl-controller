@@ -225,7 +225,7 @@ require (
 	github.com/hashicorp/vault/sdk v0.6.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/kluctl/go-embed-python v0.0.0-3.10.6-20220906-2 // indirect
-	github.com/kluctl/go-jinja2 v0.0.0-20220927093149-38ad307371ca // indirect
+	github.com/kluctl/go-jinja2 v0.0.0-20221011075324-ee187dbffa85 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
