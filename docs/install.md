@@ -3,7 +3,17 @@
 The Flux Kluctl Controller requires an existing [Flux installation](https://fluxcd.io/docs/installation/) on the
 same cluster that you plan to install the Flux Kluctl Controller to.
 
-After Flux has been installed, you can install the Flux Kluctl Controller by running the following command:
+After Flux has been installed, you can install the Flux Kluctl Controller using [Helm](https://helm.sh/) or [Kustomize](https://kustomize.io/):
+
+## Install via Helm:
+
+```sh
+helm repo add kluctl http://kluctl.github.io/charts
+helm search repo kluctl
+helm install flux-kluctl-controller kluctl/flux-kluctl-controller
+```
+
+## Install via Kustomize
 
 ```sh
 kustomize build "https://github.com/kluctl/flux-kluctl-controller/config/install?ref=v0.5.0" | kubectl apply -f-
