@@ -456,12 +456,14 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 			return err
 		}
 		props := kluctl_project.TargetContextParams{
-			TargetName:      pt.pp.obj.Spec.Target,
 			DryRun:          pt.pp.obj.Spec.DryRun,
 			ExternalArgs:    externalArgs,
 			Images:          images,
 			Inclusion:       inclusion,
 			RenderOutputDir: renderOutputDir,
+		}
+		if pt.pp.obj.Spec.Target != nil {
+			props.TargetName = *pt.pp.obj.Spec.Target
 		}
 		if pt.pp.obj.Spec.Context != nil {
 			props.ContextOverride = *pt.pp.obj.Spec.Context

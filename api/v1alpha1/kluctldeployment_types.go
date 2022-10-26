@@ -122,11 +122,12 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	RenameContexts []RenameContext `json:"renameContexts,omitempty"`
 
-	// Target specifies the kluctl target to deploy
+	// Target specifies the kluctl target to deploy. If not specified, an empty target is used that has no name and no
+	// context. Use 'TargetName' and 'Context' to specify the name and context in that case.
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=63
-	// +required
-	Target string `json:"target"`
+	// +optional
+	Target *string `json:"target,omitempty"`
 
 	// If specified, overrides the context to be used. This will effectively make kluctl ignore the context specified
 	// in the target.
