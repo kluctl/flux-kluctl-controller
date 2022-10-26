@@ -410,7 +410,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 		return err
 	}
 
-	rp := repocache.NewGitRepoCache(ctx, pp.r.SshPool, ga, 0)
+	rp := repocache.NewGitRepoCache(ctx, pp.r.SshPool, ga, nil, 0)
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
@@ -460,7 +460,14 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 		if err != nil {
 			return err
 		}
-		targetContext, err := p.NewTargetContext(ctx, pt.targetName, nil, false, pt.spec.DryRun, externalArgs, false, images, inclusion, renderOutputDir)
+		targetContext, err := p.NewTargetContext(ctx, kluctl_project.TargetContextParams{
+			TargetName:      pt.targetName,
+			DryRun:          pt.spec.DryRun,
+			ExternalArgs:    externalArgs,
+			Images:          images,
+			Inclusion:       inclusion,
+			RenderOutputDir: renderOutputDir,
+		})
 		if err != nil {
 			return err
 		}
