@@ -20,6 +20,7 @@ type KluctlProjectSpec struct {
 }
 
 // +kubebuilder:validation:Type=string
+// +kubebuilder:validation:Pattern="^(([0-9]+(\\.[0-9]+)?(ms|s|m|h))+)|never$"
 type DurationOrNever struct {
 	Duration metav1.Duration
 	Never    bool
@@ -68,12 +69,16 @@ type KluctlTimingSpec struct {
 	// By default, the controller will re-deploy and validate the deployment on each reconciliation.
 	// To override this behavior, change the DeployInterval and/or ValidateInterval values.
 	// +required
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	Interval metav1.Duration `json:"interval"`
 
 	// The interval at which to retry a previously failed reconciliation.
 	// When not specified, the controller uses the Interval
 	// value to retry failures.
 	// +optional
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	RetryInterval *metav1.Duration `json:"retryInterval,omitempty"`
 
 	// DeployInterval specifies the interval at which to deploy the KluctlDeployment.
@@ -99,6 +104,8 @@ type KluctlTimingSpec struct {
 	// Timeout for all operations.
 	// Defaults to 'Interval' duration.
 	// +optional
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// This flag tells the controller to suspend subsequent kluctl executions,

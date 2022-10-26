@@ -62,8 +62,7 @@ spec:
                   when calling kluctl.
                 type: boolean
               args:
-                description: Args specifies dynamic target args. Only arguments defined
-                  by 'dynamicArgs' of the target are allowed.
+                description: Args specifies dynamic target args.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               deployInterval:
@@ -71,6 +70,7 @@ spec:
                   the KluctlDeployment. It defaults to the Interval value, meaning
                   that it will re-deploy on every reconciliation. If you set DeployInterval
                   to a different value,
+                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)|never$
                 type: string
               deployMode:
                 default: full-deploy
@@ -189,6 +189,7 @@ spec:
                   By default, the controller will re-deploy and validate the deployment
                   on each reconciliation. To override this behavior, change the DeployInterval
                   and/or ValidateInterval values.
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               kubeConfig:
                 description: The KubeConfig for deploying to the target cluster. Specifies
@@ -279,6 +280,7 @@ spec:
                 description: The interval at which to retry a previously failed reconciliation.
                   When not specified, the controller uses the Interval value to retry
                   failures.
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               serviceAccountName:
                 description: The name of the Kubernetes service account to use while
@@ -320,6 +322,7 @@ spec:
                 type: string
               timeout:
                 description: Timeout for all operations. Defaults to 'Interval' duration.
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               updateImages:
                 default: false
@@ -336,6 +339,7 @@ spec:
                   'kluctl validate -t <target>'. Defaults to the same value as specified
                   in Interval. Validate is also performed whenever a deployment is
                   performed, independent of the value of ValidateInterval
+                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)|never$
                 type: string
             required:
             - interval
