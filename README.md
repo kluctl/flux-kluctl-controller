@@ -101,13 +101,8 @@ spec:
     name: microservices-demo
   timeout: 2m
   target: test
+  context: default
   prune: true
-  # kluctl cluster configs specify the expected context name, which does not necessarely match the context name
-  # found while it is deployed via the controller. This means we must pass a kubeconfig to kluctl that has the
-  # context renamed to the one that it expects.
-  renameContexts:
-    - oldContext: default
-      newContext: kind-kind
 ```
 
 This example will deploy a fully-fledged microservices application with multiple backend services, frontends and
@@ -129,8 +124,6 @@ spec:
     name: microservices-demo
   timeout: 2m
   target: prod
+  context: default
   prune: true
-  renameContexts:
-    - oldContext: default
-      newContext: kind-kind
 ```
