@@ -35,7 +35,6 @@ Installation instructions can be found [here](./docs/install.md)
 The reconciliation process can be defined with a Kubernetes custom resource
 that describes a pipeline such as:
 - **fetch** root kluctl project from source-controller (Git repository or S3 bucket)
-- **compare** the current deployment with the last deployed one and bail out if nothing changed
 - **deploy** the specified target via [kluctl deploy](https://kluctl.io/docs/reference/commands/deploy/)
 - **prune** orphaned objects via [kluctl prune](https://kluctl.io/docs/reference/commands/prune/)
 - **validate** the deployment status via [kluctl validate](https://kluctl.io/docs/reference/commands/validate/)
