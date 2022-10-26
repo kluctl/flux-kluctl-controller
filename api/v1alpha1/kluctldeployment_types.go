@@ -66,7 +66,6 @@ type KluctlDeploymentTemplateSpec struct {
 	RenameContexts []RenameContext `json:"renameContexts,omitempty"`
 
 	// Args specifies dynamic target args.
-	// Only arguments defined by 'dynamicArgs' of the target are allowed.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Args runtime.RawExtension `json:"args,omitempty"`
