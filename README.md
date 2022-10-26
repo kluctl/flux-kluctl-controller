@@ -72,7 +72,7 @@ we can create a Kluctl deployment that automatically deploys the [Microservices 
 Create a source that points to the demo project.
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1beta1
+apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: GitRepository
 metadata:
   name: microservices-demo
