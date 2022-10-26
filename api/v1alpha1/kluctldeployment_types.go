@@ -129,6 +129,12 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	Target *string `json:"target,omitempty"`
 
+	// TargetNameOverride sets or overrides the target name. This is especially useful when deployment without a target.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +optional
+	TargetNameOverride *string `json:"targetNameOverride,omitempty"`
+
 	// If specified, overrides the context to be used. This will effectively make kluctl ignore the context specified
 	// in the target.
 	// +optional
@@ -306,9 +312,11 @@ type ReconcileResultBase struct {
 	// +optional
 	Revision string `json:"revision,omitempty"`
 
-	// TargetName is the name of the target
-	// +required
-	TargetName string `json:"targetName"`
+	// +optional
+	Target *string `json:"target,omitempty"`
+
+	// +optional
+	TargetNameOverride *string `json:"targetNameOverride,omitempty"`
 
 	// ObjectsHash is the hash of all rendered objects
 	// +optional
@@ -388,10 +396,11 @@ func SetDeployResult(k *KluctlDeployment, revision string, result *types.Command
 
 	k.Status.LastDeployResult = &LastCommandResult{
 		ReconcileResultBase: ReconcileResultBase{
-			AttemptedAt: metav1.Now(),
-			Revision:    revision,
-			TargetName:  k.Spec.Target,
-			ObjectsHash: objectHash,
+			AttemptedAt:        metav1.Now(),
+			Revision:           revision,
+			Target:             k.Spec.Target,
+			TargetNameOverride: k.Spec.TargetNameOverride,
+			ObjectsHash:        objectHash,
 		},
 		Error: errStr,
 	}
@@ -411,10 +420,11 @@ func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandR
 
 	k.Status.LastPruneResult = &LastCommandResult{
 		ReconcileResultBase: ReconcileResultBase{
-			AttemptedAt: metav1.Now(),
-			Revision:    revision,
-			TargetName:  k.Spec.Target,
-			ObjectsHash: objectHash,
+			AttemptedAt:        metav1.Now(),
+			Revision:           revision,
+			Target:             k.Spec.Target,
+			TargetNameOverride: k.Spec.TargetNameOverride,
+			ObjectsHash:        objectHash,
 		},
 		Error: errStr,
 	}
@@ -434,10 +444,11 @@ func SetValidateResult(k *KluctlDeployment, revision string, result *types.Valid
 
 	k.Status.LastValidateResult = &LastValidateResult{
 		ReconcileResultBase: ReconcileResultBase{
-			AttemptedAt: metav1.Now(),
-			Revision:    revision,
-			TargetName:  k.Spec.Target,
-			ObjectsHash: objectHash,
+			AttemptedAt:        metav1.Now(),
+			Revision:           revision,
+			Target:             k.Spec.Target,
+			TargetNameOverride: k.Spec.TargetNameOverride,
+			ObjectsHash:        objectHash,
 		},
 		Error: errStr,
 	}

@@ -465,6 +465,9 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 		if pt.pp.obj.Spec.Target != nil {
 			props.TargetName = *pt.pp.obj.Spec.Target
 		}
+		if pt.pp.obj.Spec.TargetNameOverride != nil {
+			props.TargetNameOverride = *pt.pp.obj.Spec.TargetNameOverride
+		}
 		if pt.pp.obj.Spec.Context != nil {
 			props.ContextOverride = *pt.pp.obj.Spec.Context
 		}
