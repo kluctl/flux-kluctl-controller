@@ -13,7 +13,7 @@ Resource Types:
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlTimingSpec">KluctlTimingSpec</a>)
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
 </p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
@@ -55,7 +55,7 @@ bool
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentTemplateSpec">KluctlDeploymentTemplateSpec</a>)
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
 </p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
@@ -225,257 +225,136 @@ KluctlDeploymentSpec
 <table>
 <tr>
 <td>
-<code>KluctlProjectSpec</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlProjectSpec">
-KluctlProjectSpec
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>KluctlProjectSpec</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>KluctlDeploymentTemplateSpec</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentTemplateSpec">
-KluctlDeploymentTemplateSpec
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>KluctlDeploymentTemplateSpec</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>target</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Target specifies the kluctl target to deploy</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentStatus">
-KluctlDeploymentStatus
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeployment">KluctlDeployment</a>)
-</p>
-<p>KluctlDeploymentSpec defines the desired state of KluctlDeployment</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>KluctlProjectSpec</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlProjectSpec">
-KluctlProjectSpec
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>KluctlProjectSpec</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>KluctlDeploymentTemplateSpec</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentTemplateSpec">
-KluctlDeploymentTemplateSpec
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>KluctlDeploymentTemplateSpec</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>target</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Target specifies the kluctl target to deploy</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="flux.kluctl.io/v1alpha1.KluctlDeploymentStatus">KluctlDeploymentStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeployment">KluctlDeployment</a>)
-</p>
-<p>KluctlDeploymentStatus defines the observed state of KluctlDeployment</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>KluctlProjectStatus</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlProjectStatus">
-KluctlProjectStatus
-</a>
-</em>
-</td>
-<td>
-<p>
-(Members of <code>KluctlProjectStatus</code> are embedded into this type.)
-</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastDeployResult</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.LastCommandResult">
-LastCommandResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LastDeployResult is the result of the last deploy command</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastPruneResult</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.LastCommandResult">
-LastCommandResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LastDeployResult is the result of the last prune command</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastValidateResult</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.LastValidateResult">
-LastValidateResult
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LastValidateResult is the result of the last validate command</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>commonLabels</code><br>
-<em>
-map[string]string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>CommonLabels are the commonLabels found in the deployment project when the last deployment was done.
-This is used to perform cleanup/deletion in case the KluctlDeployment project is deleted</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>rawTarget</code><br>
+<code>path</code><br>
 <em>
 string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
+<p>Path to the directory containing the .kluctl.yaml file, or the
+Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.</p>
 </td>
 </tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="flux.kluctl.io/v1alpha1.KluctlDeploymentTemplateSpec">KluctlDeploymentTemplateSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
-</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
 <tr>
 <td>
-<code>KluctlTimingSpec</code><br>
+<code>sourceRef</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlTimingSpec">
-KluctlTimingSpec
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectKindReference">
+github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
 </a>
 </em>
 </td>
 <td>
-<p>
-(Members of <code>KluctlTimingSpec</code> are embedded into this type.)
-</p>
+<p>Reference of the source where the kluctl project is.
+The authentication secrets from the source are also used to authenticate
+dependent git repositories which are cloned while deploying the kluctl project.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>interval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<p>The interval at which to reconcile the KluctlDeployment.
+By default, the controller will re-deploy and validate the deployment on each reconciliation.
+To override this behavior, change the DeployInterval and/or ValidateInterval values.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>retryInterval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The interval at which to retry a previously failed reconciliation.
+When not specified, the controller uses the Interval
+value to retry failures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployInterval</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.DurationOrNever">
+DurationOrNever
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployInterval specifies the interval at which to deploy the KluctlDeployment.
+It defaults to the Interval value, meaning that it will re-deploy on every reconciliation.
+If you set DeployInterval to a different value,</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployOnChanges</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployOnChanges will cause a re-deployment whenever the rendered resources change in the deployment.
+This check is performed on every reconciliation. This means that a deployment will be triggered even before
+the DeployInterval has passed in case something has changed in the rendered resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validateInterval</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.DurationOrNever">
+DurationOrNever
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ValidateInterval specifies the interval at which to validate the KluctlDeployment.
+Validation is performed the same way as with &lsquo;kluctl validate -t <target>&rsquo;.
+Defaults to the same value as specified in Interval.
+Validate is also performed whenever a deployment is performed, independent of the value of ValidateInterval</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>timeout</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Timeout for all operations.
+Defaults to &lsquo;Interval&rsquo; duration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>suspend</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>This flag tells the controller to suspend subsequent kluctl executions,
+it does not apply to already started executions. Defaults to false.</p>
 </td>
 </tr>
 <tr>
@@ -520,8 +399,7 @@ KubeConfig
 <em>(Optional)</em>
 <p>The KubeConfig for deploying to the target cluster.
 Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
-the context found in the kluctl target. As an alternative, RenameContexts can be used to fix
-non-matching context names.</p>
+the context found in the kluctl target. As an alternative, specify the context to be used via &lsquo;context&rsquo;</p>
 </td>
 </tr>
 <tr>
@@ -543,6 +421,44 @@ service accounts, in which case the context name is always &ldquo;default&rdquo;
 </tr>
 <tr>
 <td>
+<code>target</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Target specifies the kluctl target to deploy. If not specified, an empty target is used that has no name and no
+context. Use &lsquo;TargetName&rsquo; and &lsquo;Context&rsquo; to specify the name and context in that case.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetNameOverride</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetNameOverride sets or overrides the target name. This is especially useful when deployment without a target.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>context</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>If specified, overrides the context to be used. This will effectively make kluctl ignore the context specified
+in the target.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>args</code><br>
 <em>
 k8s.io/apimachinery/pkg/runtime.RawExtension
@@ -550,8 +466,482 @@ k8s.io/apimachinery/pkg/runtime.RawExtension
 </td>
 <td>
 <em>(Optional)</em>
-<p>Args specifies dynamic target args.
-Only arguments defined by &lsquo;dynamicArgs&rsquo; of the target are allowed.</p>
+<p>Args specifies dynamic target args.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>updateImages</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UpdateImages instructs kluctl to update dynamic images.
+Equivalent to using &lsquo;-u&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.FixedImage">
+[]FixedImage
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images contains a list of fixed image overrides.
+Equivalent to using &lsquo;&ndash;fixed-images-file&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dryRun</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DryRun instructs kluctl to run everything in dry-run mode.
+Equivalent to using &lsquo;&ndash;dry-run&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>noWait</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NoWait instructs kluctl to not wait for any resources to become ready, including hooks.
+Equivalent to using &lsquo;&ndash;no-wait&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>forceApply</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ForceApply instructs kluctl to force-apply in case of SSA conflicts.
+Equivalent to using &lsquo;&ndash;force-apply&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>replaceOnError</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReplaceOnError instructs kluctl to replace resources on error.
+Equivalent to using &lsquo;&ndash;replace-on-error&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>forceReplaceOnError</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ForceReplaceOnError instructs kluctl to force-replace resources in case a normal replace fails.
+Equivalent to using &lsquo;&ndash;force-replace-on-error&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>abortOnError</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ForceReplaceOnError instructs kluctl to abort deployments immediately when something fails.
+Equivalent to using &lsquo;&ndash;abort-on-error&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>includeTags</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IncludeTags instructs kluctl to only include deployments with given tags.
+Equivalent to using &lsquo;&ndash;include-tag&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>excludeTags</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeTags instructs kluctl to exclude deployments with given tags.
+Equivalent to using &lsquo;&ndash;exclude-tag&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>includeDeploymentDirs</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>IncludeDeploymentDirs instructs kluctl to only include deployments with the given dir.
+Equivalent to using &lsquo;&ndash;include-deployment-dir&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>excludeDeploymentDirs</code><br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExcludeDeploymentDirs instructs kluctl to exclude deployments with the given dir.
+Equivalent to using &lsquo;&ndash;exclude-deployment-dir&rsquo; when calling kluctl.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployMode</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployMode specifies what deploy mode should be used</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validate</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Validate enables validation after deploying</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>prune</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Prune enables pruning after deploying.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentStatus">
+KluctlDeploymentStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeployment">KluctlDeployment</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>path</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path to the directory containing the .kluctl.yaml file, or the
+Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sourceRef</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectKindReference">
+github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
+</a>
+</em>
+</td>
+<td>
+<p>Reference of the source where the kluctl project is.
+The authentication secrets from the source are also used to authenticate
+dependent git repositories which are cloned while deploying the kluctl project.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>interval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<p>The interval at which to reconcile the KluctlDeployment.
+By default, the controller will re-deploy and validate the deployment on each reconciliation.
+To override this behavior, change the DeployInterval and/or ValidateInterval values.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>retryInterval</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The interval at which to retry a previously failed reconciliation.
+When not specified, the controller uses the Interval
+value to retry failures.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployInterval</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.DurationOrNever">
+DurationOrNever
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployInterval specifies the interval at which to deploy the KluctlDeployment.
+It defaults to the Interval value, meaning that it will re-deploy on every reconciliation.
+If you set DeployInterval to a different value,</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployOnChanges</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DeployOnChanges will cause a re-deployment whenever the rendered resources change in the deployment.
+This check is performed on every reconciliation. This means that a deployment will be triggered even before
+the DeployInterval has passed in case something has changed in the rendered resources.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>validateInterval</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.DurationOrNever">
+DurationOrNever
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ValidateInterval specifies the interval at which to validate the KluctlDeployment.
+Validation is performed the same way as with &lsquo;kluctl validate -t <target>&rsquo;.
+Defaults to the same value as specified in Interval.
+Validate is also performed whenever a deployment is performed, independent of the value of ValidateInterval</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>timeout</code><br>
+<em>
+<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Timeout for all operations.
+Defaults to &lsquo;Interval&rsquo; duration.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>suspend</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>This flag tells the controller to suspend subsequent kluctl executions,
+it does not apply to already started executions. Defaults to false.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>registrySecrets</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
+[]github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RegistrySecrets is a list of secret references to be used for image registry authentication.
+The secrets must either have &ldquo;.dockerconfigjson&rdquo; included or &ldquo;registry&rdquo;, &ldquo;username&rdquo; and &ldquo;password&rdquo;.
+Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>serviceAccountName</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The name of the Kubernetes service account to use while deploying.
+If not specified, the default service account is used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>kubeConfig</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.KubeConfig">
+KubeConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The KubeConfig for deploying to the target cluster.
+Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
+the context found in the kluctl target. As an alternative, specify the context to be used via &lsquo;context&rsquo;</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>renameContexts</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.RenameContext">
+[]RenameContext
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RenameContexts specifies a list of context rename operations.
+This is useful when the kluctl target&rsquo;s context does not match with the
+contexts found in the kubeconfig while deploying. This is the case when using kubeconfigs generated from
+service accounts, in which case the context name is always &ldquo;default&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>target</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Target specifies the kluctl target to deploy. If not specified, an empty target is used that has no name and no
+context. Use &lsquo;TargetName&rsquo; and &lsquo;Context&rsquo; to specify the name and context in that case.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetNameOverride</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>TargetNameOverride sets or overrides the target name. This is especially useful when deployment without a target.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>context</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>If specified, overrides the context to be used. This will effectively make kluctl ignore the context specified
+in the target.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>args</code><br>
+<em>
+k8s.io/apimachinery/pkg/runtime.RawExtension
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Args specifies dynamic target args.</p>
 </td>
 </tr>
 <tr>
@@ -752,61 +1142,13 @@ bool
 </table>
 </div>
 </div>
-<h3 id="flux.kluctl.io/v1alpha1.KluctlProjectSpec">KluctlProjectSpec
+<h3 id="flux.kluctl.io/v1alpha1.KluctlDeploymentStatus">KluctlDeploymentStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeployment">KluctlDeployment</a>)
 </p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>path</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Path to the directory containing the .kluctl.yaml file, or the
-Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>sourceRef</code><br>
-<em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#NamespacedObjectKindReference">
-github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
-</a>
-</em>
-</td>
-<td>
-<p>Reference of the source where the kluctl project is.
-The authentication secrets from the source are also used to authenticate
-dependent git repositories which are cloned while deploying the kluctl project.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="flux.kluctl.io/v1alpha1.KluctlProjectStatus">KluctlProjectStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentStatus">KluctlDeploymentStatus</a>)
-</p>
-<p>KluctlProjectStatus defines the observed state of KluctlProjectStatus</p>
+<p>KluctlDeploymentStatus defines the observed state of KluctlDeployment</p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
 <table>
@@ -880,130 +1222,70 @@ string
 <p>LastAttemptedRevision is the revision of the last reconciliation attempt.</p>
 </td>
 </tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="flux.kluctl.io/v1alpha1.KluctlTimingSpec">KluctlTimingSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentTemplateSpec">KluctlDeploymentTemplateSpec</a>)
-</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
 <tr>
 <td>
-<code>interval</code><br>
+<code>lastDeployResult</code><br>
 <em>
-<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
-Kubernetes meta/v1.Duration
-</a>
-</em>
-</td>
-<td>
-<p>The interval at which to reconcile the KluctlDeployment.
-By default, the controller will re-deploy and validate the deployment on each reconciliation.
-To override this behavior, change the DeployInterval and/or ValidateInterval values.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>retryInterval</code><br>
-<em>
-<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
-Kubernetes meta/v1.Duration
+<a href="#flux.kluctl.io/v1alpha1.LastCommandResult">
+LastCommandResult
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>The interval at which to retry a previously failed reconciliation.
-When not specified, the controller uses the Interval
-value to retry failures.</p>
+<p>LastDeployResult is the result of the last deploy command</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>deployInterval</code><br>
+<code>lastPruneResult</code><br>
 <em>
-<a href="#flux.kluctl.io/v1alpha1.DurationOrNever">
-DurationOrNever
+<a href="#flux.kluctl.io/v1alpha1.LastCommandResult">
+LastCommandResult
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>DeployInterval specifies the interval at which to deploy the KluctlDeployment.
-It defaults to the Interval value, meaning that it will re-deploy on every reconciliation.
-If you set DeployInterval to a different value,</p>
+<p>LastDeployResult is the result of the last prune command</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>deployOnChanges</code><br>
+<code>lastValidateResult</code><br>
 <em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DeployOnChanges will cause a re-deployment whenever the rendered resources change in the deployment.
-This check is performed on every reconciliation. This means that a deployment will be triggered even before
-the DeployInterval has passed in case something has changed in the rendered resources.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>validateInterval</code><br>
-<em>
-<a href="#flux.kluctl.io/v1alpha1.DurationOrNever">
-DurationOrNever
+<a href="#flux.kluctl.io/v1alpha1.LastValidateResult">
+LastValidateResult
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>ValidateInterval specifies the interval at which to validate the KluctlDeployment.
-Validation is performed the same way as with &lsquo;kluctl validate -t <target>&rsquo;.
-Defaults to the same value as specified in Interval.
-Validate is also performed whenever a deployment is performed, independent of the value of ValidateInterval</p>
+<p>LastValidateResult is the result of the last validate command</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>timeout</code><br>
+<code>commonLabels</code><br>
 <em>
-<a href="https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#Duration">
-Kubernetes meta/v1.Duration
-</a>
+map[string]string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>Timeout for all operations.
-Defaults to &lsquo;Interval&rsquo; duration.</p>
+<p>CommonLabels are the commonLabels found in the deployment project when the last deployment was done.
+This is used to perform cleanup/deletion in case the KluctlDeployment project is deleted</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>suspend</code><br>
+<code>rawTarget</code><br>
 <em>
-bool
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>This flag tells the controller to suspend subsequent kluctl executions,
-it does not apply to already started executions. Defaults to false.</p>
 </td>
 </tr>
 </tbody>
@@ -1014,7 +1296,7 @@ it does not apply to already started executions. Defaults to false.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentTemplateSpec">KluctlDeploymentTemplateSpec</a>)
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
 </p>
 <p>KubeConfig references a Kubernetes secret that contains a kubeconfig file.</p>
 <div class="md-typeset__scrollwrap">
@@ -1282,13 +1564,24 @@ dependent git repositories which are not considered in the source revision</p>
 </tr>
 <tr>
 <td>
-<code>targetName</code><br>
+<code>target</code><br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>TargetName is the name of the target</p>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>targetNameOverride</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
 </td>
 </tr>
 <tr>
@@ -1311,7 +1604,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentTemplateSpec">KluctlDeploymentTemplateSpec</a>)
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
 </p>
 <p>RenameContext specifies a single rename of a context</p>
 <div class="md-typeset__scrollwrap">
