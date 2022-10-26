@@ -28,13 +28,8 @@ spec:
     name: microservices-demo
   timeout: 2m
   target: prod
+  context: default
   prune: true
-  # kluctl targets specify the expected context name, which does not necessarily match the context name
-  # found while it is deployed via the controller. This means we must pass a kubeconfig to kluctl that has the
-  # context renamed to the one that it expects.
-  renameContexts:
-    - oldContext: default
-      newContext: kind-kind
 ```
 
 In the above example, two objects are being created, a GitRepository that points to the Kluctl project and KluctlDeployment
@@ -67,6 +62,16 @@ the controller will re-use the credentials from the root project's GitRepository
 ## Target
 `spec.target` specifies the target to be deployed. It must exist in the Kluctl projects
 [kluctl.yaml targets](https://kluctl.io/docs/reference/kluctl-project/targets/) list.
+
+This field is optional and can be omitted if the referenced Kluctl project allows deployments without targets.
+
+## TargetNameOverride
+`spec.targetNameOverride` will set or override the name of the target. This is equivalent to passing
+`--target-name-override` to `kluctl deploy`.
+
+## Context
+`spec.context` will override the context used while deploying. This is equivalent to passing `--context` to
+`kluctl deploy`.
 
 ## Reconciliation
 
@@ -111,6 +116,7 @@ spec:
     name: microservices-demo
   timeout: 2m
   target: prod
+  context: default
   deployMode: poke-images
 ```
 
@@ -139,6 +145,7 @@ spec:
     name: example
   timeout: 2m
   target: prod
+  context: default
   args:
     arg1: value1
     arg2: value2
@@ -270,6 +277,24 @@ spec:
   renameContexts:
     - oldContext: default
       newContext: prod
+```
+
+As an alternative to the above, one could also override the target's context name:
+
+```yaml
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: example
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: example
+  target: prod
+  serviceAccountName: prod-service-account
+  context: default
 ```
 
 ## Status
