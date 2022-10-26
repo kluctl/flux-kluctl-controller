@@ -53,7 +53,6 @@ spec:
           metadata:
             type: object
           spec:
-            description: KluctlDeploymentSpec defines the desired state of KluctlDeployment
             properties:
               abortOnError:
                 default: false

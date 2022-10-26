@@ -230,7 +230,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 	defer pp.cleanup()
 
-	pt, err := pp.newTarget(obj.Spec.Target, obj.Spec.KluctlDeploymentTemplateSpec)
+	pt, err := pp.newTarget(obj.Spec.Target, obj.Spec)
 	if err != nil {
 		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.source.GetArtifact().Revision)
 		return nil, err
@@ -521,7 +521,7 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 	}
 	defer pp.cleanup()
 
-	pt, err := pp.newTarget(obj.Spec.Target, obj.Spec.KluctlDeploymentTemplateSpec)
+	pt, err := pp.newTarget(obj.Spec.Target, obj.Spec)
 	if err != nil {
 		return
 	}

@@ -68,6 +68,6 @@ func (r *KluctlDeploymentReconciler) recordSuspension(ctx context.Context, obj *
 	if !obj.GetDeletionTimestamp().IsZero() {
 		r.MetricsRecorder.RecordSuspend(*objRef, false)
 	} else {
-		r.MetricsRecorder.RecordSuspend(*objRef, obj.Spec.KluctlTimingSpec.Suspend)
+		r.MetricsRecorder.RecordSuspend(*objRef, obj.Spec.Suspend)
 	}
 }

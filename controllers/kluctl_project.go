@@ -53,7 +53,7 @@ type preparedTarget struct {
 	pp *preparedProject
 
 	targetName string
-	spec       kluctlv1.KluctlDeploymentTemplateSpec
+	spec       kluctlv1.KluctlDeploymentSpec
 }
 
 func prepareProject(ctx context.Context,
@@ -109,7 +109,7 @@ func (pp *preparedProject) cleanup() {
 	_ = os.RemoveAll(pp.tmpDir)
 }
 
-func (pp *preparedProject) newTarget(targetName string, spec kluctlv1.KluctlDeploymentTemplateSpec) (*preparedTarget, error) {
+func (pp *preparedProject) newTarget(targetName string, spec kluctlv1.KluctlDeploymentSpec) (*preparedTarget, error) {
 	pt := preparedTarget{
 		pp:         pp,
 		targetName: targetName,
