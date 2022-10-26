@@ -463,6 +463,9 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 			Inclusion:       inclusion,
 			RenderOutputDir: renderOutputDir,
 		}
+		if pt.pp.obj.Spec.Context != nil {
+			props.ContextOverride = *pt.pp.obj.Spec.Context
+		}
 		targetContext, err := p.NewTargetContext(ctx, props)
 		if err != nil {
 			return err

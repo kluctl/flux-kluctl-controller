@@ -111,8 +111,7 @@ type KluctlDeploymentSpec struct {
 
 	// The KubeConfig for deploying to the target cluster.
 	// Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
-	// the context found in the kluctl target. As an alternative, RenameContexts can be used to fix
-	// non-matching context names.
+	// the context found in the kluctl target. As an alternative, specify the context to be used via 'context'
 	// +optional
 	KubeConfig *KubeConfig `json:"kubeConfig"`
 
@@ -128,6 +127,11 @@ type KluctlDeploymentSpec struct {
 	// +kubebuilder:validation:MaxLength=63
 	// +required
 	Target string `json:"target"`
+
+	// If specified, overrides the context to be used. This will effectively make kluctl ignore the context specified
+	// in the target.
+	// +optional
+	Context *string `json:"context,omitempty"`
 
 	// Args specifies dynamic target args.
 	// +optional
@@ -483,12 +487,4 @@ type KluctlDeploymentList struct {
 
 func init() {
 	SchemeBuilder.Register(&KluctlDeployment{}, &KluctlDeploymentList{})
-}
-
-func trimString(str string, limit int) string {
-	if len(str) <= limit {
-		return str
-	}
-
-	return str[0:limit] + "..."
 }
