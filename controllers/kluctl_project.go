@@ -144,6 +144,7 @@ func (pt *preparedTarget) restConfigToKubeconfig(restConfig *rest.Config) *api.C
 	kctx.Cluster = "default"
 	kctx.AuthInfo = "default"
 	kubeConfig.Contexts["default"] = kctx
+	kubeConfig.CurrentContext = "default"
 
 	return kubeConfig
 }
