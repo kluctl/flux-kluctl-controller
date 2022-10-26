@@ -64,6 +64,11 @@ spec:
                 description: Args specifies dynamic target args.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              context:
+                description: If specified, overrides the context to be used. This
+                  will effectively make kluctl ignore the context specified in the
+                  target.
+                type: string
               deployInterval:
                 description: DeployInterval specifies the interval at which to deploy
                   the KluctlDeployment. It defaults to the Interval value, meaning
@@ -194,8 +199,7 @@ spec:
                 description: The KubeConfig for deploying to the target cluster. Specifies
                   the kubeconfig to be used when invoking kluctl. Contexts in this
                   kubeconfig must match the context found in the kluctl target. As
-                  an alternative, RenameContexts can be used to fix non-matching context
-                  names.
+                  an alternative, specify the context to be used via 'context'
                 properties:
                   secretRef:
                     description: SecretRef holds the name of a secret that contains
@@ -315,7 +319,16 @@ spec:
                   Defaults to false.
                 type: boolean
               target:
-                description: Target specifies the kluctl target to deploy
+                description: Target specifies the kluctl target to deploy. If not
+                  specified, an empty target is used that has no name and no context.
+                  Use 'TargetName' and 'Context' to specify the name and context in
+                  that case.
+                maxLength: 63
+                minLength: 1
+                type: string
+              targetNameOverride:
+                description: TargetNameOverride sets or overrides the target name.
+                  This is especially useful when deployment without a target.
                 maxLength: 63
                 minLength: 1
                 type: string
@@ -343,7 +356,6 @@ spec:
             required:
             - interval
             - sourceRef
-            - target
             type: object
           status:
             description: KluctlDeploymentStatus defines the observed state of KluctlDeployment
@@ -444,15 +456,15 @@ spec:
                       kluctl projects have dependent git repositories which are not
                       considered in the source revision
                     type: string
-                  targetName:
-                    description: TargetName is the name of the target
+                  target:
+                    type: string
+                  targetNameOverride:
                     type: string
                   time:
                     description: AttemptedAt is the time when the attempt was performed
                     format: date-time
                     type: string
                 required:
-                - targetName
                 - time
                 type: object
               lastHandledDeployAt:
@@ -477,15 +489,15 @@ spec:
                       kluctl projects have dependent git repositories which are not
                       considered in the source revision
                     type: string
-                  targetName:
-                    description: TargetName is the name of the target
+                  target:
+                    type: string
+                  targetNameOverride:
                     type: string
                   time:
                     description: AttemptedAt is the time when the attempt was performed
                     format: date-time
                     type: string
                 required:
-                - targetName
                 - time
                 type: object
               lastValidateResult:
@@ -504,15 +516,15 @@ spec:
                       kluctl projects have dependent git repositories which are not
                       considered in the source revision
                     type: string
-                  targetName:
-                    description: TargetName is the name of the target
+                  target:
+                    type: string
+                  targetNameOverride:
                     type: string
                   time:
                     description: AttemptedAt is the time when the attempt was performed
                     format: date-time
                     type: string
                 required:
-                - targetName
                 - time
                 type: object
               observedGeneration:
