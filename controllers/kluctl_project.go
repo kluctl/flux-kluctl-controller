@@ -51,9 +51,6 @@ type preparedProject struct {
 
 type preparedTarget struct {
 	pp *preparedProject
-
-	targetName string
-	spec       kluctlv1.KluctlDeploymentSpec
 }
 
 func prepareProject(ctx context.Context,
@@ -109,11 +106,9 @@ func (pp *preparedProject) cleanup() {
 	_ = os.RemoveAll(pp.tmpDir)
 }
 
-func (pp *preparedProject) newTarget(targetName string, spec kluctlv1.KluctlDeploymentSpec) (*preparedTarget, error) {
+func (pp *preparedProject) newTarget() (*preparedTarget, error) {
 	pt := preparedTarget{
-		pp:         pp,
-		targetName: targetName,
-		spec:       spec,
+		pp: pp,
 	}
 
 	return &pt, nil
@@ -156,7 +151,7 @@ func (pt *preparedTarget) restConfigToKubeconfig(restConfig *rest.Config) *api.C
 func (pt *preparedTarget) getKubeconfigFromSecret(ctx context.Context) ([]byte, error) {
 	secretName := types.NamespacedName{
 		Namespace: pt.pp.obj.GetNamespace(),
-		Name:      pt.spec.KubeConfig.SecretRef.Name,
+		Name:      pt.pp.obj.Spec.KubeConfig.SecretRef.Name,
 	}
 
 	var secret corev1.Secret
@@ -166,8 +161,8 @@ func (pt *preparedTarget) getKubeconfigFromSecret(ctx context.Context) ([]byte, 
 
 	var kubeConfig []byte
 	switch {
-	case pt.spec.KubeConfig.SecretRef.Key != "":
-		key := pt.spec.KubeConfig.SecretRef.Key
+	case pt.pp.obj.Spec.KubeConfig.SecretRef.Key != "":
+		key := pt.pp.obj.Spec.KubeConfig.SecretRef.Key
 		kubeConfig = secret.Data[key]
 		if kubeConfig == nil {
 			return nil, fmt.Errorf("KubeConfig secret '%s' does not contain a '%s' key with a kubeconfig", secretName, key)
@@ -186,7 +181,7 @@ func (pt *preparedTarget) getKubeconfigFromSecret(ctx context.Context) ([]byte, 
 
 func (pt *preparedTarget) setImpersonationConfig(restConfig *rest.Config) {
 	name := pt.pp.r.DefaultServiceAccount
-	if sa := pt.spec.ServiceAccountName; sa != "" {
+	if sa := pt.pp.obj.Spec.ServiceAccountName; sa != "" {
 		name = sa
 	}
 	if name != "" {
@@ -199,7 +194,7 @@ func (pt *preparedTarget) buildRestConfig(ctx context.Context) (*rest.Config, er
 	var err error
 	var restConfig *rest.Config
 
-	if pt.spec.KubeConfig != nil {
+	if pt.pp.obj.Spec.KubeConfig != nil {
 		kubeConfig, err := pt.getKubeconfigFromSecret(ctx)
 		if err != nil {
 			return nil, err
@@ -236,7 +231,7 @@ func (pt *preparedTarget) buildKubeconfig(ctx context.Context) (*api.Config, err
 }
 
 func (pt *preparedTarget) renameContexts(cfg *api.Config) error {
-	for _, r := range pt.spec.RenameContexts {
+	for _, r := range pt.pp.obj.Spec.RenameContexts {
 		ctx, ok := cfg.Contexts[r.OldContext]
 		if !ok {
 			return fmt.Errorf("failed to rename context %s -> %s. Old context not found in kubeconfig", r.OldContext, r.NewContext)
@@ -256,7 +251,7 @@ func (pt *preparedTarget) renameContexts(cfg *api.Config) error {
 
 func (pt *preparedTarget) getRegistrySecrets(ctx context.Context) ([]*corev1.Secret, error) {
 	var ret []*corev1.Secret
-	for _, ref := range pt.spec.RegistrySecrets {
+	for _, ref := range pt.pp.obj.Spec.RegistrySecrets {
 		name := types.NamespacedName{
 			Namespace: pt.pp.obj.GetNamespace(),
 			Name:      ref.Name,
@@ -343,12 +338,12 @@ func (pt *preparedTarget) buildImages(ctx context.Context) (*deployment.Images, 
 	if err != nil {
 		return nil, err
 	}
-	offline := !pt.spec.UpdateImages
-	images, err := deployment.NewImages(rh, pt.spec.UpdateImages, offline)
+	offline := !pt.pp.obj.Spec.UpdateImages
+	images, err := deployment.NewImages(rh, pt.pp.obj.Spec.UpdateImages, offline)
 	if err != nil {
 		return nil, err
 	}
-	for _, fi := range kluctlv1.ConvertFixedImagesToKluctl(pt.spec.Images) {
+	for _, fi := range kluctlv1.ConvertFixedImagesToKluctl(pt.pp.obj.Spec.Images) {
 		images.AddFixedImage(fi)
 	}
 	return images, nil
@@ -356,16 +351,16 @@ func (pt *preparedTarget) buildImages(ctx context.Context) (*deployment.Images, 
 
 func (pt *preparedTarget) buildInclusion() *utils.Inclusion {
 	inc := utils.NewInclusion()
-	for _, x := range pt.spec.IncludeTags {
+	for _, x := range pt.pp.obj.Spec.IncludeTags {
 		inc.AddInclude("tag", x)
 	}
-	for _, x := range pt.spec.ExcludeTags {
+	for _, x := range pt.pp.obj.Spec.ExcludeTags {
 		inc.AddExclude("tag", x)
 	}
-	for _, x := range pt.spec.IncludeDeploymentDirs {
+	for _, x := range pt.pp.obj.Spec.IncludeDeploymentDirs {
 		inc.AddInclude("deploymentItemDir", x)
 	}
-	for _, x := range pt.spec.ExcludeDeploymentDirs {
+	for _, x := range pt.pp.obj.Spec.ExcludeDeploymentDirs {
 		inc.AddExclude("deploymentItemDir", x)
 	}
 	return inc
@@ -456,18 +451,19 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 		}
 		inclusion := pt.buildInclusion()
 
-		externalArgs, err := uo.FromString(string(pt.spec.Args.Raw))
+		externalArgs, err := uo.FromString(string(pt.pp.obj.Spec.Args.Raw))
 		if err != nil {
 			return err
 		}
-		targetContext, err := p.NewTargetContext(ctx, kluctl_project.TargetContextParams{
-			TargetName:      pt.targetName,
-			DryRun:          pt.spec.DryRun,
+		props := kluctl_project.TargetContextParams{
+			TargetName:      pt.pp.obj.Spec.Target,
+			DryRun:          pt.pp.obj.Spec.DryRun,
 			ExternalArgs:    externalArgs,
 			Images:          images,
 			Inclusion:       inclusion,
 			RenderOutputDir: renderOutputDir,
-		})
+		}
+		targetContext, err := p.NewTargetContext(ctx, props)
 		if err != nil {
 			return err
 		}
@@ -532,12 +528,12 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 
 func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
 	cmd := commands.NewDeployCommand(targetContext.DeploymentCollection)
-	cmd.ForceApply = pt.spec.ForceApply
-	cmd.ReplaceOnError = pt.spec.ReplaceOnError
-	cmd.ForceReplaceOnError = pt.spec.ForceReplaceOnError
-	cmd.AbortOnError = pt.spec.AbortOnError
+	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
+	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
+	cmd.ForceReplaceOnError = pt.pp.obj.Spec.ForceReplaceOnError
+	cmd.AbortOnError = pt.pp.obj.Spec.AbortOnError
 	cmd.ReadinessTimeout = time.Minute * 10
-	cmd.NoWait = pt.spec.NoWait
+	cmd.NoWait = pt.pp.obj.Spec.NoWait
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K, nil)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
@@ -571,7 +567,7 @@ func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *klu
 }
 
 func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[string]string) (*types2.CommandResult, error) {
-	if !pt.spec.Prune {
+	if !pt.pp.obj.Spec.Prune {
 		return nil, nil
 	}
 
@@ -586,7 +582,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[str
 	if err != nil {
 		return nil, err
 	}
-	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.spec.DryRun)
+	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.pp.obj.Spec.DryRun)
 	if err != nil {
 		return nil, err
 	}
