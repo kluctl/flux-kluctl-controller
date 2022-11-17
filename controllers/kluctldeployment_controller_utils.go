@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"context"
+	fluxv1beta1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/pkg/runtime/events"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ func (r *KluctlDeploymentReconciler) event(ctx context.Context, obj *kluctlv1.Kl
 	}
 
 	eventtype := "Normal"
-	if severity == events.EventSeverityError {
+	if severity == fluxv1beta1.EventSeverityError {
 		eventtype = "Warning"
 	}
 

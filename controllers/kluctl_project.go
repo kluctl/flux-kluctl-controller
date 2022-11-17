@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	fluxv1beta1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
@@ -14,7 +15,6 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/docker/cli/cli/config/configfile"
-	"github.com/fluxcd/pkg/runtime/events"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -497,7 +497,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	}
 
 	if cmdErr != nil {
-		pt.pp.r.event(ctx, pt.pp.obj, revision, events.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
+		pt.pp.r.event(ctx, pt.pp.obj, revision, fluxv1beta1.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return cmdErr
 	}
 
@@ -524,10 +524,10 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 		msg += fmt.Sprintf(" %d warnings.", len(cmdResult.Warnings))
 	}
 
-	severity := events.EventSeverityInfo
+	severity := fluxv1beta1.EventSeverityInfo
 	var err error
 	if len(cmdResult.Errors) != 0 {
-		severity = events.EventSeverityError
+		severity = fluxv1beta1.EventSeverityError
 		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))
 	}
 	pt.pp.r.event(ctx, pt.pp.obj, revision, severity, msg, nil)

@@ -7,9 +7,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	apiacl "github.com/fluxcd/pkg/apis/acl"
+	fluxv1beta1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/acl"
-	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/metrics"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/hashicorp/go-retryablehttp"
@@ -130,7 +130,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 			log.Error(err, "access denied to cross-namespace source")
 			r.recordReadiness(ctx, obj)
-			r.event(ctx, obj, "unknown", events.EventSeverityError, err.Error(), nil)
+			r.event(ctx, obj, "unknown", fluxv1beta1.EventSeverityError, err.Error(), nil)
 			return ctrl.Result{RequeueAfter: retryInterval}, nil
 		}
 
@@ -203,7 +203,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			ctrlResult.RequeueAfter.String()),
 			"revision",
 			sourceRevision)
-		r.event(ctx, obj, sourceRevision, events.EventSeverityError,
+		r.event(ctx, obj, sourceRevision, fluxv1beta1.EventSeverityError,
 			reconcileErr.Error(), nil)
 		return *ctrlResult, nil
 	}
@@ -213,7 +213,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		time.Since(reconcileStart).String(),
 		ctrlResult.RequeueAfter.String())
 	log.Info(msg, "revision", sourceRevision)
-	r.event(ctx, obj, sourceRevision, events.EventSeverityInfo,
+	r.event(ctx, obj, sourceRevision, fluxv1beta1.EventSeverityInfo,
 		msg, map[string]string{kluctlv1.GroupVersion.Group + "/commit_status": "update"})
 	return *ctrlResult, nil
 }
