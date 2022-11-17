@@ -1,4 +1,4 @@
-# kustomize.toolkit.fluxcd.io/v1alpha1
+# flux.kluctl.io/v1alpha1
 
 This is the v1alpha1 API specification for defining continuous delivery pipelines
 of Kluctl Deployments.
