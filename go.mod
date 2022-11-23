@@ -5,10 +5,11 @@ go 1.19
 require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/fluxcd/pkg/apis/acl v0.1.0
+	github.com/fluxcd/pkg/apis/event v0.2.0
 	github.com/fluxcd/pkg/apis/meta v0.18.0
 	github.com/fluxcd/pkg/runtime v0.24.0
 	github.com/fluxcd/pkg/untar v0.2.0
-	github.com/fluxcd/source-controller/api v0.32.0
+	github.com/fluxcd/source-controller/api v0.32.1
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/kluctl/kluctl/v2 v2.17.1
 	github.com/onsi/ginkgo v1.16.5
@@ -211,7 +212,6 @@ require (
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
-	github.com/fluxcd/pkg/apis/event v0.2.0 // indirect
 	github.com/fluxcd/pkg/kustomize v0.8.0 // indirect
 	github.com/go-git/go-git/v5 v5.4.2 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
