@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	fluxv1beta1 "github.com/fluxcd/pkg/apis/event/v1beta1"
+	"github.com/kluctl/flux-kluctl-controller/internal/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
 	"path/filepath"
@@ -394,6 +396,20 @@ func (pt *preparedTarget) clientConfigGetter(ctx context.Context) func(context *
 	}
 }
 
+func (pp *preparedProject) buildSopsDecrypter(ctx context.Context) (sops.SopsDecrypter, error) {
+	gnuPGHome := filepath.Join(pp.tmpDir, "sops-gnupghome")
+	err := os.MkdirAll(gnuPGHome, 0o700)
+	if err != nil {
+		return nil, err
+	}
+	d := decryptor.NewDecryptor(filepath.Join(pp.tmpDir, "project"), pp.r.Client, pp.obj, 5<<20, gnuPGHome)
+	err = d.ImportKeys(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
 func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTarget, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
 	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
 	if err != nil {
@@ -409,10 +425,19 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 	rp := repocache.NewGitRepoCache(ctx, pp.r.SshPool, ga, nil, 0)
 	defer rp.Clear()
 
+	var sopsDecrypter sops.SopsDecrypter
+	if pp.obj.Spec.Decryption != nil {
+		sopsDecrypter, err = pp.buildSopsDecrypter(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
-		RepoRoot:   pp.repoDir,
-		ProjectDir: pp.projectDir,
-		RP:         rp,
+		RepoRoot:      pp.repoDir,
+		ProjectDir:    pp.projectDir,
+		RP:            rp,
+		SopsDecrypter: sopsDecrypter,
 	}
 	if pt != nil {
 		loadArgs.ClientConfigGetter = pt.clientConfigGetter(ctx)
