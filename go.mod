@@ -14,6 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.3
 	github.com/aws/aws-sdk-go-v2/service/kms v1.18.18
 	github.com/aws/aws-sdk-go-v2/service/sts v1.17.5
+	github.com/aws/smithy-go v1.13.4
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/pkg/apis/acl v0.1.0
@@ -24,7 +25,7 @@ require (
 	github.com/fluxcd/source-controller/api v0.32.1
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/hashicorp/vault/api v1.8.2
-	github.com/kluctl/kluctl/v2 v2.17.1
+	github.com/kluctl/kluctl/v2 v2.17.2-0.20221125221846-8c471827c8fc
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.24.1
 	github.com/ory/dockertest v3.3.5+incompatible
@@ -59,9 +60,9 @@ require (
 	github.com/ProtonMail/go-crypto v0.0.0-20221026131551-cf6655e29de4 // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
-	github.com/aws/aws-sdk-go v1.44.140
+	github.com/aws/aws-sdk-go v1.44.145
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bitnami-labs/sealed-secrets v0.19.1 // indirect
+	github.com/bitnami-labs/sealed-secrets v0.19.2 // indirect
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.2 // indirect
 	github.com/bugsnag/bugsnag-go v2.1.2+incompatible // indirect
 	github.com/bugsnag/panicwrap v1.3.4 // indirect
@@ -233,7 +234,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.8 // indirect
-	github.com/aws/smithy-go v1.13.4 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
