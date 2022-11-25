@@ -69,6 +69,28 @@ spec:
                   will effectively make kluctl ignore the context specified in the
                   target.
                 type: string
+              decryption:
+                description: Decrypt Kubernetes secrets before applying them on the
+                  cluster.
+                properties:
+                  provider:
+                    description: Provider is the name of the decryption engine.
+                    enum:
+                    - sops
+                    type: string
+                  secretRef:
+                    description: The secret name containing the private OpenPGP keys
+                      used for decryption.
+                    properties:
+                      name:
+                        description: Name of the referent.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                required:
+                - provider
+                type: object
               deployInterval:
                 description: DeployInterval specifies the interval at which to deploy
                   the KluctlDeployment. It defaults to the Interval value, meaning

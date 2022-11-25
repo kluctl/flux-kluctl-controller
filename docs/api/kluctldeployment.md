@@ -9,6 +9,52 @@
 <p>Package v1alpha1 contains API Schema definitions for the flux.kluctl.io v1alpha1 API group.</p>
 Resource Types:
 <ul class="simple"></ul>
+<h3 id="flux.kluctl.io/v1alpha1.Decryption">Decryption
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
+</p>
+<p>Decryption defines how decryption is handled for Kubernetes manifests.</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>provider</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Provider is the name of the decryption engine.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
+github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>The secret name containing the private OpenPGP keys used for decryption.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="flux.kluctl.io/v1alpha1.DurationOrNever">DurationOrNever
 </h3>
 <p>
@@ -249,6 +295,20 @@ github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
 <p>Reference of the source where the kluctl project is.
 The authentication secrets from the source are also used to authenticate
 dependent git repositories which are cloned while deploying the kluctl project.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>decryption</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.Decryption">
+Decryption
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Decrypt Kubernetes secrets before applying them on the cluster.</p>
 </td>
 </tr>
 <tr>
@@ -724,6 +784,20 @@ github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
 <p>Reference of the source where the kluctl project is.
 The authentication secrets from the source are also used to authenticate
 dependent git repositories which are cloned while deploying the kluctl project.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>decryption</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.Decryption">
+Decryption
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Decrypt Kubernetes secrets before applying them on the cluster.</p>
 </td>
 </tr>
 <tr>
