@@ -297,6 +297,78 @@ spec:
   context: default
 ```
 
+## Secrets Decryption
+
+Kluctl offers a [SOPS Integration](https://kluctl.io/docs/reference/deployments/sops/) that allows to use encrypted
+manifests and variable sources in Kluctl deployments. Decryption by the controller is also supported and currently
+mirrors how the [Secrets Decryption configuration](https://fluxcd.io/flux/components/kustomize/kustomization/#secrets-decryption)
+of the Flux Kustomize Controller. To configure it in the `KluctlDeployment`, simply set the `decryption` field in the
+spec:
+
+```
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: example
+  namespace: flux-system
+spec:
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-keys
+  ...
+```
+
+The `sops-keys` Secret has the same format as in the
+[Flux Kustomize Controller](https://fluxcd.io/flux/components/kustomize/kustomization/#decryption-secret-reference).
+
+### AWS KMS with IRSA
+
+In addition to the [AWS KMS Secret Entry](https://fluxcd.io/flux/components/kustomize/kustomization/#aws-kms-secret-entry)
+in the secret and the [global AWS KMS](https://fluxcd.io/flux/components/kustomize/kustomization/#aws-kms)
+authentication via the controller's service account, the Kluctl controller also supports using the IRSA role of the
+impersonated service account of the `KluctlDeployment` (specified via `serviceAccountName` in the spec or
+`--default-service-account`):
+
+```
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kluctl-deployment
+  namespace: flux-system
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456:role/my-irsa-enabled-role
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kluctl-deployment
+  namespace: flux-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  # watch out, don't use cluster-admin if you don't trust the deployment
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: kluctl-deployment
+    namespace: flux-system
+---
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: example
+  namespace: flux-system
+spec:
+  serviceAccountName: kluctl-deployment
+  decryption:
+    provider: sops
+    # you can also leave out the secretRef if you don't provide addinional keys
+    secretRef:
+      name: sops-keys
+  ...
+```
+
 ## Status
 
 When the controller completes a deployments, it reports the result in the `status` sub-resource.
