@@ -16,9 +16,7 @@ body:
       label: Controller
       description: Which controller will be affected by the feature request? (If you want to propose a new controller, just leave all unchecked)
       options:
-        - label: "KluctlProject"
         - label: "KluctlDeployment"
-        - label: "KluctlMultiDeployment"
   - type: input
     id: persona
     attributes:
