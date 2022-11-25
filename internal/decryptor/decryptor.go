@@ -22,6 +22,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/aws/smithy-go/logging"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -258,6 +263,44 @@ func (d *Decryptor) ImportKeys(ctx context.Context) error {
 			}
 		}
 	}
+	return nil
+}
+
+type webIdentityToken string
+
+func (t webIdentityToken) GetIdentityToken() ([]byte, error) {
+	return []byte(t), nil
+}
+
+func (d *Decryptor) AddAwsWebIdentity(roleARN string, token string) error {
+	if d.awsCredsProvider != nil {
+		return nil
+	}
+
+	a, err := arn.Parse(roleARN)
+	if err != nil {
+		return err
+	}
+
+	cfg := aws.Config{
+		Credentials: aws.AnonymousCredentials{},
+		Logger:      logging.NewStandardLogger(os.Stderr),
+		Region:      a.Region,
+	}
+	if cfg.Region == "" {
+		cfg.Region = "aws-global"
+	}
+
+	optFns := []func(*stscreds.WebIdentityRoleOptions){
+		func(options *stscreds.WebIdentityRoleOptions) {
+			options.RoleSessionName = "kluctl-sops-decrypter"
+		},
+	}
+
+	provider := stscreds.NewWebIdentityRoleProvider(sts.NewFromConfig(cfg), roleARN, webIdentityToken(token), optFns...)
+
+	d.awsCredsProvider = awskms.NewCredsProvider(provider)
+
 	return nil
 }
 

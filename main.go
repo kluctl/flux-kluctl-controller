@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"k8s.io/client-go/kubernetes"
 	"os"
 
 	helper "github.com/fluxcd/pkg/runtime/controller"
@@ -102,6 +103,12 @@ func main() {
 	}
 
 	restConfig := client.GetConfigOrDie(clientOptions)
+	clientSet, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                        scheme,
 		MetricsBindAddress:            metricsAddr,
@@ -137,6 +144,7 @@ func main() {
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
 		Client:                mgr.GetClient(),
+		ClientSet:             clientSet,
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsH.MetricsRecorder,

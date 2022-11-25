@@ -9,6 +9,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -407,7 +409,50 @@ func (pp *preparedProject) buildSopsDecrypter(ctx context.Context) (sops.SopsDec
 	if err != nil {
 		return nil, err
 	}
+	err = pp.addAwsWebIdentity(ctx, d)
+	if err != nil {
+		return nil, err
+	}
 	return d, nil
+}
+
+func (pp *preparedProject) addAwsWebIdentity(ctx context.Context, d *decryptor.Decryptor) error {
+	name := pp.r.DefaultServiceAccount
+	if sa := pp.obj.Spec.ServiceAccountName; sa != "" {
+		name = sa
+	}
+	if name == "" {
+		return nil
+	}
+	sa, err := pp.r.ClientSet.CoreV1().ServiceAccounts(pp.obj.Namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to retrieve service account %s: %w", name, err)
+	}
+
+	roleArn := ""
+	a := sa.GetAnnotations()
+	if a != nil {
+		roleArn, _ = a["eks.amazonaws.com/role-arn"]
+	}
+	if roleArn == "" {
+		return nil
+	}
+
+	exp := int64(60 * 10)
+	token, err := pp.r.ClientSet.CoreV1().ServiceAccounts(pp.obj.Namespace).CreateToken(ctx, name, &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{
+			Audiences:         []string{"sts.amazonaws.com"},
+			ExpirationSeconds: &exp,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create token for AWS STS: %w", err)
+	}
+	err = d.AddAwsWebIdentity(roleArn, token.Status.Token)
+	if err != nil {
+		return fmt.Errorf("failed to add AWS web identity credentials: %w", err)
+	}
+	return nil
 }
 
 func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTarget, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
