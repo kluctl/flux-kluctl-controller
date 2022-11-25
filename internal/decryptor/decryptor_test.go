@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -45,9 +46,8 @@ import (
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
 	"github.com/fluxcd/pkg/apis/meta"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/age"
 )
 
 func TestIsEncryptedSecret(t *testing.T) {
@@ -83,14 +83,14 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		decryption  *kustomizev1.Decryption
+		decryption  *kluctlv1.Decryption
 		secret      *corev1.Secret
 		wantErr     bool
 		inspectFunc func(g *GomegaWithT, decryptor *Decryptor)
 	}{
 		{
 			name: "PGP key",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "pgp-secret",
@@ -108,7 +108,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 		},
 		{
 			name: "PGP key import error",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "pgp-secret",
@@ -127,7 +127,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 		},
 		{
 			name: "age key",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "age-secret",
@@ -148,7 +148,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 		},
 		{
 			name: "age key import error",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "age-secret",
@@ -170,7 +170,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 		},
 		{
 			name: "HC Vault token",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "hcvault-secret",
@@ -191,7 +191,7 @@ func TestDecryptor_ImportKeys(t *testing.T) {
 		},
 		{
 			name: "AWS KMS credentials",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "awskms-secret",
@@ -214,7 +214,7 @@ aws_session_token: test-token`),
 		},
 		{
 			name: "GCP Service Account key",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "gcpkms-secret",
@@ -237,7 +237,7 @@ aws_session_token: test-token`),
 		},
 		{
 			name: "Azure Key Vault token",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "azkv-secret",
@@ -260,7 +260,7 @@ clientSecret: some-client-secret`),
 		},
 		{
 			name: "Azure Key Vault token load config error",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "azkv-secret",
@@ -282,7 +282,7 @@ clientSecret: some-client-secret`),
 		},
 		{
 			name: "Azure Key Vault unsupported config",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "azkv-secret",
@@ -304,7 +304,7 @@ clientSecret: some-client-secret`),
 		},
 		{
 			name: "multiple Secret data entries",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: provider,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "multiple-secret",
@@ -332,14 +332,14 @@ clientSecret: some-client-secret`),
 		},
 		{
 			name: "no Decryption Secret",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: DecryptionProviderSOPS,
 			},
 			wantErr: false,
 		},
 		{
 			name: "non-existing Decryption Secret",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: DecryptionProviderSOPS,
 				SecretRef: &meta.LocalObjectReference{
 					Name: "does-not-exist",
@@ -349,7 +349,7 @@ clientSecret: some-client-secret`),
 		},
 		{
 			name: "unimplemented Decryption Provider",
-			decryption: &kustomizev1.Decryption{
+			decryption: &kluctlv1.Decryption{
 				Provider: "not-supported",
 			},
 			wantErr: false,
@@ -363,12 +363,12 @@ clientSecret: some-client-secret`),
 			if tt.secret != nil {
 				cb.WithObjects(tt.secret)
 			}
-			kustomization := kustomizev1.Kustomization{
+			kustomization := kluctlv1.KluctlDeployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      provider + "-" + tt.name,
 					Namespace: provider,
 				},
-				Spec: kustomizev1.KustomizationSpec{
+				Spec: kluctlv1.KluctlDeploymentSpec{
 					Interval:   metav1.Duration{Duration: 2 * time.Minute},
 					Path:       "./",
 					Decryption: tt.decryption,
@@ -405,7 +405,7 @@ func TestDecryptor_SopsDecryptWithFormat(t *testing.T) {
 		}
 
 		format := formats.Ini
-		data := []byte("[config]\nkey = value\n\n")
+		data := []byte("[config]\nkey = value\n")
 		encData, err := kd.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -531,12 +531,12 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		})
 	}
 
-	kustomization := kustomizev1.Kustomization{
+	kustomization := kluctlv1.KluctlDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "decrypt",
 			Namespace: "decrypt",
 		},
-		Spec: kustomizev1.KustomizationSpec{
+		Spec: kluctlv1.KluctlDeploymentSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
 			Path:     "./",
 		},
@@ -546,7 +546,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g := NewWithT(t)
 
 		kus := kustomization.DeepCopy()
-		kus.Spec.Decryption = &kustomizev1.Decryption{
+		kus.Spec.Decryption = &kluctlv1.Decryption{
 			Provider: DecryptionProviderSOPS,
 		}
 
@@ -587,7 +587,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g := NewWithT(t)
 
 		kus := kustomization.DeepCopy()
-		kus.Spec.Decryption = &kustomizev1.Decryption{
+		kus.Spec.Decryption = &kluctlv1.Decryption{
 			Provider: DecryptionProviderSOPS,
 		}
 
@@ -599,7 +599,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		d.ageIdentities = append(d.ageIdentities, ageID)
 
-		plainData := []byte("[config]\napp = secret\n\n")
+		plainData := []byte("[config]\napp = secret\n")
 		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
@@ -622,7 +622,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g := NewWithT(t)
 
 		kus := kustomization.DeepCopy()
-		kus.Spec.Decryption = &kustomizev1.Decryption{
+		kus.Spec.Decryption = &kluctlv1.Decryption{
 			Provider: DecryptionProviderSOPS,
 		}
 
@@ -657,7 +657,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g := NewWithT(t)
 
 		kus := kustomization.DeepCopy()
-		kus.Spec.Decryption = &kustomizev1.Decryption{
+		kus.Spec.Decryption = &kluctlv1.Decryption{
 			Provider: DecryptionProviderSOPS,
 		}
 
@@ -734,7 +734,7 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 		g := NewWithT(t)
 
 		kus := kustomization.DeepCopy()
-		kus.Spec.Decryption = &kustomizev1.Decryption{
+		kus.Spec.Decryption = &kluctlv1.Decryption{
 			Provider: "not-supported",
 		}
 		d, cleanup, err := NewTempDecryptor("", fake.NewClientBuilder().Build(), kus)

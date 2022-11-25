@@ -50,6 +50,10 @@ type KluctlDeploymentSpec struct {
 	// +required
 	SourceRef meta.NamespacedObjectKindReference `json:"sourceRef"`
 
+	// Decrypt Kubernetes secrets before applying them on the cluster.
+	// +optional
+	Decryption *Decryption `json:"decryption,omitempty"`
+
 	// The interval at which to reconcile the KluctlDeployment.
 	// By default, the controller will re-deploy and validate the deployment on each reconciliation.
 	// To override this behavior, change the DeployInterval and/or ValidateInterval values.
@@ -235,6 +239,18 @@ func (in KluctlDeploymentSpec) GetRetryInterval() time.Duration {
 		return in.RetryInterval.Duration
 	}
 	return in.Interval.Duration
+}
+
+// Decryption defines how decryption is handled for Kubernetes manifests.
+type Decryption struct {
+	// Provider is the name of the decryption engine.
+	// +kubebuilder:validation:Enum=sops
+	// +required
+	Provider string `json:"provider"`
+
+	// The secret name containing the private OpenPGP keys used for decryption.
+	// +optional
+	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // KubeConfig references a Kubernetes secret that contains a kubeconfig file.

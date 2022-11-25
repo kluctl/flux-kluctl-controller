@@ -46,12 +46,13 @@ import (
 	kustypes "sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/yaml"
 
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta2"
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
-	intkeyservice "github.com/fluxcd/kustomize-controller/internal/sops/keyservice"
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
+	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
+
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/age"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/awskms"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/azkv"
+	intkeyservice "github.com/kluctl/flux-kluctl-controller/internal/sops/keyservice"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/pgp"
 )
 
 const (
@@ -106,7 +107,7 @@ var (
 )
 
 // Decryptor performs decryption operations for a
-// v1beta2.Kustomization.
+// kluctlv1.KluctlDeployment.
 // The only supported decryption provider at present is
 // DecryptionProviderSOPS.
 type Decryptor struct {
@@ -115,9 +116,9 @@ type Decryptor struct {
 	root string
 	// client is the Kubernetes client used to e.g. retrieve Secrets with.
 	client client.Client
-	// kustomization is the v1beta2.Kustomization we are decrypting for.
+	// kluctlDeployment is the kluctlv1.KluctlDeployment we are decrypting for.
 	// The v1beta2.Decryption of the object is used to ImportKeys().
-	kustomization *kustomizev1.Kustomization
+	kluctlDeployment *kluctlv1.KluctlDeployment
 	// maxFileSize is the max size in bytes a file is allowed to have to be
 	// decrypted. Defaults to maxEncryptedFileSize.
 	maxFileSize int64
@@ -152,27 +153,27 @@ type Decryptor struct {
 	localServiceOnce sync.Once
 }
 
-// NewDecryptor creates a new Decryptor for the given kustomization.
+// NewDecryptor creates a new Decryptor for the given kluctlDeployment.
 // gnuPGHome can be empty, in which case the systems' keyring is used.
-func NewDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization, maxFileSize int64, gnuPGHome string) *Decryptor {
+func NewDecryptor(root string, client client.Client, kluctlDeployment *kluctlv1.KluctlDeployment, maxFileSize int64, gnuPGHome string) *Decryptor {
 	return &Decryptor{
-		root:          root,
-		client:        client,
-		kustomization: kustomization,
-		maxFileSize:   maxFileSize,
-		gnuPGHome:     pgp.GnuPGHome(gnuPGHome),
+		root:             root,
+		client:           client,
+		kluctlDeployment: kluctlDeployment,
+		maxFileSize:      maxFileSize,
+		gnuPGHome:        pgp.GnuPGHome(gnuPGHome),
 	}
 }
 
 // NewTempDecryptor creates a new Decryptor, with a temporary GnuPG
 // home directory to Decryptor.ImportKeys() into.
-func NewTempDecryptor(root string, client client.Client, kustomization *kustomizev1.Kustomization) (*Decryptor, func(), error) {
+func NewTempDecryptor(root string, client client.Client, kluctlDeployment *kluctlv1.KluctlDeployment) (*Decryptor, func(), error) {
 	gnuPGHome, err := pgp.NewGnuPGHome()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot create decryptor: %w", err)
 	}
 	cleanup := func() { _ = os.RemoveAll(gnuPGHome.String()) }
-	return NewDecryptor(root, client, kustomization, maxEncryptedFileSize, gnuPGHome.String()), cleanup, nil
+	return NewDecryptor(root, client, kluctlDeployment, maxEncryptedFileSize, gnuPGHome.String()), cleanup, nil
 }
 
 // IsEncryptedSecret checks if the given object is a Kubernetes Secret encrypted
@@ -187,7 +188,7 @@ func IsEncryptedSecret(object *unstructured.Unstructured) bool {
 }
 
 // ImportKeys imports the DecryptionProviderSOPS keys from the data values of
-// the Secret referenced in the Kustomization's v1beta2.Decryption spec.
+// the Secret referenced in the kluctlDeployment's v1beta2.Decryption spec.
 // It returns an error if the Secret cannot be retrieved, or if one of the
 // imports fails.
 // Imports do not have an effect after the first call to SopsDecryptWithFormat(),
@@ -195,16 +196,16 @@ func IsEncryptedSecret(object *unstructured.Unstructured) bool {
 // For the import of PGP keys, the Decryptor must be configured with
 // an absolute GnuPG home directory path.
 func (d *Decryptor) ImportKeys(ctx context.Context) error {
-	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.SecretRef == nil {
+	if d.kluctlDeployment.Spec.Decryption == nil || d.kluctlDeployment.Spec.Decryption.SecretRef == nil {
 		return nil
 	}
 
-	provider := d.kustomization.Spec.Decryption.Provider
+	provider := d.kluctlDeployment.Spec.Decryption.Provider
 	switch provider {
 	case DecryptionProviderSOPS:
 		secretName := types.NamespacedName{
-			Namespace: d.kustomization.GetNamespace(),
-			Name:      d.kustomization.Spec.Decryption.SecretRef.Name,
+			Namespace: d.kluctlDeployment.GetNamespace(),
+			Name:      d.kluctlDeployment.Spec.Decryption.SecretRef.Name,
 		}
 
 		var secret corev1.Secret
@@ -331,17 +332,17 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 }
 
 // DecryptResource attempts to decrypt the provided resource with the
-// decryption provider specified on the Kustomization, overwriting the resource
+// decryption provider specified on the KluctlDeployment, overwriting the resource
 // with the decrypted data.
 // It has special support for Kubernetes Secrets with encrypted data entries
 // while decrypting with DecryptionProviderSOPS, to allow individual data entries
 // injected by e.g. a Kustomize secret generator to be decrypted
 func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource, error) {
-	if res == nil || d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.Provider == "" {
+	if res == nil || d.kluctlDeployment.Spec.Decryption == nil || d.kluctlDeployment.Spec.Decryption.Provider == "" {
 		return nil, nil
 	}
 
-	switch d.kustomization.Spec.Decryption.Provider {
+	switch d.kluctlDeployment.Spec.Decryption.Provider {
 	case DecryptionProviderSOPS:
 		switch {
 		case isSOPSEncryptedResource(res):
@@ -401,7 +402,7 @@ func (d *Decryptor) DecryptResource(res *resource.Resource) (*resource.Resource,
 // outside the working directory of the decryptor, but returns any decryption
 // error.
 func (d *Decryptor) DecryptEnvSources(path string) error {
-	if d.kustomization.Spec.Decryption == nil || d.kustomization.Spec.Decryption.Provider != DecryptionProviderSOPS {
+	if d.kluctlDeployment.Spec.Decryption == nil || d.kluctlDeployment.Spec.Decryption.Provider != DecryptionProviderSOPS {
 		return nil
 	}
 

@@ -12,12 +12,12 @@ import (
 	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
 
-	"github.com/fluxcd/kustomize-controller/internal/sops/age"
-	"github.com/fluxcd/kustomize-controller/internal/sops/awskms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/azkv"
-	"github.com/fluxcd/kustomize-controller/internal/sops/gcpkms"
-	"github.com/fluxcd/kustomize-controller/internal/sops/hcvault"
-	"github.com/fluxcd/kustomize-controller/internal/sops/pgp"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/age"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/awskms"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/azkv"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/gcpkms"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/hcvault"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops/pgp"
 )
 
 // Server is a key service server that uses SOPS MasterKeys to fulfill
