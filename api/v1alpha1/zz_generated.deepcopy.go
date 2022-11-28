@@ -217,6 +217,11 @@ func (in *KluctlDeploymentSpec) DeepCopyInto(out *KluctlDeploymentSpec) {
 		*out = make([]meta.LocalObjectReference, len(*in))
 		copy(*out, *in)
 	}
+	if in.HelmCredentials != nil {
+		in, out := &in.HelmCredentials, &out.HelmCredentials
+		*out = make([]meta.LocalObjectReference, len(*in))
+		copy(*out, *in)
+	}
 	if in.KubeConfig != nil {
 		in, out := &in.KubeConfig, &out.KubeConfig
 		*out = new(KubeConfig)

@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"helm.sh/helm/v3/pkg/repo"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
@@ -348,6 +349,96 @@ func (pt *preparedTarget) buildImages(ctx context.Context) (*deployment.Images, 
 	return images, nil
 }
 
+type helmCredentialsProvider []repo.Entry
+
+func (p helmCredentialsProvider) FindCredentials(repoUrl string, credentialsId *string) *repo.Entry {
+	if credentialsId != nil {
+		for _, e := range p {
+			if e.Name != "" && e.Name == *credentialsId {
+				return &e
+			}
+		}
+	}
+	if repoUrl == "" {
+		return nil
+	}
+	for _, e := range p {
+		if e.URL == repoUrl {
+			return &e
+		}
+	}
+	return nil
+}
+
+func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (deployment.HelmCredentialsProvider, error) {
+	var creds []repo.Entry
+
+	tmpDirBase := filepath.Join(pt.pp.tmpDir, "helm-certs")
+	_ = os.MkdirAll(tmpDirBase, 0o700)
+
+	var writeTmpFilErr error
+	writeTmpFile := func(secretData map[string][]byte, name string) string {
+		b, ok := secretData["certFile"]
+		if ok {
+			tmpFile, err := os.CreateTemp(tmpDirBase, name+"-")
+			if err != nil {
+				writeTmpFilErr = err
+				return ""
+			}
+			defer tmpFile.Close()
+			_, err = tmpFile.Write(b)
+			if err != nil {
+				writeTmpFilErr = err
+			}
+			return tmpFile.Name()
+		}
+		return ""
+	}
+
+	for _, secretRef := range pt.pp.obj.Spec.HelmCredentials {
+		var secret corev1.Secret
+		err := pt.pp.r.Client.Get(ctx, types.NamespacedName{
+			Namespace: pt.pp.obj.GetNamespace(),
+			Name:      secretRef.Name,
+		}, &secret)
+		if err != nil {
+			return nil, err
+		}
+
+		var entry repo.Entry
+
+		credentialsId := string(secret.Data["credentialsId"])
+		url := string(secret.Data["url"])
+		if credentialsId == "" && url == "" {
+			return nil, fmt.Errorf("secret %s must at least contain 'credentialsId' or 'url'", secretRef.Name)
+		}
+		entry.Name = credentialsId
+		entry.URL = url
+		entry.Username = string(secret.Data["username"])
+		entry.Password = string(secret.Data["password"])
+		entry.CertFile = writeTmpFile(secret.Data, "certFile")
+		entry.KeyFile = writeTmpFile(secret.Data, "keyFile")
+		entry.CAFile = writeTmpFile(secret.Data, "caFile")
+		if writeTmpFilErr != nil {
+			return nil, writeTmpFilErr
+		}
+
+		b, _ := secret.Data["insecureSkipTlsVerify"]
+		s := string(b)
+		if utils.ParseBoolOrFalse(&s) {
+			entry.InsecureSkipTLSverify = true
+		}
+		b, _ = secret.Data["passCredentials"]
+		s = string(b)
+		if utils.ParseBoolOrFalse(&s) {
+			entry.PassCredentialsAll = true
+		}
+		creds = append(creds, entry)
+	}
+
+	return helmCredentialsProvider(creds), nil
+}
+
 func (pt *preparedTarget) buildInclusion() *utils.Inclusion {
 	inc := utils.NewInclusion()
 	for _, x := range pt.pp.obj.Spec.IncludeTags {
@@ -514,6 +605,10 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 		if err != nil {
 			return err
 		}
+		helmCredentials, err := pt.buildHelmCredentials(ctx)
+		if err != nil {
+			return err
+		}
 		inclusion := pt.buildInclusion()
 
 		externalArgs, err := uo.FromString(string(pt.pp.obj.Spec.Args.Raw))
@@ -525,6 +620,7 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 			ExternalArgs:    externalArgs,
 			Images:          images,
 			Inclusion:       inclusion,
+			HelmCredentials: helmCredentials,
 			RenderOutputDir: renderOutputDir,
 		}
 		if pt.pp.obj.Spec.Target != nil {

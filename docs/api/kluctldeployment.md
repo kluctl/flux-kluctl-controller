@@ -435,6 +435,25 @@ Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.<
 </tr>
 <tr>
 <td>
+<code>helmCredentials</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
+[]github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
+Kluctl deployment. Each secret must either contain the fields <code>credentialsId</code> which refers to the credentialsId
+found in <a href="https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories">https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories</a> or an <code>url</code> used
+to match the credentials found in Kluctl projects helm-chart.yaml files.
+Each secret must also contain a <code>username</code> and <code>password</code> field. Optionally, <code>certFile</code>, <code>keyFile</code> and <code>caFile</code>
+can be specified for TLS authentication.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>serviceAccountName</code><br>
 <em>
 string
@@ -920,6 +939,25 @@ it does not apply to already started executions. Defaults to false.</p>
 <p>RegistrySecrets is a list of secret references to be used for image registry authentication.
 The secrets must either have &ldquo;.dockerconfigjson&rdquo; included or &ldquo;registry&rdquo;, &ldquo;username&rdquo; and &ldquo;password&rdquo;.
 Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>helmCredentials</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
+[]github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
+Kluctl deployment. Each secret must either contain the fields <code>credentialsId</code> which refers to the credentialsId
+found in <a href="https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories">https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories</a> or an <code>url</code> used
+to match the credentials found in Kluctl projects helm-chart.yaml files.
+Each secret must also contain a <code>username</code> and <code>password</code> field. Optionally, <code>certFile</code>, <code>keyFile</code> and <code>caFile</code>
+can be specified for TLS authentication.</p>
 </td>
 </tr>
 <tr>

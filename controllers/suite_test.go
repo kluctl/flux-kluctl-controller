@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -191,9 +192,12 @@ func createNamespace(name string) error {
 	return k8sClient.Create(context.Background(), namespace)
 }
 
-func artifactFromDir(dir string) (string, error) {
+func artifactFromDir(dir string) (string, string, error) {
 	var files []testserver.File
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if filepath.Base(path) == ".git" {
+			return nil
+		}
 		if d.IsDir() {
 			return nil
 		}
@@ -212,9 +216,14 @@ func artifactFromDir(dir string) (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return testServer.ArtifactFromFiles(files)
+	tgz, err := testServer.ArtifactFromFiles(files)
+	if err != nil {
+		return "", "", err
+	}
+	checksum := strings.TrimSuffix(tgz, "tar.gz")
+	return tgz, checksum, nil
 }
 
 func applyGitRepository(objKey client.ObjectKey, artifactName string, revision string) error {

@@ -108,6 +108,15 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	RegistrySecrets []meta.LocalObjectReference `json:"registrySecrets,omitempty"`
 
+	// HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
+	// Kluctl deployment. Each secret must either contain the fields `credentialsId` which refers to the credentialsId
+	// found in https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories or an `url` used
+	// to match the credentials found in Kluctl projects helm-chart.yaml files.
+	// Each secret must also contain a `username` and `password` field. Optionally, `certFile`, `keyFile` and `caFile`
+	// can be specified for TLS authentication.
+	// +optional
+	HelmCredentials []meta.LocalObjectReference `json:"helmCredentials,omitempty"`
+
 	// The name of the Kubernetes service account to use while deploying.
 	// If not specified, the default service account is used.
 	// +optional
