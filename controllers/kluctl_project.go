@@ -559,8 +559,6 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
 
-	kluctlv1.RemoveObjectsFromCommandResult(cmdResult)
-
 	revision := ""
 	if pt.pp.source != nil {
 		revision = pt.pp.source.GetArtifact().Revision
@@ -570,6 +568,8 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 		pt.pp.r.event(ctx, pt.pp.obj, revision, fluxv1beta1.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return cmdErr
 	}
+
+	kluctlv1.RemoveObjectsFromCommandResult(cmdResult)
 
 	msg := fmt.Sprintf("%s succeeded.", commandName)
 	if len(cmdResult.NewObjects) != 0 {
