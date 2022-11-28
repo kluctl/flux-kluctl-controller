@@ -52,7 +52,6 @@ run: generate fmt vet manifests
 # Download the CRDs the controller depends on
 download-crd-deps:
 	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_gitrepositories.yaml > config/crd/bases/gitrepositories.yaml
-	curl -s https://raw.githubusercontent.com/fluxcd/source-controller/${SOURCE_VER}/config/crd/bases/source.toolkit.fluxcd.io_buckets.yaml > config/crd/bases/buckets.yaml
 
 # Install CRDs into a cluster
 install: manifests

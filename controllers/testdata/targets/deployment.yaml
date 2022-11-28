@@ -1,0 +1,6 @@
+
+deployments:
+  - path: d1
+
+commonLabels:
+  tests.kluctl.io/target: {{ target.name }}
