@@ -143,6 +143,7 @@ func main() {
 	r := controllers.KluctlDeploymentReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
+		RestConfig:            restConfig,
 		Client:                mgr.GetClient(),
 		ClientSet:             clientSet,
 		Scheme:                mgr.GetScheme(),

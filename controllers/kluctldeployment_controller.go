@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,6 +37,7 @@ import (
 
 type KluctlDeploymentReconciler struct {
 	client.Client
+	RestConfig            *rest.Config
 	ClientSet             *kubernetes.Clientset
 	httpClient            *retryablehttp.Client
 	requeueDependency     time.Duration

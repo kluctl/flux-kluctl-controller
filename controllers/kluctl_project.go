@@ -20,14 +20,6 @@ import (
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/docker/cli/cli/config/configfile"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
@@ -39,6 +31,12 @@ import (
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type preparedProject struct {
@@ -196,7 +194,6 @@ func (pt *preparedTarget) setImpersonationConfig(restConfig *rest.Config) {
 }
 
 func (pt *preparedTarget) buildRestConfig(ctx context.Context) (*rest.Config, error) {
-	var err error
 	var restConfig *rest.Config
 
 	if pt.pp.obj.Spec.KubeConfig != nil {
@@ -209,10 +206,7 @@ func (pt *preparedTarget) buildRestConfig(ctx context.Context) (*rest.Config, er
 			return nil, err
 		}
 	} else {
-		restConfig, err = config.GetConfig()
-		if err != nil {
-			return nil, err
-		}
+		restConfig = rest.CopyConfig(pt.pp.r.RestConfig)
 	}
 
 	pt.setImpersonationConfig(restConfig)
