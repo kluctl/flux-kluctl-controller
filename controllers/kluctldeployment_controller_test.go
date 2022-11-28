@@ -8,6 +8,7 @@ import (
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +27,20 @@ func TestKluctlDeploymentReconciler_FieldManager(t *testing.T) {
 	err := createNamespace(namespace)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
 
-	artifactFile, artifactChecksum, err := artifactFromDir("testdata/targets")
+	p := test_utils.NewTestProject(t, nil)
+	p.UpdateTarget("target1", nil)
+	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
+		{Name: "cm1.yaml", Content: uo.FromStringMust(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm1
+  namespace: "{{ args.namespace }}"
+data:
+  k1: v1
+`)},
+	}, nil)
+
+	artifactFile, artifactChecksum, err := artifactFromDir(p.LocalRepoDir())
 	g.Expect(err).ToNot(HaveOccurred())
 
 	repositoryName := types.NamespacedName{
