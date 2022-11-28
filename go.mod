@@ -26,7 +26,7 @@ require (
 	github.com/fluxcd/source-controller/api v0.32.1
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/hashicorp/vault/api v1.8.2
-	github.com/kluctl/kluctl/v2 v2.17.2-0.20221125221846-8c471827c8fc
+	github.com/kluctl/kluctl/v2 v2.17.2-0.20221128101239-f8ee073a2eff
 	github.com/onsi/gomega v1.24.1
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/spf13/pflag v1.0.5
