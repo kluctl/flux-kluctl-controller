@@ -297,6 +297,76 @@ spec:
   context: default
 ```
 
+## Helm Repository authentication
+
+Kluctl allows to [integrate Helm Charts](https://kluctl.io/docs/reference/deployments/helm/) in two different ways.
+One is to [pre-pull charts](https://kluctl.io/docs/reference/commands/helm-pull/) and put them into version control,
+making it unnecessary to pull them at deploy time. This option also means that you don't have to take any special care
+on the controller side.
+
+The other way is to let Kluctl pull Helm Charts at deploy time. In that case, you have to ensure that the controller
+has the necessary access to the Helm repositories. To add credentials for authentication, set the `spec.helmCredentials`
+field to a list of secret references:
+
+### Basic access authentication
+
+```yaml
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: example
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: example
+  target: prod
+  serviceAccountName: prod-service-account
+  context: default
+
+  helmCredentials:
+    - secretRef:
+        name: helm-creds
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: helm-creds
+  namespace: flux-system
+stringData:
+  url: https://example-repo.com
+  username: my-user
+  password: my-password
+```
+
+### TLS authentication
+
+For TLS authentication, see the following example secret:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: helm-creds
+  namespace: flux-system
+data:
+  certFile: <BASE64>
+  keyFile: <BASE64>
+  # NOTE: Can be supplied without the above values
+  caFile: <BASE64>
+```
+
+### Disabling TLS verification
+
+In case you need to disable TLS verification (not recommended!), add the key `insecureSkipTlsVerify` with the value
+`"true"` (make sure it's a string, so surround it with `"`).
+
+### Pass credentials
+
+To enable passing of credentials to all requests, add the key `passCredentialsAll` with the value `"true"`.
+This will pass the credentials to all requests, even if the hostname changes.
+
 ## Secrets Decryption
 
 Kluctl offers a [SOPS Integration](https://kluctl.io/docs/reference/deployments/sops/) that allows to use encrypted
