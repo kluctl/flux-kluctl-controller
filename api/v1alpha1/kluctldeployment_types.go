@@ -109,13 +109,9 @@ type KluctlDeploymentSpec struct {
 	RegistrySecrets []meta.LocalObjectReference `json:"registrySecrets,omitempty"`
 
 	// HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
-	// Kluctl deployment. Each secret must either contain the fields `credentialsId` which refers to the credentialsId
-	// found in https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories or an `url` used
-	// to match the credentials found in Kluctl projects helm-chart.yaml files.
-	// Each secret must also contain a `username` and `password` field. Optionally, `certFile`, `keyFile` and `caFile`
-	// can be specified for TLS authentication.
+	// Kluctl deployment.
 	// +optional
-	HelmCredentials []meta.LocalObjectReference `json:"helmCredentials,omitempty"`
+	HelmCredentials []HelmCredentials `json:"helmCredentials,omitempty"`
 
 	// The name of the Kubernetes service account to use while deploying.
 	// If not specified, the default service account is used.
@@ -260,6 +256,21 @@ type Decryption struct {
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
 	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
+}
+
+type HelmCredentials struct {
+	// SecretRef holds the name of a secret that contains the Helm credentials.
+	// The secret must either contain the fields `credentialsId` which refers to the credentialsId
+	// found in https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories or an `url` used
+	// to match the credentials found in Kluctl projects helm-chart.yaml files.
+	// The secret can either container basic authentication credentials via `username` and `password` or
+	// TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while
+	// contacting the repository.
+	// The secret can also contain `insecureSkipTlsVerify: "true"`, which will disable TLS verification.
+	// `passCredentialsAll: "true"` can be specified to make the controller pass credentials to all requests, even if
+	// the hostname changes in-between.
+	// +required
+	SecretRef meta.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // KubeConfig references a Kubernetes secret that contains a kubeconfig file.

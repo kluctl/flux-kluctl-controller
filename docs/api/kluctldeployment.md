@@ -229,6 +229,48 @@ string
 </table>
 </div>
 </div>
+<h3 id="flux.kluctl.io/v1alpha1.HelmCredentials">HelmCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
+github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>SecretRef holds the name of a secret that contains the Helm credentials.
+The secret must either contain the fields <code>credentialsId</code> which refers to the credentialsId
+found in <a href="https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories">https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories</a> or an <code>url</code> used
+to match the credentials found in Kluctl projects helm-chart.yaml files.
+The secret can either container basic authentication credentials via <code>username</code> and <code>password</code> or
+TLS authentication via <code>certFile</code> and <code>keyFile</code>. <code>caFile</code> can be specified to override the CA to use while
+contacting the repository.
+The secret can also contain <code>insecureSkipTlsVerify: &quot;true&quot;</code>, which will disable TLS verification.
+<code>passCredentialsAll: &quot;true&quot;</code> can be specified to make the controller pass credentials to all requests, even if
+the hostname changes in-between.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="flux.kluctl.io/v1alpha1.KluctlDeployment">KluctlDeployment
 </h3>
 <p>KluctlDeployment is the Schema for the kluctldeployments API</p>
@@ -437,19 +479,15 @@ Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.<
 <td>
 <code>helmCredentials</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
-[]github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+<a href="#flux.kluctl.io/v1alpha1.HelmCredentials">
+[]HelmCredentials
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
-Kluctl deployment. Each secret must either contain the fields <code>credentialsId</code> which refers to the credentialsId
-found in <a href="https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories">https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories</a> or an <code>url</code> used
-to match the credentials found in Kluctl projects helm-chart.yaml files.
-Each secret must also contain a <code>username</code> and <code>password</code> field. Optionally, <code>certFile</code>, <code>keyFile</code> and <code>caFile</code>
-can be specified for TLS authentication.</p>
+Kluctl deployment.</p>
 </td>
 </tr>
 <tr>
@@ -945,19 +983,15 @@ Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.<
 <td>
 <code>helmCredentials</code><br>
 <em>
-<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
-[]github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+<a href="#flux.kluctl.io/v1alpha1.HelmCredentials">
+[]HelmCredentials
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
-Kluctl deployment. Each secret must either contain the fields <code>credentialsId</code> which refers to the credentialsId
-found in <a href="https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories">https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories</a> or an <code>url</code> used
-to match the credentials found in Kluctl projects helm-chart.yaml files.
-Each secret must also contain a <code>username</code> and <code>password</code> field. Optionally, <code>certFile</code>, <code>keyFile</code> and <code>caFile</code>
-can be specified for TLS authentication.</p>
+Kluctl deployment.</p>
 </td>
 </tr>
 <tr>

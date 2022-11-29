@@ -288,7 +288,7 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	err = k8sClient.Create(context.TODO(), credsSecret)
 	g.Expect(err).To(Succeed())
 
-	kluctlDeployment.Spec.HelmCredentials = append(kluctlDeployment.Spec.HelmCredentials, meta.LocalObjectReference{Name: "helm-secrets-1"})
+	kluctlDeployment.Spec.HelmCredentials = append(kluctlDeployment.Spec.HelmCredentials, kluctlv1.HelmCredentials{SecretRef: meta.LocalObjectReference{Name: "helm-secrets-1"}})
 	err = k8sClient.Update(context.TODO(), kluctlDeployment)
 	g.Expect(err).To(Succeed())
 

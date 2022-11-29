@@ -395,11 +395,11 @@ func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (deployment.
 		return ""
 	}
 
-	for _, secretRef := range pt.pp.obj.Spec.HelmCredentials {
+	for _, e := range pt.pp.obj.Spec.HelmCredentials {
 		var secret corev1.Secret
 		err := pt.pp.r.Client.Get(ctx, types.NamespacedName{
 			Namespace: pt.pp.obj.GetNamespace(),
-			Name:      secretRef.Name,
+			Name:      e.SecretRef.Name,
 		}, &secret)
 		if err != nil {
 			return nil, err
@@ -410,7 +410,7 @@ func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (deployment.
 		credentialsId := string(secret.Data["credentialsId"])
 		url := string(secret.Data["url"])
 		if credentialsId == "" && url == "" {
-			return nil, fmt.Errorf("secret %s must at least contain 'credentialsId' or 'url'", secretRef.Name)
+			return nil, fmt.Errorf("secret %s must at least contain 'credentialsId' or 'url'", e.SecretRef.Name)
 		}
 		entry.Name = credentialsId
 		entry.URL = url
@@ -428,7 +428,7 @@ func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (deployment.
 		if utils.ParseBoolOrFalse(&s) {
 			entry.InsecureSkipTLSverify = true
 		}
-		b, _ = secret.Data["passCredentials"]
+		b, _ = secret.Data["passCredentialsAll"]
 		s = string(b)
 		if utils.ParseBoolOrFalse(&s) {
 			entry.PassCredentialsAll = true
