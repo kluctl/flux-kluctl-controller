@@ -3,7 +3,7 @@ module github.com/kluctl/flux-kluctl-controller
 go 1.19
 
 require (
-	cloud.google.com/go/kms v1.6.0
+	cloud.google.com/go/kms v1.7.0
 	filippo.io/age v1.0.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20221103172237-443f56ff4ba8
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.2.0
@@ -186,7 +186,7 @@ require (
 	golang.org/x/time v0.2.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221117204609-8f9c96812029
+	google.golang.org/genproto v0.0.0-20221201164419-0e50fba7f41c
 	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/inf.v0 v0.9.1 // indirect
