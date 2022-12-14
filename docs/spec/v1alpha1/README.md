@@ -6,10 +6,12 @@ of Kluctl Deployments.
 ## Specification
 
 - [KluctlDeployment CRD](kluctldeployment.md)
-    + [Source reference](kluctldeployment.md#source-reference)
+    + [Spec fields](kluctldeployment.md#spec-fields)
     + [Reconciliation](kluctldeployment.md#reconciliation)
-    + [Pruning](kluctldeployment.md#pruning)
     + [Kubeconfigs and RBAC](kluctldeployment.md#kubeconfigs-and-rbac)
+    + [Git authentication](kluctldeployment.md#git-authentication)
+    + [Helm Repository authentication](kluctldeployment.md#helm-repository-authentication)
+    + [Secrets Decryption](kluctldeployment.md#secrets-decryption)
     + [Status](kluctldeployment.md#status)
 
 ## Implementation

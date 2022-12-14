@@ -4,10 +4,9 @@ metadata:
   name: microservices-demo-prod
 spec:
   interval: 5m
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
   path: "./microservices-demo/3-templating-and-multi-env/"
-  sourceRef:
-    kind: GitRepository
-    name: microservices-demo
   timeout: 2m
   target: prod
   context: default

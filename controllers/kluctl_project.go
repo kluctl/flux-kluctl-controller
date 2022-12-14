@@ -6,7 +6,10 @@ import (
 	"fmt"
 	fluxv1beta1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/kluctl/flux-kluctl-controller/internal/decryptor"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"helm.sh/helm/v3/pkg/repo"
@@ -20,12 +23,10 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/docker/cli/cli/config/configfile"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
@@ -43,13 +44,15 @@ import (
 type preparedProject struct {
 	r      *KluctlDeploymentReconciler
 	obj    *kluctlv1.KluctlDeployment
-	source sourcev1.Source
+	source *kluctlv1.ProjectSource
+
+	sourceRevision string
+
+	rp *repocache.GitRepoCache
 
 	tmpDir     string
 	repoDir    string
 	projectDir string
-
-	gitRepo *sourcev1.GitRepository
 }
 
 type preparedTarget struct {
@@ -59,7 +62,7 @@ type preparedTarget struct {
 func prepareProject(ctx context.Context,
 	r *KluctlDeploymentReconciler,
 	obj *kluctlv1.KluctlDeployment,
-	source sourcev1.Source) (*preparedProject, error) {
+	source *kluctlv1.ProjectSource) (*preparedProject, error) {
 
 	pp := &preparedProject{
 		r:      r,
@@ -77,22 +80,41 @@ func prepareProject(ctx context.Context,
 		if !cleanup {
 			return
 		}
-		_ = os.RemoveAll(tmpDir)
+		pp.cleanup()
 	}()
 
 	pp.tmpDir = tmpDir
 
+	gitSecret, err := r.getGitSecret(ctx, source, obj.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	pp.rp, err = r.buildRepoCache(ctx, gitSecret)
+	if err != nil {
+		return nil, err
+	}
+
 	if source != nil {
-		// download artifact and extract files
-		err = pp.r.download(source, tmpDir)
+		gitUrl, err := git_url.Parse(source.URL)
 		if err != nil {
-			return pp, fmt.Errorf("failed download of artifact: %w", err)
+			return nil, err
+		}
+		rpEntry, err := pp.rp.GetEntry(*gitUrl)
+		if err != nil {
+			return nil, fmt.Errorf("failed clone source: %w", err)
 		}
 
-		pp.repoDir = filepath.Join(tmpDir, "source")
+		clonedDir, ci, err := rpEntry.GetClonedDir(source.Ref.String())
+		if err != nil {
+			return nil, err
+		}
+
+		pp.repoDir = clonedDir
+		pp.sourceRevision = fmt.Sprintf("%s/%s", ci.CheckedOutRef, ci.CheckedOutCommit)
 
 		// check kluctl project path exists
-		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.Spec.Path)
+		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, source.Path)
 		if err != nil {
 			return pp, err
 		}
@@ -107,6 +129,10 @@ func prepareProject(ctx context.Context,
 
 func (pp *preparedProject) cleanup() {
 	_ = os.RemoveAll(pp.tmpDir)
+	if pp.rp != nil {
+		pp.rp.Clear()
+		pp.rp = nil
+	}
 }
 
 func (pp *preparedProject) newTarget() (*preparedTarget, error) {
@@ -370,7 +396,7 @@ func (p helmCredentialsProvider) FindCredentials(repoUrl string, credentialsId *
 	return nil
 }
 
-func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (deployment.HelmCredentialsProvider, error) {
+func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (helm.HelmCredentialsProvider, error) {
 	var creds []repo.Entry
 
 	tmpDirBase := filepath.Join(pt.pp.tmpDir, "helm-certs")
@@ -547,14 +573,6 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 	}
 	defer j2.Close()
 
-	ga, err := pp.r.buildGitAuth(ctx, pp.source, pp.obj.GetNamespace())
-	if err != nil {
-		return err
-	}
-
-	rp := repocache.NewGitRepoCache(ctx, pp.r.SshPool, ga, nil, 0)
-	defer rp.Clear()
-
 	var sopsDecrypter sops.SopsDecrypter
 	if pp.obj.Spec.Decryption != nil {
 		sopsDecrypter, err = pp.buildSopsDecrypter(ctx)
@@ -566,7 +584,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		RepoRoot:      pp.repoDir,
 		ProjectDir:    pp.projectDir,
-		RP:            rp,
+		RP:            pp.rp,
 		SopsDecrypter: sopsDecrypter,
 	}
 	if pt != nil {
@@ -649,13 +667,8 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
 
-	revision := ""
-	if pt.pp.source != nil {
-		revision = pt.pp.source.GetArtifact().Revision
-	}
-
 	if cmdErr != nil {
-		pt.pp.r.event(ctx, pt.pp.obj, revision, fluxv1beta1.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
+		pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, fluxv1beta1.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return cmdErr
 	}
 
@@ -690,7 +703,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 		severity = fluxv1beta1.EventSeverityError
 		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))
 	}
-	pt.pp.r.event(ctx, pt.pp.obj, revision, severity, msg, nil)
+	pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, severity, msg, nil)
 
 	return err
 }
@@ -747,7 +760,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, commonLabels map[str
 	if err != nil {
 		return nil, err
 	}
-	clientFactory, err := k8s2.NewClientFactory(restConfig)
+	clientFactory, err := k8s2.NewClientFactory(ctx, restConfig)
 	if err != nil {
 		return nil, err
 	}

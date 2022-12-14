@@ -11,7 +11,6 @@ import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/acl"
 	"github.com/fluxcd/pkg/runtime/metrics"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
@@ -110,8 +109,8 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	// resolve source reference
-	source, err := r.getSource(ctx, obj.Spec.SourceRef, obj.GetNamespace(), r.NoCrossNamespaceRefs)
+	// get source
+	source, err := r.getProjectSource(ctx, obj, r.NoCrossNamespaceRefs)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("Source '%s' not found", obj.Spec.SourceRef)
@@ -142,22 +141,6 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	if source.GetArtifact() == nil {
-		msg := "Source is not ready, artifact not found"
-		patch := client.MergeFrom(obj.DeepCopy())
-		setReadiness(obj, metav1.ConditionFalse, kluctlv1.ArtifactFailedReason, msg)
-		if err := r.Status().Patch(ctx, obj, patch); err != nil {
-			return ctrl.Result{Requeue: true}, err
-		}
-
-		r.recordReadiness(ctx, obj)
-		log.Info(msg)
-		// do not requeue immediately, when the artifact is created the watcher should trigger a reconciliation
-		return ctrl.Result{RequeueAfter: retryInterval}, nil
-	}
-
-	sourceRevision := source.GetArtifact().Revision
-
 	// record reconciliation duration
 	if r.MetricsRecorder != nil {
 		objRef, err := reference.GetReference(r.Scheme, obj)
@@ -185,7 +168,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// reconcile kluctlDeployment by applying the latest revision
 	patch := client.MergeFrom(obj.DeepCopy())
-	ctrlResult, reconcileErr := r.doReconcile(ctx, obj, source)
+	ctrlResult, sourceRevision, reconcileErr := r.doReconcile(ctx, obj, source)
 	if err := r.Status().Patch(ctx, obj, patch); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
@@ -225,19 +208,19 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 func (r *KluctlDeploymentReconciler) doReconcile(
 	ctx context.Context,
 	obj *kluctlv1.KluctlDeployment,
-	source sourcev1.Source) (*ctrl.Result, error) {
+	source *kluctlv1.ProjectSource) (*ctrl.Result, string, error) {
 
 	pp, err := prepareProject(ctx, r, obj, source)
 	if err != nil {
-		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.source.GetArtifact().Revision)
-		return nil, err
+		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), "")
+		return nil, "", err
 	}
 	defer pp.cleanup()
 
 	pt, err := pp.newTarget()
 	if err != nil {
-		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.source.GetArtifact().Revision)
-		return nil, err
+		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.sourceRevision)
+		return nil, pp.sourceRevision, err
 	}
 
 	err = pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
@@ -296,12 +279,12 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				deployResult, err = pt.kluctlPokeImages(ctx, targetContext)
 			} else {
 				err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
-				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.source.GetArtifact().Revision)
+				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
-			kluctlv1.SetDeployResult(obj, pp.source.GetArtifact().Revision, deployResult, objectsHash, err)
+			kluctlv1.SetDeployResult(obj, pp.sourceRevision, deployResult, objectsHash, err)
 			if err != nil {
-				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.source.GetArtifact().Revision)
+				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
 		}
@@ -309,18 +292,18 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if needPrune {
 			// run garbage collection for stale objects that do not have pruning disabled
 			pruneResult, err := pt.kluctlPrune(ctx, targetContext)
-			kluctlv1.SetPruneResult(obj, pp.source.GetArtifact().Revision, pruneResult, objectsHash, err)
+			kluctlv1.SetPruneResult(obj, pp.sourceRevision, pruneResult, objectsHash, err)
 			if err != nil {
-				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), pp.source.GetArtifact().Revision)
+				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
 		}
 
 		if needValidate {
 			validateResult, err := pt.kluctlValidate(ctx, targetContext)
-			kluctlv1.SetValidateResult(obj, pp.source.GetArtifact().Revision, validateResult, objectsHash, err)
+			kluctlv1.SetValidateResult(obj, pp.sourceRevision, validateResult, objectsHash, err)
 			if err != nil {
-				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.ValidateFailedReason, err.Error(), pp.source.GetArtifact().Revision)
+				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.ValidateFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
 		}
@@ -332,8 +315,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		obj.Status.LastHandledDeployAt = v
 	}
 	if err != nil {
-		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.source.GetArtifact().Revision)
-		return nil, err
+		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), pp.sourceRevision)
+		return nil, pp.sourceRevision, err
 	}
 
 	var ctrlResult ctrl.Result
@@ -345,12 +328,12 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	finalStatus, reason := r.buildFinalStatus(obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
-		setReadinessWithRevision(obj, metav1.ConditionFalse, reason, finalStatus, pp.source.GetArtifact().Revision)
-		return &ctrlResult, fmt.Errorf(finalStatus)
+		setReadinessWithRevision(obj, metav1.ConditionFalse, reason, finalStatus, pp.sourceRevision)
+		return &ctrlResult, pp.sourceRevision, fmt.Errorf(finalStatus)
 	}
-	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.source.GetArtifact().Revision)
+	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.sourceRevision)
 
-	return &ctrlResult, nil
+	return &ctrlResult, pp.sourceRevision, nil
 }
 
 func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeployment) (finalStatus string, reason string) {

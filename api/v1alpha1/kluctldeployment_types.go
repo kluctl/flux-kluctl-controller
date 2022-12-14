@@ -41,14 +41,20 @@ const (
 type KluctlDeploymentSpec struct {
 	// Path to the directory containing the .kluctl.yaml file, or the
 	// Defaults to 'None', which translates to the root path of the SourceRef.
+	// Deprecated: Use source.path instead
 	// +optional
 	Path string `json:"path,omitempty"`
 
 	// Reference of the source where the kluctl project is.
 	// The authentication secrets from the source are also used to authenticate
 	// dependent git repositories which are cloned while deploying the kluctl project.
-	// +required
-	SourceRef meta.NamespacedObjectKindReference `json:"sourceRef"`
+	// Deprecated: Use source instead
+	// +optional
+	SourceRef *meta.NamespacedObjectKindReference `json:"sourceRef,omitempty"`
+
+	// Specifies the project source location
+	// +optional
+	Source *ProjectSource `json:"source,omitempty"`
 
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
@@ -244,6 +250,29 @@ func (in KluctlDeploymentSpec) GetRetryInterval() time.Duration {
 		return in.RetryInterval.Duration
 	}
 	return in.Interval.Duration
+}
+
+type ProjectSource struct {
+	// Url specifies the Git url where the project source is located
+	// +required
+	URL string `json:"url"`
+
+	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
+	// +optional
+	Ref *GitRef `json:"ref,omitempty"`
+
+	// Path specifies the sub-directory to be used as project directory
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the git repository.
+	// For HTTPS repositories the Secret must contain 'username' and 'password'
+	// fields.
+	// For SSH repositories the Secret must contain 'identity'
+	// and 'known_hosts' fields.
+	// +optional
+	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.

@@ -279,9 +279,9 @@ spec:
                   when calling kluctl.
                 type: boolean
               path:
-                description: Path to the directory containing the .kluctl.yaml file,
-                  or the Defaults to 'None', which translates to the root path of
-                  the SourceRef.
+                description: 'Path to the directory containing the .kluctl.yaml file,
+                  or the Defaults to ''None'', which translates to the root path of
+                  the SourceRef. Deprecated: Use source.path instead'
                 type: string
               prune:
                 default: false
@@ -339,11 +339,49 @@ spec:
                 description: The name of the Kubernetes service account to use while
                   deploying. If not specified, the default service account is used.
                 type: string
+              source:
+                description: Specifies the project source location
+                properties:
+                  path:
+                    description: Path specifies the sub-directory to be used as project
+                      directory
+                    type: string
+                  ref:
+                    description: Ref specifies the branch, tag or commit that should
+                      be used. If omitted, the default branch of the repo is used.
+                    properties:
+                      branch:
+                        description: Branch to filter for. Can also be a regex.
+                        type: string
+                      tag:
+                        description: Branch to filter for. Can also be a regex.
+                        type: string
+                    type: object
+                  secretRef:
+                    description: SecretRef specifies the Secret containing authentication
+                      credentials for the git repository. For HTTPS repositories the
+                      Secret must contain 'username' and 'password' fields. For SSH
+                      repositories the Secret must contain 'identity' and 'known_hosts'
+                      fields.
+                    properties:
+                      name:
+                        description: Name of the referent.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  url:
+                    description: Url specifies the Git url where the project source
+                      is located
+                    type: string
+                required:
+                - url
+                type: object
               sourceRef:
-                description: Reference of the source where the kluctl project is.
+                description: 'Reference of the source where the kluctl project is.
                   The authentication secrets from the source are also used to authenticate
                   dependent git repositories which are cloned while deploying the
-                  kluctl project.
+                  kluctl project. Deprecated: Use source instead'
                 properties:
                   apiVersion:
                     description: API version of the referent, if not specified the
@@ -405,7 +443,6 @@ spec:
                 type: string
             required:
             - interval
-            - sourceRef
             type: object
           status:
             description: KluctlDeploymentStatus defines the observed state of KluctlDeployment

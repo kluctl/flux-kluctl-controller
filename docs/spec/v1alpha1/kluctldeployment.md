@@ -6,97 +6,78 @@ from a [Kluctl Project](https://kluctl.io/docs/reference/kluctl-project/).
 ## Example
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: GitRepository
-metadata:
-  name: microservices-demo
-spec:
-  interval: 1m
-  url: https://github.com/kluctl/kluctl-examples.git
-  ref:
-    branch: main
----
 apiVersion: flux.kluctl.io/v1alpha1
 kind: KluctlDeployment
 metadata:
   name: microservices-demo-prod
 spec:
   interval: 5m
-  path: "./microservices-demo/3-templating-and-multi-env/"
-  sourceRef:
-    kind: GitRepository
-    name: microservices-demo
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: prod
   context: default
   prune: true
 ```
 
-In the above example, two objects are being created, a GitRepository that points to the Kluctl project and KluctlDeployment
-that defines the deployment based on the Kluctl project.
+In the above example a KluctlDeployment is being created that defines the deployment based on the Kluctl project.
 
-The deployment is performed every 5 minutes or whenever the source changes. It will deploy the `prod`
+The deployment is performed every 5 minutes. It will deploy the `prod`
 [target](https://kluctl.io/docs/reference/kluctl-project/targets/) and then prune orphaned objects afterwards.
 
-It uses the `default` context provided by the default Flux service account and rename it to `kind-kind` so that it is
-compatible with the context specified in the example's `prod` target.
+It uses the `default` context provided by the default service account and thus overrides the context specified in the
+target definition.
 
-## Source reference
+## Spec fields
 
-The KluctlDeployment `spec.sourceRef` is a reference to an object managed by
-[source-controller](https://github.com/fluxcd/source-controller). When the source
-[revision](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/common.md#source-status)
-changes, it generates a Kubernetes event that triggers a reconciliation attempt.
+### source
 
-Source supported types:
+The KluctlDeployment `spec.source` specifies the source repository to be used. Example:
 
-* [GitRepository](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/gitrepositories.md)
-* [Bucket](https://github.com/fluxcd/source-controller/blob/master/docs/spec/v1alpha1/buckets.md)
+```yaml
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: example
+spec:
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: path/to/project
+    secretRef:
+      name: git-credentials
+    ref:
+      branch: my-branch
+  ...
+```
 
-The Kluctl project found in the referenced source might also internally reference other Git repositories, for example
-by loading variables from Git repositories or including other Git repositories in your deployments. In this case,
-the controller will re-use the credentials from the root project's GitRepository for further authentication.
+The `url` specifies the git clone url. It can either be a https or a git/ssh url. Git/Ssh url will require a secret
+to be provided with credentials.
 
-`spec.path` specifies the subdirectory inside the referenced source to be used as the project root.
+The `path` specifies the sub-directory where the Kluctl project is located.
 
-## Target
+The `ref` provides the Git reference to be used. It can either be a branch or a tag.
+
+See [Git authentication](#git-authentication) for details on authentication.
+
+### interval
+See [Reconciliation](#reconciliation).
+
+### target
 `spec.target` specifies the target to be deployed. It must exist in the Kluctl projects
 [kluctl.yaml targets](https://kluctl.io/docs/reference/kluctl-project/targets/) list.
 
 This field is optional and can be omitted if the referenced Kluctl project allows deployments without targets.
 
-## TargetNameOverride
+### targetNameOverride
 `spec.targetNameOverride` will set or override the name of the target. This is equivalent to passing
 `--target-name-override` to `kluctl deploy`.
 
-## Context
+### context
 `spec.context` will override the context used while deploying. This is equivalent to passing `--context` to
 `kluctl deploy`.
 
-## Reconciliation
-
-The KluctlDeployment `spec.interval` tells the controller at which interval to try reconciliations.
-The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
-
-At each reconciliation run, the controller will check if any rendered objects have been changes since the last
-deployment and then perform a new deployment if changes are detected. Changes are tracked via a hash consisting of
-all rendered objects.
-
-To enforce periodic full deployments even if nothing has changed, `spec.deployInterval` can be used to specify an
-interval at which forced deployments must be performed by the controller.
-
-The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`.
-
-The controller can be told to reconcile the KluctlDeployment outside of the specified interval
-by annotating the KluctlDeployment object with `reconcile.fluxcd.io/requestedAt`.
-
-On-demand execution example:
-
-```bash
-kubectl annotate --overwrite kluctldeployment/microservices-demo-prod reconcile.fluxcd.io/requestedAt="$(date +%s)"
-```
-
-## Deploy Mode
+### deployMode
 By default, the operator will perform a full deployment, which is equivalent to using the `kluctl deploy` command.
 As an alternative, the controller can be instructed to only perform a `kluctl poke-images` command. Please
 see https://kluctl.io/docs/reference/commands/poke-images/ for details on the command. To do so, set `spec.deployMode`
@@ -110,27 +91,22 @@ metadata:
   name: microservices-demo-prod
 spec:
   interval: 5m
-  path: "./microservices-demo/3-templating-and-multi-env/"
-  sourceRef:
-    kind: GitRepository
-    name: microservices-demo
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: prod
   context: default
   deployMode: poke-images
 ```
 
-## Pruning
+### prune
 
 To enable pruning, set `spec.prune` to `true`. This will cause the controller to run `kluctl prune` after each
 successful deployment.
 
-## Kluctl Options
-The [kluctl deploy](https://kluctl.io/docs/reference/commands/deploy/) command has multiple arguments that influence
-how the deployment is performed. `KluctlDeployment`'s can set most of these arguments as well:
-
 ### args
-`spec.args` is a map of strings representing [arguments](https://kluctl.io/docs/reference/deployments/deployment-yml/#args)
+`spec.args` is an object representing [arguments](https://kluctl.io/docs/reference/deployments/deployment-yml/#args)
 passed to the deployment. Example:
 
 ```yaml
@@ -140,15 +116,18 @@ metadata:
   name: example
 spec:
   interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: example
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: prod
   context: default
   args:
     arg1: value1
     arg2: value2
+    arg3:
+      k1: v1
+      k2: v2
 ```
 
 The above example is equivalent to calling `kluctl deploy -t prod -a arg1=value1 -a arg2=value2`.
@@ -171,9 +150,8 @@ metadata:
   name: example
 spec:
   interval: 5m
-  sourceRef:
-    kind: GitRepository
-    name: example
+  source:
+    url: https://example.com
   timeout: 2m
   target: prod
   images:
@@ -212,7 +190,6 @@ instead of providing images directly in the ´KluctlDeployment` object.
 `spec.dryRun` is a boolean value that turns the deployment into a dry-run deployment. This is equivalent to calling
 `kluctl deploy -t prod --dry-run`.
 
-
 ### noWait
 `spec.noWait` is a boolean value that disables all internal waiting (hooks and readiness). This is equivalent to calling
 `kluctl deploy -t prod --no-wait`.
@@ -237,6 +214,29 @@ These are equivalent to calling `kluctl deploy -t prod --include-tag <tag1>` and
 `spec.includeDeploymentDirs` and `spec.excludeDeploymentDirs` are lists of relative deployment directories to be used in
 inclusion/exclusion logic while deploying. These are equivalent to calling `kluctl deploy -t prod --include-tag <tag1>`
 and `kluctl deploy -t prod --exclude-tag <tag2>`.
+
+## Reconciliation
+
+The KluctlDeployment `spec.interval` tells the controller at which interval to try reconciliations.
+The interval time units are `s`, `m` and `h` e.g. `interval: 5m`, the minimum value should be over 60 seconds.
+
+At each reconciliation run, the controller will check if any rendered objects have been changes since the last
+deployment and then perform a new deployment if changes are detected. Changes are tracked via a hash consisting of
+all rendered objects.
+
+To enforce periodic full deployments even if nothing has changed, `spec.deployInterval` can be used to specify an
+interval at which forced deployments must be performed by the controller.
+
+The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`.
+
+The controller can be told to reconcile the KluctlDeployment outside of the specified interval
+by annotating the KluctlDeployment object with `reconcile.fluxcd.io/requestedAt`.
+
+On-demand execution example:
+
+```bash
+kubectl annotate --overwrite kluctldeployment/microservices-demo-prod reconcile.fluxcd.io/requestedAt="$(date +%s)"
+```
 
 ## Kubeconfigs and RBAC
 
@@ -269,9 +269,9 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  sourceRef:
-    kind: GitRepository
-    name: example
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: "./microservices-demo/3-templating-and-multi-env/"
   target: prod
   serviceAccountName: prod-service-account
   renameContexts:
@@ -289,12 +289,75 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  sourceRef:
-    kind: GitRepository
-    name: example
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: "./microservices-demo/3-templating-and-multi-env/"
   target: prod
   serviceAccountName: prod-service-account
   context: default
+```
+
+## Git authentication
+
+The `spec.source` can optionally specify a `spec.source.secretRef` (see [here](#source)) which must point to an existing
+secret (in the same namespace) containing Git credentials.
+
+### Basic access authentication
+
+To authenticate towards a Git repository over HTTPS using basic access
+authentication (in other words: using a username and password), the referenced
+Secret is expected to contain `.data.username` and `.data.password` values.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: basic-access-auth
+type: Opaque
+data:
+  username: <BASE64>
+  password: <BASE64>
+```
+
+### HTTPS Certificate Authority
+
+To provide a Certificate Authority to trust while connecting with a Git
+repository over HTTPS, the referenced Secret can contain a `.data.caFile`
+value.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: https-ca-credentials
+  namespace: default
+type: Opaque
+data:
+  caFile: <BASE64>
+```
+
+### SSH authentication
+
+To authenticate towards a Git repository over SSH, the referenced Secret is
+expected to contain `identity` and `known_hosts` fields. With the respective
+private key of the SSH key pair, and the host keys of the Git repository.
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ssh-credentials
+type: Opaque
+stringData:
+  identity: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    ...
+    -----END OPENSSH PRIVATE KEY-----
+  known_hosts: |
+    github.com ecdsa-sha2-nistp256 AAAA...
 ```
 
 ## Helm Repository authentication
@@ -318,9 +381,9 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  sourceRef:
-    kind: GitRepository
-    name: example
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: "./microservices-demo/3-templating-and-multi-env/"
   target: prod
   serviceAccountName: prod-service-account
   context: default

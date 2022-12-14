@@ -18,17 +18,14 @@ package controllers
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"io/fs"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/controller"
 	"github.com/fluxcd/pkg/runtime/testenv"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
@@ -45,8 +42,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	controllerLog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"github.com/fluxcd/pkg/testserver"
 
 	kluctliov1alpha1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
@@ -69,7 +64,6 @@ var (
 	reconciler   *KluctlDeploymentReconciler
 	k8sClient    client.Client
 	testEnv      *testenv.Environment
-	testServer   *testserver.ArtifactServer
 	testMetricsH controller.Metrics
 	ctx          = ctrl.SetupSignalHandler()
 	kubeConfig   []byte
@@ -86,13 +80,6 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 	}
 
 	testEnv = testenv.New(testenv.WithCRDPath(crdPath))
-
-	testServer, err = testserver.NewTempArtifactServer()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create a temporary storage server: %v", err))
-	}
-	fmt.Println("Starting the test storage server")
-	testServer.Start()
 
 	registerControllers(testEnv)
 
@@ -138,12 +125,6 @@ func runInContext(registerControllers func(*testenv.Environment), run func() err
 	fmt.Println("Stopping the test environment")
 	if err := testEnv.Stop(); err != nil {
 		panic(fmt.Sprintf("Failed to stop the test environment: %v", err))
-	}
-
-	fmt.Println("Stopping the file server")
-	testServer.Stop()
-	if err := os.RemoveAll(testServer.Root()); err != nil {
-		panic(fmt.Sprintf("Failed to remove storage server dir: %v", err))
 	}
 
 	return runErr
@@ -192,94 +173,13 @@ func createNamespace(name string) error {
 	return k8sClient.Create(context.Background(), namespace)
 }
 
-func artifactFromDir(dir string) (string, string, error) {
-	var files []testserver.File
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if filepath.Base(path) == ".git" {
-			return nil
-		}
-		if d.IsDir() {
-			return nil
-		}
-		relPath, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		f, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		files = append(files, testserver.File{
-			Name: relPath,
-			Body: string(f),
-		})
-		return nil
-	})
+func getHeadRevision(t *testing.T, p *test_utils.TestProject) string {
+	r := p.GetGitRepo()
+	h, err := r.Head()
 	if err != nil {
-		return "", "", err
+		t.Fatal(err)
 	}
-	tgz, err := testServer.ArtifactFromFiles(files)
-	if err != nil {
-		return "", "", err
-	}
-	checksum := strings.TrimSuffix(tgz, "tar.gz")
-	return tgz, checksum, nil
-}
-
-func applyGitRepository(objKey client.ObjectKey, artifactName string, revision string) error {
-	repo := &sourcev1.GitRepository{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       sourcev1.GitRepositoryKind,
-			APIVersion: sourcev1.GroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      objKey.Name,
-			Namespace: objKey.Namespace,
-		},
-		Spec: sourcev1.GitRepositorySpec{
-			URL:      "https://github.com/test/repository",
-			Interval: metav1.Duration{Duration: time.Minute},
-		},
-	}
-
-	b, _ := os.ReadFile(filepath.Join(testServer.Root(), artifactName))
-	checksum := fmt.Sprintf("%x", sha256.Sum256(b))
-
-	url := fmt.Sprintf("%s/%s", testServer.URL(), artifactName)
-
-	status := sourcev1.GitRepositoryStatus{
-		Conditions: []metav1.Condition{
-			{
-				Type:               meta.ReadyCondition,
-				Status:             metav1.ConditionTrue,
-				LastTransitionTime: metav1.Now(),
-				Reason:             sourcev1.GitOperationSucceedReason,
-			},
-		},
-		Artifact: &sourcev1.Artifact{
-			Path:           url,
-			URL:            url,
-			Revision:       revision,
-			Checksum:       checksum,
-			LastUpdateTime: metav1.Now(),
-		},
-	}
-
-	opt := []client.PatchOption{
-		client.ForceOwnership,
-		client.FieldOwner("flux-kluctl-controller"),
-	}
-
-	if err := k8sClient.Patch(context.Background(), repo, client.Apply, opt...); err != nil {
-		return err
-	}
-
-	repo.ManagedFields = nil
-	repo.Status = status
-	if err := k8sClient.Status().Patch(context.Background(), repo, client.Apply, opt...); err != nil {
-		return err
-	}
-	return nil
+	return fmt.Sprintf("%s/%s", h.Name().String(), h.Hash().String())
 }
 
 func waitForReconcile(t *testing.T, key types.NamespacedName) {

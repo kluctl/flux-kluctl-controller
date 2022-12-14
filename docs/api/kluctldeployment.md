@@ -229,6 +229,50 @@ string
 </table>
 </div>
 </div>
+<h3 id="flux.kluctl.io/v1alpha1.GitRef">GitRef
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.ProjectSource">ProjectSource</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>branch</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Branch to filter for. Can also be a regex.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>tag</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Branch to filter for. Can also be a regex.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="flux.kluctl.io/v1alpha1.HelmCredentials">HelmCredentials
 </h3>
 <p>
@@ -321,7 +365,8 @@ string
 <td>
 <em>(Optional)</em>
 <p>Path to the directory containing the .kluctl.yaml file, or the
-Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.</p>
+Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.
+Deprecated: Use source.path instead</p>
 </td>
 </tr>
 <tr>
@@ -334,9 +379,25 @@ github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Reference of the source where the kluctl project is.
 The authentication secrets from the source are also used to authenticate
-dependent git repositories which are cloned while deploying the kluctl project.</p>
+dependent git repositories which are cloned while deploying the kluctl project.
+Deprecated: Use source instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>source</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.ProjectSource">
+ProjectSource
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies the project source location</p>
 </td>
 </tr>
 <tr>
@@ -825,7 +886,8 @@ string
 <td>
 <em>(Optional)</em>
 <p>Path to the directory containing the .kluctl.yaml file, or the
-Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.</p>
+Defaults to &lsquo;None&rsquo;, which translates to the root path of the SourceRef.
+Deprecated: Use source.path instead</p>
 </td>
 </tr>
 <tr>
@@ -838,9 +900,25 @@ github.com/fluxcd/pkg/apis/meta.NamespacedObjectKindReference
 </em>
 </td>
 <td>
+<em>(Optional)</em>
 <p>Reference of the source where the kluctl project is.
 The authentication secrets from the source are also used to authenticate
-dependent git repositories which are cloned while deploying the kluctl project.</p>
+dependent git repositories which are cloned while deploying the kluctl project.
+Deprecated: Use source instead</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>source</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.ProjectSource">
+ProjectSource
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies the project source location</p>
 </td>
 </tr>
 <tr>
@@ -1659,6 +1737,82 @@ string
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="flux.kluctl.io/v1alpha1.ProjectSource">ProjectSource
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#flux.kluctl.io/v1alpha1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Url specifies the Git url where the project source is located</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ref</code><br>
+<em>
+<a href="#flux.kluctl.io/v1alpha1.GitRef">
+GitRef
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>path</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path specifies the sub-directory to be used as project directory</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="https://godoc.org/github.com/fluxcd/pkg/apis/meta#LocalObjectReference">
+github.com/fluxcd/pkg/apis/meta.LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>SecretRef specifies the Secret containing authentication credentials for
+the git repository.
+For HTTPS repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
+fields.
+For SSH repositories the Secret must contain &lsquo;identity&rsquo;
+and &lsquo;known_hosts&rsquo; fields.</p>
 </td>
 </tr>
 </tbody>

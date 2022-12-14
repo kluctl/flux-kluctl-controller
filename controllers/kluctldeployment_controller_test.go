@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/fluxcd/pkg/apis/meta"
-	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -27,7 +26,7 @@ func TestKluctlDeploymentReconciler_FieldManager(t *testing.T) {
 	err := createNamespace(namespace)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
 
-	p := test_utils.NewTestProject(t, nil)
+	p := test_utils.NewTestProject(t)
 	p.UpdateTarget("target1", nil)
 	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
 		{Name: "cm1.yaml", Content: uo.FromStringMust(`apiVersion: v1
@@ -39,17 +38,6 @@ data:
   k1: v1
 `)},
 	}, nil)
-
-	artifactFile, artifactChecksum, err := artifactFromDir(p.LocalRepoDir())
-	g.Expect(err).ToNot(HaveOccurred())
-
-	repositoryName := types.NamespacedName{
-		Name:      randStringRunes(5),
-		Namespace: namespace,
-	}
-
-	err = applyGitRepository(repositoryName, artifactFile, "main/"+artifactChecksum)
-	g.Expect(err).NotTo(HaveOccurred())
 
 	kluctlDeploymentKey := types.NamespacedName{
 		Name:      "kluctl-fieldmanager-" + randStringRunes(5),
@@ -67,10 +55,8 @@ data:
 			Args: runtime.RawExtension{
 				Raw: []byte(fmt.Sprintf(`{"namespace": "%s"}`, namespace)),
 			},
-			SourceRef: meta.NamespacedObjectKindReference{
-				Name:      repositoryName.Name,
-				Namespace: repositoryName.Namespace,
-				Kind:      sourcev1.GitRepositoryKind,
+			Source: &kluctlv1.ProjectSource{
+				URL: p.GitUrl(),
 			},
 		},
 	}
@@ -83,7 +69,7 @@ data:
 		if obj.Status.LastDeployResult == nil {
 			return false
 		}
-		return obj.Status.LastDeployResult.Revision == "main/"+artifactChecksum
+		return obj.Status.LastDeployResult.Revision == getHeadRevision(t, p)
 	}, timeout, time.Second).Should(BeTrue())
 
 	cm := &corev1.ConfigMap{}
@@ -178,7 +164,7 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	g := NewWithT(t)
 	namespace := "kluctl-helm-" + randStringRunes(5)
 
-	p := test_utils.NewTestProject(t, nil)
+	p := test_utils.NewTestProject(t)
 	p.UpdateTarget("target1", nil)
 
 	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
@@ -196,17 +182,6 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	err := createNamespace(namespace)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
 
-	artifactFile, artifactChecksum, err := artifactFromDir(p.LocalRepoDir())
-	g.Expect(err).ToNot(HaveOccurred())
-
-	repositoryName := types.NamespacedName{
-		Name:      randStringRunes(5),
-		Namespace: namespace,
-	}
-
-	err = applyGitRepository(repositoryName, artifactFile, "main/"+artifactChecksum)
-	g.Expect(err).NotTo(HaveOccurred())
-
 	kluctlDeploymentKey := types.NamespacedName{
 		Name:      "kluctl-fieldmanager-" + randStringRunes(5),
 		Namespace: namespace,
@@ -223,10 +198,8 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 			Args: runtime.RawExtension{
 				Raw: []byte(fmt.Sprintf(`{"namespace": "%s"}`, namespace)),
 			},
-			SourceRef: meta.NamespacedObjectKindReference{
-				Name:      repositoryName.Name,
-				Namespace: repositoryName.Namespace,
-				Kind:      sourcev1.GitRepositoryKind,
+			Source: &kluctlv1.ProjectSource{
+				URL: p.GitUrl(),
 			},
 		},
 	}
@@ -239,7 +212,7 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 		if obj.Status.LastDeployResult == nil {
 			return false
 		}
-		return obj.Status.LastDeployResult.Revision == "main/"+artifactChecksum
+		return obj.Status.LastDeployResult.Revision == getHeadRevision(t, p)
 	}, timeout, time.Second).Should(BeTrue())
 
 	cm := &corev1.ConfigMap{}
@@ -254,11 +227,6 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	})
 
 	p.AddHelmDeployment("d2", repoUrlWithCreds, "test-chart2", "0.1.0", "test-helm-2", namespace, nil)
-
-	artifactFile, artifactChecksum, err = artifactFromDir(p.LocalRepoDir())
-	g.Expect(err).To(Succeed())
-	err = applyGitRepository(repositoryName, artifactFile, "main/"+artifactChecksum)
-	g.Expect(err).To(Succeed())
 
 	t.Run("chart with credentials fails with 401", func(t *testing.T) {
 		g.Eventually(func() bool {
@@ -307,11 +275,6 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	})
 
 	p.AddHelmDeployment("d3", ociRepoUrlWithCreds, "test-chart3", "0.1.0", "test-helm-3", namespace, nil)
-
-	artifactFile, artifactChecksum, err = artifactFromDir(p.LocalRepoDir())
-	g.Expect(err).To(Succeed())
-	err = applyGitRepository(repositoryName, artifactFile, "main/"+artifactChecksum)
-	g.Expect(err).To(Succeed())
 
 	t.Run("OCI chart with credentials fails with 401", func(t *testing.T) {
 		g.Eventually(func() bool {

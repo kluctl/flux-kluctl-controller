@@ -39,15 +39,7 @@ that describes a pipeline such as:
 - **prune** orphaned objects via [kluctl prune](https://kluctl.io/docs/reference/commands/prune/)
 - **validate** the deployment status via [kluctl validate](https://kluctl.io/docs/reference/commands/validate/)
 - **alert** if something went wrong
-- **notify** if the cluster state changed 
-
-The controller that runs these pipelines relies on
-[source-controller](https://github.com/fluxcd/source-controller)
-for providing the root Kluctl project from Git repositories or any
-other source that source-controller could support in the future. If the root Kluctl project
-is located in a [GitRepository](https://fluxcd.io/docs/components/source/gitrepositories/),
-the Flux Kluctl Controller will reuse the Git credentials for all dependent Git repositories
-referenced by the project.
+- **notify** if the cluster state changed
 
 A pipeline runs on-a-schedule and ca be triggered manually by a
 cluster admin or automatically by a source event such as a Git revision change.
@@ -66,26 +58,11 @@ The API design of the controller can be found at [kluctldeployment.flux.kluctl.i
 
 ## Example
 
-After installing flux-kluctl-controller alongside a normal [flux installation](https://fluxcd.io/docs/installation/), 
-we can create a Kluctl deployment that automatically deploys the [Microservices Demo](https://kluctl.io/docs/guides/tutorials/microservices-demo/3-templating-and-multi-env/).
+After installing flux-kluctl-controller, we can create a Kluctl deployment that automatically deploys the
+[Microservices Demo](https://kluctl.io/docs/guides/tutorials/microservices-demo/3-templating-and-multi-env/).
 
-Create a source that points to the demo project.
-
-```yaml
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: GitRepository
-metadata:
-  name: microservices-demo
-  namespace: flux-system
-spec:
-  interval: 5m
-  url: https://github.com/kluctl/kluctl-examples.git
-  ref:
-    branch: main
-```
-
-And a KluctlDeployment that uses the demo project source to deploy the `test` target to the same cluster that flux
-runs on.
+Create a KluctlDeployment that uses the demo project source to deploy the `test` target to the same cluster that the
+controller runs on.
 
 ```yaml
 apiVersion: flux.kluctl.io/v1alpha1
@@ -95,10 +72,9 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./microservices-demo/3-templating-and-multi-env/"
-  sourceRef:
-    kind: GitRepository
-    name: microservices-demo
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: test
   context: default
@@ -118,10 +94,9 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: "./microservices-demo/3-templating-and-multi-env/"
-  sourceRef:
-    kind: GitRepository
-    name: microservices-demo
+  source:
+    url: https://github.com/kluctl/kluctl-examples.git
+    path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: prod
   context: default

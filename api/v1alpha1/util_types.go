@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -48,3 +49,31 @@ func (_ DurationOrNever) OpenAPISchemaType() []string { return []string{"string"
 // OpenAPISchemaFormat is used by the kube-openapi generator when constructing
 // the OpenAPI spec of this type.
 func (_ DurationOrNever) OpenAPISchemaFormat() string { return "" }
+
+type GitRef struct {
+	// Branch to filter for. Can also be a regex.
+	// +optional
+	Branch string `json:"branch,omitempty"`
+
+	// Branch to filter for. Can also be a regex.
+	// +optional
+	Tag string `json:"tag,omitempty"`
+
+	// TODO
+	// Commit SHA to check out, takes precedence over all reference fields.
+	// +optional
+	// Commit string `json:"commit,omitempty"`
+}
+
+func (r *GitRef) String() string {
+	if r == nil {
+		return ""
+	}
+	if r.Tag != "" {
+		return fmt.Sprintf("refs/tags/%s", r.Tag)
+	} else if r.Branch != "" {
+		return fmt.Sprintf("refs/heads/%s", r.Branch)
+	} else {
+		return ""
+	}
+}
