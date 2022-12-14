@@ -8,11 +8,3 @@ resources:
 
 transformers:
   - labels.yaml
-
-patchesJson6902:
-  - target:
-      group: apps
-      version: v1
-      kind: Deployment
-      name: flux-kluctl-controller
-    path: patch.yaml

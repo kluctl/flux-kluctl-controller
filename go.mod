@@ -18,7 +18,6 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/pkg/apis/acl v0.1.0
-	github.com/fluxcd/pkg/apis/event v0.2.0
 	github.com/fluxcd/pkg/apis/meta v0.18.0
 	github.com/fluxcd/pkg/runtime v0.24.0
 	github.com/fluxcd/source-controller/api v0.32.1

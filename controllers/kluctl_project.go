@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	fluxv1beta1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/kluctl/flux-kluctl-controller/internal/decryptor"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
@@ -668,7 +667,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
 
 	if cmdErr != nil {
-		pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, fluxv1beta1.EventSeverityError, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
+		pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return cmdErr
 	}
 
@@ -697,13 +696,13 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 		msg += fmt.Sprintf(" %d warnings.", len(cmdResult.Warnings))
 	}
 
-	severity := fluxv1beta1.EventSeverityInfo
+	warning := false
 	var err error
 	if len(cmdResult.Errors) != 0 {
-		severity = fluxv1beta1.EventSeverityError
+		warning = true
 		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))
 	}
-	pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, severity, msg, nil)
+	pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, warning, msg, nil)
 
 	return err
 }

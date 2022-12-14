@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	fluxv1beta1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/apis/meta"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -11,7 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *KluctlDeploymentReconciler) event(ctx context.Context, obj *kluctlv1.KluctlDeployment, revision, severity, msg string, metadata map[string]string) {
+func (r *KluctlDeploymentReconciler) event(ctx context.Context, obj *kluctlv1.KluctlDeployment, revision string, warning bool, msg string, metadata map[string]string) {
 	if metadata == nil {
 		metadata = map[string]string{}
 	}
@@ -19,13 +18,16 @@ func (r *KluctlDeploymentReconciler) event(ctx context.Context, obj *kluctlv1.Kl
 		metadata[kluctlv1.GroupVersion.Group+"/revision"] = revision
 	}
 
-	reason := severity
+	reason := "info"
+	if warning {
+		reason = "warning"
+	}
 	if c := apimeta.FindStatusCondition(obj.GetConditions(), meta.ReadyCondition); c != nil {
 		reason = c.Reason
 	}
 
 	eventtype := "Normal"
-	if severity == fluxv1beta1.EventSeverityError {
+	if warning {
 		eventtype = "Warning"
 	}
 

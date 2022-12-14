@@ -36,7 +36,6 @@ import (
 
 	"github.com/fluxcd/pkg/runtime/acl"
 	"github.com/fluxcd/pkg/runtime/client"
-	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/fluxcd/pkg/runtime/leaderelection"
 	"github.com/fluxcd/pkg/runtime/logger"
 	"github.com/fluxcd/pkg/runtime/pprof"
@@ -68,7 +67,6 @@ func init() {
 func main() {
 	var (
 		metricsAddr           string
-		eventsAddr            string
 		healthAddr            string
 		concurrent            int
 		clientOptions         client.Options
@@ -81,7 +79,6 @@ func main() {
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&eventsAddr, "events-addr", "", "The address of the events receiver.")
 	flag.StringVar(&healthAddr, "health-addr", ":9440", "The address the health endpoint binds to.")
 	flag.IntVar(&concurrent, "concurrent", 4, "The number of concurrent kluctl deployments.")
 	flag.BoolVar(&watchAllNamespaces, "watch-all-namespaces", true,
@@ -131,11 +128,7 @@ func main() {
 	probes.SetupChecks(mgr, setupLog)
 	pprof.SetupHandlers(mgr, setupLog)
 
-	var eventRecorder *events.Recorder
-	if eventRecorder, err = events.NewRecorder(mgr, ctrl.Log, eventsAddr, controllerName); err != nil {
-		setupLog.Error(err, "unable to create event recorder")
-		os.Exit(1)
-	}
+	eventRecorder := mgr.GetEventRecorderFor(controllerName)
 
 	metricsH := helper.MustMakeMetrics(mgr)
 	sshPool := &ssh_pool.SshPool{}
@@ -167,13 +160,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-}
-
-func envOrDefault(envName, defaultValue string) string {
-	ret := os.Getenv(envName)
-	if ret != "" {
-		return ret
-	}
-
-	return defaultValue
 }
