@@ -51,6 +51,20 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 <p>The secret name containing the private OpenPGP keys used for decryption.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>serviceAccount</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ServiceAccount specifies the service account used to authenticate against cloud providers.
+This is currently only usable for AWS KMS keys. The specified service account will be used to authenticate to AWS
+by signing a token in an IRSA compliant way.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>

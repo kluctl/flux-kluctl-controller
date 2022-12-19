@@ -285,6 +285,12 @@ type Decryption struct {
 	// The secret name containing the private OpenPGP keys used for decryption.
 	// +optional
 	SecretRef *meta.LocalObjectReference `json:"secretRef,omitempty"`
+
+	// ServiceAccount specifies the service account used to authenticate against cloud providers.
+	// This is currently only usable for AWS KMS keys. The specified service account will be used to authenticate to AWS
+	// by signing a token in an IRSA compliant way.
+	// +optional
+	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
 
 type HelmCredentials struct {
