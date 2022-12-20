@@ -1,4 +1,4 @@
-<h1>KluctlDeployment API reference</h1>
+<h1>Kluctl Controller API reference</h1>
 <p>Packages:</p>
 <ul class="simple">
 <li>
