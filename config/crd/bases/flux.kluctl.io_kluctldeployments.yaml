@@ -88,6 +88,13 @@ spec:
                     required:
                     - name
                     type: object
+                  serviceAccount:
+                    description: ServiceAccount specifies the service account used
+                      to authenticate against cloud providers. This is currently only
+                      usable for AWS KMS keys. The specified service account will
+                      be used to authenticate to AWS by signing a token in an IRSA
+                      compliant way.
+                    type: string
                 required:
                 - provider
                 type: object

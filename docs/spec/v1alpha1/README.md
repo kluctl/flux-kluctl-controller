@@ -1,3 +1,13 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
+---
+title: v1alpha1 specs
+linkTitle: v1alpha1 specs
+description: flux.kluctl.io/v1alpha1 documentation
+weight: 10
+---
+-->
+
 # flux.kluctl.io/v1alpha1
 
 This is the v1alpha1 API specification for defining continuous delivery pipelines

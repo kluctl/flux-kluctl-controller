@@ -528,7 +528,9 @@ func (pp *preparedProject) buildSopsDecrypter(ctx context.Context) (sops.SopsDec
 
 func (pp *preparedProject) addAwsWebIdentity(ctx context.Context, d *decryptor.Decryptor) error {
 	name := pp.r.DefaultServiceAccount
-	if sa := pp.obj.Spec.ServiceAccountName; sa != "" {
+	if pp.obj.Spec.Decryption != nil && pp.obj.Spec.Decryption.ServiceAccount != "" {
+		name = pp.obj.Spec.Decryption.ServiceAccount
+	} else if sa := pp.obj.Spec.ServiceAccountName; sa != "" {
 		name = sa
 	}
 	if name == "" {

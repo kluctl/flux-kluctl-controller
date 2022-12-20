@@ -1,3 +1,12 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
+---
+title: Installation
+description: Installation documentation
+weight: 10
+---
+-->
+
 # Installation
 
 The Flux Kluctl Controller can currently be either installed via Kustomize or via Helm.

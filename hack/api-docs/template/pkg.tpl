@@ -1,5 +1,5 @@
 {{ define "packages" }}
-    <h1>KluctlDeployment API reference</h1>
+    <h1>Kluctl Controller API reference</h1>
 
     {{ with .packages}}
         <p>Packages:</p>
