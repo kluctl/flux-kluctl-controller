@@ -1,3 +1,13 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
+---
+title: "Flux Kluctl Controller"
+linkTitle: "Flux Kluctl Controller"
+description: "Flux Kluctl Controller documentation."
+weight: 200
+---
+-->
+
 # Flux Kluctl Controller
 
 The Flux Kluctl Controller is a Kubernetes operator, specialized in running 
