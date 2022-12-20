@@ -32,7 +32,7 @@ require (
 	k8s.io/api v0.26.0
 	k8s.io/apimachinery v0.26.0
 	k8s.io/client-go v0.26.0
-	sigs.k8s.io/controller-runtime v0.14.0
+	sigs.k8s.io/controller-runtime v0.14.1
 )
 
 //replace github.com/kluctl/kluctl/v2 => /Users/ablock/go/src/github.com/kluctl/kluctl
