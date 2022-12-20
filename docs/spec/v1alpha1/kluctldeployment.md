@@ -1,3 +1,13 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
+---
+title: KluctlDeployment
+linkTitle: KluctlDeployment
+description: KluctlDeployment documentation
+weight: 20
+---
+-->
+
 # KluctlDeployment
 
 The `KluctlDeployment` API defines a deployment of a [target](https://kluctl.io/docs/reference/kluctl-project/targets/)
