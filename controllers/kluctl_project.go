@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/flux-kluctl-controller/internal/decryptor"
+	"github.com/kluctl/kluctl/v2/pkg/diff"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
@@ -674,6 +675,11 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	}
 
 	kluctlv1.RemoveObjectsFromCommandResult(cmdResult)
+	obfuscator := diff.Obfuscator{}
+
+	for _, c := range cmdResult.ChangedObjects {
+		obfuscator.Obfuscate(c.Ref, c.Changes)
+	}
 
 	msg := fmt.Sprintf("%s succeeded.", commandName)
 	if len(cmdResult.NewObjects) != 0 {
