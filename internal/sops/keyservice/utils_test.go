@@ -9,16 +9,16 @@ package keyservice
 import (
 	"context"
 	"fmt"
+	"go.mozilla.org/sops/v3/kms"
 
 	"go.mozilla.org/sops/v3/keys"
 	"go.mozilla.org/sops/v3/keyservice"
 
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/age"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/awskms"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/azkv"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/gcpkms"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/hcvault"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/pgp"
+	"go.mozilla.org/sops/v3/age"
+	"go.mozilla.org/sops/v3/azkv"
+	"go.mozilla.org/sops/v3/gcpkms"
+	"go.mozilla.org/sops/v3/hcvault"
+	"go.mozilla.org/sops/v3/pgp"
 )
 
 // KeyFromMasterKey converts a SOPS internal MasterKey to an RPC Key that can
@@ -43,7 +43,7 @@ func KeyFromMasterKey(k keys.MasterKey) keyservice.Key {
 				},
 			},
 		}
-	case *awskms.MasterKey:
+	case *kms.MasterKey:
 		return keyservice.Key{
 			KeyType: &keyservice.Key_KmsKey{
 				KmsKey: &keyservice.KmsKey{

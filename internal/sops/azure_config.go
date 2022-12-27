@@ -4,10 +4,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package azkv
+package sops
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"github.com/dimchansky/utfbom"
+	"io/ioutil"
+	"unicode/utf16"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
@@ -64,7 +69,7 @@ type AZConfig struct {
 //
 // If no set of credentials is found or the azcore.TokenCredential can not be
 // created, an error is returned.
-func TokenFromAADConfig(c AADConfig) (_ *Token, err error) {
+func TokenFromAADConfig(c AADConfig) (_ azcore.TokenCredential, err error) {
 	var token azcore.TokenCredential
 	if c.TenantID != "" && c.ClientID != "" {
 		if c.ClientSecret != "" {
@@ -75,7 +80,7 @@ func TokenFromAADConfig(c AADConfig) (_ *Token, err error) {
 			}); err != nil {
 				return
 			}
-			return NewToken(token), nil
+			return token, nil
 		}
 		if c.ClientCertificate != "" {
 			certs, pk, err := azidentity.ParseCertificates([]byte(c.ClientCertificate), []byte(c.ClientCertificatePassword))
@@ -90,7 +95,7 @@ func TokenFromAADConfig(c AADConfig) (_ *Token, err error) {
 			}); err != nil {
 				return nil, err
 			}
-			return NewToken(token), nil
+			return token, nil
 		}
 	}
 
@@ -103,14 +108,14 @@ func TokenFromAADConfig(c AADConfig) (_ *Token, err error) {
 		}); err != nil {
 			return
 		}
-		return NewToken(token), nil
+		return token, nil
 	case c.ClientID != "":
 		if token, err = azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
 			ID: azidentity.ClientID(c.ClientID),
 		}); err != nil {
 			return
 		}
-		return NewToken(token), nil
+		return token, nil
 	default:
 		return nil, fmt.Errorf("invalid data: requires a '%s' field, a combination of '%s', '%s' and '%s', or '%s', '%s' and '%s'",
 			"clientId", "tenantId", "clientId", "clientSecret", "tenantId", "clientId", "clientCertificate")
@@ -127,4 +132,25 @@ func (s AADConfig) GetCloudConfig() cloud.Configuration {
 		}
 	}
 	return cloud.AzurePublic
+}
+
+func decode(b []byte) ([]byte, error) {
+	reader, enc := utfbom.Skip(bytes.NewReader(b))
+	switch enc {
+	case utfbom.UTF16LittleEndian:
+		u16 := make([]uint16, (len(b)/2)-1)
+		err := binary.Read(reader, binary.LittleEndian, &u16)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(string(utf16.Decode(u16))), nil
+	case utfbom.UTF16BigEndian:
+		u16 := make([]uint16, (len(b)/2)-1)
+		err := binary.Read(reader, binary.BigEndian, &u16)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(string(utf16.Decode(u16))), nil
+	}
+	return ioutil.ReadAll(reader)
 }

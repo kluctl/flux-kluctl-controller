@@ -8,16 +8,15 @@ package keyservice
 
 import (
 	"fmt"
-
+	"go.mozilla.org/sops/v3/age"
+	"go.mozilla.org/sops/v3/azkv"
+	"go.mozilla.org/sops/v3/gcpkms"
+	"go.mozilla.org/sops/v3/hcvault"
 	"go.mozilla.org/sops/v3/keyservice"
-	"golang.org/x/net/context"
+	"go.mozilla.org/sops/v3/kms"
+	"go.mozilla.org/sops/v3/pgp"
 
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/age"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/awskms"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/azkv"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/gcpkms"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/hcvault"
-	"github.com/kluctl/flux-kluctl-controller/internal/sops/pgp"
+	"golang.org/x/net/context"
 )
 
 // Server is a key service server that uses SOPS MasterKeys to fulfill
@@ -40,17 +39,17 @@ type Server struct {
 	// vaultToken is the token used for Encrypt and Decrypt operations of
 	// Hashicorp Vault requests.
 	// When empty, the request will be handled by defaultServer.
-	vaultToken hcvault.VaultToken
+	vaultToken hcvault.Token
 
 	// azureToken is the credential token used for Encrypt and Decrypt
 	// operations of Azure Key Vault requests.
 	// When nil, the request will be handled by defaultServer.
-	azureToken *azkv.Token
+	azureToken *azkv.TokenCredential
 
 	// awsCredsProvider is the Credentials object used for Encrypt and Decrypt
 	// operations of AWS KMS requests.
 	// When nil, the request will be handled by defaultServer.
-	awsCredsProvider *awskms.CredsProvider
+	awsCredsProvider *kms.CredentialsProvider
 
 	// gcpCredsJSON is the JSON credentials used for Decrypt and Encrypt
 	// operations of GCP KMS requests. When nil, a default client with
@@ -208,7 +207,7 @@ func (ks Server) Decrypt(ctx context.Context, req *keyservice.DecryptRequest) (*
 }
 
 func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]byte, error) {
-	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint)
+	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint)
 	if ks.gnuPGHome != "" {
 		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
 	}
@@ -220,7 +219,7 @@ func (ks *Server) encryptWithPgp(key *keyservice.PgpKey, plaintext []byte) ([]by
 }
 
 func (ks *Server) decryptWithPgp(key *keyservice.PgpKey, ciphertext []byte) ([]byte, error) {
-	pgpKey := pgp.MasterKeyFromFingerprint(key.Fingerprint)
+	pgpKey := pgp.NewMasterKeyFromFingerprint(key.Fingerprint)
 	if ks.gnuPGHome != "" {
 		ks.gnuPGHome.ApplyToMasterKey(pgpKey)
 	}
@@ -279,11 +278,12 @@ func (ks *Server) decryptWithHCVault(key *keyservice.VaultKey, ciphertext []byte
 }
 
 func (ks *Server) encryptWithAWSKMS(key *keyservice.KmsKey, plaintext []byte) ([]byte, error) {
-	context := make(map[string]string)
+	context := make(map[string]*string)
 	for key, val := range key.Context {
-		context[key] = val
+		val := val
+		context[key] = &val
 	}
-	awsKey := awskms.MasterKey{
+	awsKey := kms.MasterKey{
 		Arn:               key.Arn,
 		Role:              key.Role,
 		EncryptionContext: context,
@@ -298,11 +298,12 @@ func (ks *Server) encryptWithAWSKMS(key *keyservice.KmsKey, plaintext []byte) ([
 }
 
 func (ks *Server) decryptWithAWSKMS(key *keyservice.KmsKey, cipherText []byte) ([]byte, error) {
-	context := make(map[string]string)
+	context := make(map[string]*string)
 	for key, val := range key.Context {
-		context[key] = val
+		val := val
+		context[key] = &val
 	}
-	awsKey := awskms.MasterKey{
+	awsKey := kms.MasterKey{
 		Arn:               key.Arn,
 		Role:              key.Role,
 		EncryptionContext: context,

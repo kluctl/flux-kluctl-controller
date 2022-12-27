@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/kluctl/flux-kluctl-controller/internal/decryptor"
+	"github.com/kluctl/flux-kluctl-controller/internal/sops"
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
-	"github.com/kluctl/kluctl/v2/pkg/sops"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"helm.sh/helm/v3/pkg/repo"
-	authenticationv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
@@ -509,25 +509,62 @@ func (pt *preparedTarget) clientConfigGetter(ctx context.Context) func(context *
 	}
 }
 
-func (pp *preparedProject) buildSopsDecrypter(ctx context.Context) (sops.SopsDecrypter, error) {
-	gnuPGHome := filepath.Join(pp.tmpDir, "sops-gnupghome")
-	err := os.MkdirAll(gnuPGHome, 0o700)
+func (pp *preparedProject) buildSopsDecrypter(ctx context.Context) (*decryptor.Decryptor, error) {
+	if pp.obj.Spec.Decryption == nil {
+		return nil, nil
+	}
+	if pp.obj.Spec.Decryption.Provider != "sops" {
+		return nil, fmt.Errorf("not supported decryption provider %s", pp.obj.Spec.Decryption.Provider)
+	}
+
+	d := decryptor.NewDecryptor(filepath.Join(pp.tmpDir, "project"), decryptor.MaxEncryptedFileSize)
+
+	err := pp.addSecretBasedKeyServers(ctx, d)
 	if err != nil {
 		return nil, err
 	}
-	d := decryptor.NewDecryptor(filepath.Join(pp.tmpDir, "project"), pp.r.Client, pp.obj, 5<<20, gnuPGHome)
-	err = d.ImportKeys(ctx)
-	if err != nil {
-		return nil, err
-	}
-	err = pp.addAwsWebIdentity(ctx, d)
+	err = pp.addServiceAccountBasedKeyServers(ctx, d)
 	if err != nil {
 		return nil, err
 	}
 	return d, nil
 }
 
-func (pp *preparedProject) addAwsWebIdentity(ctx context.Context, d *decryptor.Decryptor) error {
+func (pp *preparedProject) addSecretBasedKeyServers(ctx context.Context, d *decryptor.Decryptor) error {
+	if pp.obj.Spec.Decryption.SecretRef == nil {
+		return nil
+	}
+
+	secretName := types.NamespacedName{
+		Namespace: pp.obj.GetNamespace(),
+		Name:      pp.obj.Spec.Decryption.SecretRef.Name,
+	}
+
+	var secret corev1.Secret
+	if err := pp.r.Get(ctx, secretName, &secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			return err
+		}
+		return fmt.Errorf("cannot get decryption Secret '%s': %w", secretName, err)
+	}
+
+	gnuPGHome := filepath.Join(pp.tmpDir, "sops-gnupghome")
+	err := os.MkdirAll(gnuPGHome, 0o700)
+	if err != nil {
+		return err
+	}
+
+	ks, err := sops.BuildSopsKeyServerFromSecret(&secret, gnuPGHome)
+	if err != nil {
+		return err
+	}
+	if ks != nil {
+		d.AddKeyServiceClient(ks)
+	}
+	return nil
+}
+
+func (pp *preparedProject) addServiceAccountBasedKeyServers(ctx context.Context, d *decryptor.Decryptor) error {
 	name := pp.r.DefaultServiceAccount
 	if pp.obj.Spec.Decryption != nil && pp.obj.Spec.Decryption.ServiceAccount != "" {
 		name = pp.obj.Spec.Decryption.ServiceAccount
@@ -542,28 +579,12 @@ func (pp *preparedProject) addAwsWebIdentity(ctx context.Context, d *decryptor.D
 		return fmt.Errorf("failed to retrieve service account %s: %w", name, err)
 	}
 
-	roleArn := ""
-	a := sa.GetAnnotations()
-	if a != nil {
-		roleArn, _ = a["eks.amazonaws.com/role-arn"]
-	}
-	if roleArn == "" {
-		return nil
-	}
-
-	exp := int64(60 * 10)
-	token, err := pp.r.ClientSet.CoreV1().ServiceAccounts(pp.obj.Namespace).CreateToken(ctx, name, &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			Audiences:         []string{"sts.amazonaws.com"},
-			ExpirationSeconds: &exp,
-		},
-	}, metav1.CreateOptions{})
+	ks, err := sops.BuildSopsKeyServerFromServiceAccount(ctx, pp.r.Client, sa)
 	if err != nil {
-		return fmt.Errorf("failed to create token for AWS STS: %w", err)
+		return err
 	}
-	err = d.AddAwsWebIdentity(roleArn, token.Status.Token)
-	if err != nil {
-		return fmt.Errorf("failed to add AWS web identity credentials: %w", err)
+	if ks != nil {
+		d.AddKeyServiceClient(ks)
 	}
 	return nil
 }
@@ -575,7 +596,7 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 	}
 	defer j2.Close()
 
-	var sopsDecrypter sops.SopsDecrypter
+	var sopsDecrypter *decryptor.Decryptor
 	if pp.obj.Spec.Decryption != nil {
 		sopsDecrypter, err = pp.buildSopsDecrypter(ctx)
 		if err != nil {
