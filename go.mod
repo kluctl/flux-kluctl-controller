@@ -3,7 +3,7 @@ module github.com/kluctl/flux-kluctl-controller
 go 1.19
 
 require (
-	filippo.io/age v1.0.0
+	filippo.io/age v1.1.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.2.0
 	github.com/aws/aws-sdk-go-v2 v1.17.3
@@ -17,14 +17,14 @@ require (
 	github.com/fluxcd/pkg/runtime v0.24.0
 	github.com/fluxcd/source-controller/api v0.32.1
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	github.com/kluctl/kluctl/v2 v2.18.3-0.20221227141502-2bac2b14f868
+	github.com/kluctl/kluctl/v2 v2.18.3-0.20221228111823-765b0100e535
 	github.com/onsi/gomega v1.24.2
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
 	k8s.io/api v0.26.0
 	k8s.io/apimachinery v0.26.0
 	k8s.io/client-go v0.26.0
-	sigs.k8s.io/controller-runtime v0.14.0
+	sigs.k8s.io/controller-runtime v0.14.1
 )
 
 //replace github.com/kluctl/kluctl/v2 => /Users/ablock/go/src/github.com/kluctl/kluctl
