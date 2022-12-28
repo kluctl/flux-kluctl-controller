@@ -26,8 +26,8 @@ import (
 
 func TestServer_EncryptDecrypt_PGP(t *testing.T) {
 	const (
-		mockPublicKey   = "../pgp/testdata/public.gpg"
-		mockPrivateKey  = "../pgp/testdata/private.gpg"
+		mockPublicKey   = "testdata/public.gpg"
+		mockPrivateKey  = "testdata/private.gpg"
 		mockFingerprint = "B59DAF469E8C948138901A649732075EA221A7EA"
 	)
 
