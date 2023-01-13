@@ -17,7 +17,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.24.0
 	github.com/fluxcd/source-controller/api v0.32.1
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	github.com/kluctl/kluctl/v2 v2.18.3
+	github.com/kluctl/kluctl/v2 v2.18.5-0.20230113153901-6cf9fa408156
 	github.com/onsi/gomega v1.24.2
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
@@ -113,7 +113,7 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -127,7 +127,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/ohler55/ojg v1.15.0 // indirect
+	github.com/ohler55/ojg v1.16.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc2 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -156,13 +156,13 @@ require (
 	go.starlark.net v0.0.0-20221205180719-3fd0dac74452 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.4.0 // indirect
-	golang.org/x/net v0.4.0
+	golang.org/x/crypto v0.5.0 // indirect
+	golang.org/x/net v0.5.0
 	golang.org/x/oauth2 v0.3.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/term v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/term v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
@@ -208,7 +208,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.28 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.21 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kms v1.19.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.17.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.28 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.11 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
