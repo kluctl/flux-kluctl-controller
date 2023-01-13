@@ -817,5 +817,5 @@ func (pt *preparedTarget) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluste
 		log.Info(fmt.Sprintf("deleting (without waiting): %s", strings.Join(refStrs, ", ")))
 	}
 
-	return utils2.DeleteObjects(k, refs, false)
+	return utils2.DeleteObjects(ctx, k, refs, false)
 }
