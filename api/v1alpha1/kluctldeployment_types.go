@@ -227,7 +227,10 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	ExcludeDeploymentDirs []string `json:"excludeDeploymentDirs,omitempty"`
 
-	// DeployMode specifies what deploy mode should be used
+	// DeployMode specifies what deploy mode should be used.
+	// The options 'full-deploy' and 'poke-images' are supported.
+	// With 'poke images' option, only the images from the fixed images are exchanged
+	// and no complete deployment is triggered.
 	// +kubebuilder:default:=full-deploy
 	// +kubebuilder:validation:Enum=full-deploy;poke-images
 	// +optional
