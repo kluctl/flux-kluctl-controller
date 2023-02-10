@@ -223,7 +223,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	err = pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
-		obj.Status.CommonLabels = targetContext.DeploymentProject.GetCommonLabels()
+		obj.Status.Discriminator = targetContext.Target.Discriminator
 		obj.Status.SetRawTarget(targetContext.Target)
 
 		objectsHash := r.calcObjectsHash(targetContext)
@@ -494,8 +494,8 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 		return
 	}
 
-	if len(obj.Status.CommonLabels) == 0 {
-		log.V(1).Info("No commonLabels set, skipping deletion")
+	if obj.Status.Discriminator == "" {
+		log.V(1).Info("No discriminator set, skipping deletion")
 		return
 	}
 
@@ -512,7 +512,7 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 		return
 	}
 
-	_, _ = pt.kluctlDelete(ctx, obj.Status.CommonLabels)
+	_, _ = pt.kluctlDelete(ctx, obj.Status.Discriminator)
 }
 
 func (r *KluctlDeploymentReconciler) calcObjectsHash(targetContext *project.TargetContext) string {

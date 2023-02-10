@@ -545,9 +545,10 @@ it does not apply to already started executions. Defaults to false.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>RegistrySecrets is a list of secret references to be used for image registry authentication.
+<p>DEPRECATED RegistrySecrets is a list of secret references to be used for image registry authentication.
 The secrets must either have &ldquo;.dockerconfigjson&rdquo; included or &ldquo;registry&rdquo;, &ldquo;username&rdquo; and &ldquo;password&rdquo;.
-Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.</p>
+Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.
+Kluctl has deprecated querying the registry at deploy time and thus this field is also deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -670,8 +671,9 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>UpdateImages instructs kluctl to update dynamic images.
-Equivalent to using &lsquo;-u&rsquo; when calling kluctl.</p>
+<p>DEPRECATED UpdateImages instructs kluctl to update dynamic images.
+Equivalent to using &lsquo;-u&rsquo; when calling kluctl.
+Setting this field to true is deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -828,7 +830,10 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>DeployMode specifies what deploy mode should be used</p>
+<p>DeployMode specifies what deploy mode should be used.
+The options &lsquo;full-deploy&rsquo; and &lsquo;poke-images&rsquo; are supported.
+With &lsquo;poke images&rsquo; option, only the images from the fixed images are exchanged
+and no complete deployment is triggered.</p>
 </td>
 </tr>
 <tr>
@@ -1066,9 +1071,10 @@ it does not apply to already started executions. Defaults to false.</p>
 </td>
 <td>
 <em>(Optional)</em>
-<p>RegistrySecrets is a list of secret references to be used for image registry authentication.
+<p>DEPRECATED RegistrySecrets is a list of secret references to be used for image registry authentication.
 The secrets must either have &ldquo;.dockerconfigjson&rdquo; included or &ldquo;registry&rdquo;, &ldquo;username&rdquo; and &ldquo;password&rdquo;.
-Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.</p>
+Additionally, &ldquo;caFile&rdquo; and &ldquo;insecure&rdquo; can be specified.
+Kluctl has deprecated querying the registry at deploy time and thus this field is also deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -1191,8 +1197,9 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>UpdateImages instructs kluctl to update dynamic images.
-Equivalent to using &lsquo;-u&rsquo; when calling kluctl.</p>
+<p>DEPRECATED UpdateImages instructs kluctl to update dynamic images.
+Equivalent to using &lsquo;-u&rsquo; when calling kluctl.
+Setting this field to true is deprecated.</p>
 </td>
 </tr>
 <tr>
@@ -1349,7 +1356,10 @@ string
 </td>
 <td>
 <em>(Optional)</em>
-<p>DeployMode specifies what deploy mode should be used</p>
+<p>DeployMode specifies what deploy mode should be used.
+The options &lsquo;full-deploy&rsquo; and &lsquo;poke-images&rsquo; are supported.
+With &lsquo;poke images&rsquo; option, only the images from the fixed images are exchanged
+and no complete deployment is triggered.</p>
 </td>
 </tr>
 <tr>
@@ -1504,14 +1514,14 @@ LastValidateResult
 </tr>
 <tr>
 <td>
-<code>commonLabels</code><br>
+<code>discriminator</code><br>
 <em>
-map[string]string
+string
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>CommonLabels are the commonLabels found in the deployment project when the last deployment was done.
+<p>Discriminator is the discriminator found in the target when the last deployment was done.
 This is used to perform cleanup/deletion in case the KluctlDeployment project is deleted</p>
 </td>
 </tr>

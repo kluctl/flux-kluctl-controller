@@ -178,6 +178,10 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	}, "test-user", "test-password")
 
 	p.AddHelmDeployment("d1", repoUrl, "test-chart1", "0.1.0", "test-helm-1", namespace, nil)
+	p.UpdateYaml("d1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+		return nil
+	}, "")
 
 	err := createNamespace(namespace)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
@@ -227,6 +231,10 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	})
 
 	p.AddHelmDeployment("d2", repoUrlWithCreds, "test-chart2", "0.1.0", "test-helm-2", namespace, nil)
+	p.UpdateYaml("d2/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+		return nil
+	}, "")
 
 	t.Run("chart with credentials fails with 401", func(t *testing.T) {
 		g.Eventually(func() bool {
@@ -275,6 +283,10 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	})
 
 	p.AddHelmDeployment("d3", ociRepoUrlWithCreds, "test-chart3", "0.1.0", "test-helm-3", namespace, nil)
+	p.UpdateYaml("d3/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+		return nil
+	}, "")
 
 	t.Run("OCI chart with credentials fails with 401", func(t *testing.T) {
 		g.Eventually(func() bool {

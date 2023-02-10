@@ -353,13 +353,6 @@ func (in *KluctlDeploymentStatus) DeepCopyInto(out *KluctlDeploymentStatus) {
 		*out = new(LastValidateResult)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.CommonLabels != nil {
-		in, out := &in.CommonLabels, &out.CommonLabels
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	if in.RawTarget != nil {
 		in, out := &in.RawTarget, &out.RawTarget
 		*out = new(string)

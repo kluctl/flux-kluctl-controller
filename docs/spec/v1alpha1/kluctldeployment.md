@@ -142,13 +142,6 @@ spec:
 
 The above example is equivalent to calling `kluctl deploy -t prod -a arg1=value1 -a arg2=value2`.
 
-### updateImages
-`spec.updateImages` is a boolean that specifies whether images used via
-[`image.get_image(...)`](https://kluctl.io/docs/reference/deployments/images/#imagesget_image) should use the latest
-image found in the registry.
-
-This is equivalent to calling `kluctl deploy -t prod -u`
-
 ### images
 `spec.images` specifies a list of fixed images to be used by
 [`image.get_image(...)`](https://kluctl.io/docs/reference/deployments/images/#imagesget_image). Example:

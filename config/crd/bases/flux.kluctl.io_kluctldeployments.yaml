@@ -107,7 +107,10 @@ spec:
                 type: string
               deployMode:
                 default: full-deploy
-                description: DeployMode specifies what deploy mode should be used
+                description: DeployMode specifies what deploy mode should be used.
+                  The options 'full-deploy' and 'poke-images' are supported. With
+                  'poke images' option, only the images from the fixed images are
+                  exchanged and no complete deployment is triggered.
                 enum:
                 - full-deploy
                 - poke-images
@@ -295,10 +298,12 @@ spec:
                 description: Prune enables pruning after deploying.
                 type: boolean
               registrySecrets:
-                description: RegistrySecrets is a list of secret references to be
-                  used for image registry authentication. The secrets must either
+                description: DEPRECATED RegistrySecrets is a list of secret references
+                  to be used for image registry authentication. The secrets must either
                   have ".dockerconfigjson" included or "registry", "username" and
                   "password". Additionally, "caFile" and "insecure" can be specified.
+                  Kluctl has deprecated querying the registry at deploy time and thus
+                  this field is also deprecated.
                 items:
                   description: LocalObjectReference contains enough information to
                     locate the referenced Kubernetes resource object.
@@ -433,8 +438,9 @@ spec:
                 type: string
               updateImages:
                 default: false
-                description: UpdateImages instructs kluctl to update dynamic images.
-                  Equivalent to using '-u' when calling kluctl.
+                description: DEPRECATED UpdateImages instructs kluctl to update dynamic
+                  images. Equivalent to using '-u' when calling kluctl. Setting this
+                  field to true is deprecated.
                 type: boolean
               validate:
                 default: true
@@ -454,13 +460,6 @@ spec:
           status:
             description: KluctlDeploymentStatus defines the observed state of KluctlDeployment
             properties:
-              commonLabels:
-                additionalProperties:
-                  type: string
-                description: CommonLabels are the commonLabels found in the deployment
-                  project when the last deployment was done. This is used to perform
-                  cleanup/deletion in case the KluctlDeployment project is deleted
-                type: object
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
@@ -531,6 +530,11 @@ spec:
                   - type
                   type: object
                 type: array
+              discriminator:
+                description: Discriminator is the discriminator found in the target
+                  when the last deployment was done. This is used to perform cleanup/deletion
+                  in case the KluctlDeployment project is deleted
+                type: string
               lastAttemptedRevision:
                 description: LastAttemptedRevision is the revision of the last reconciliation
                   attempt.

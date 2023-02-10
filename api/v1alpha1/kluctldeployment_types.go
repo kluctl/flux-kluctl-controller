@@ -108,9 +108,10 @@ type KluctlDeploymentSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
 
-	// RegistrySecrets is a list of secret references to be used for image registry authentication.
+	// DEPRECATED RegistrySecrets is a list of secret references to be used for image registry authentication.
 	// The secrets must either have ".dockerconfigjson" included or "registry", "username" and "password".
 	// Additionally, "caFile" and "insecure" can be specified.
+	// Kluctl has deprecated querying the registry at deploy time and thus this field is also deprecated.
 	// +optional
 	RegistrySecrets []meta.LocalObjectReference `json:"registrySecrets,omitempty"`
 
@@ -160,8 +161,9 @@ type KluctlDeploymentSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Args runtime.RawExtension `json:"args,omitempty"`
 
-	// UpdateImages instructs kluctl to update dynamic images.
+	// DEPRECATED UpdateImages instructs kluctl to update dynamic images.
 	// Equivalent to using '-u' when calling kluctl.
+	// Setting this field to true is deprecated.
 	// +kubebuilder:default:=false
 	// +optional
 	UpdateImages bool `json:"updateImages,omitempty"`
@@ -367,10 +369,10 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	LastValidateResult *LastValidateResult `json:"lastValidateResult,omitempty"`
 
-	// CommonLabels are the commonLabels found in the deployment project when the last deployment was done.
+	// Discriminator is the discriminator found in the target when the last deployment was done.
 	// This is used to perform cleanup/deletion in case the KluctlDeployment project is deleted
 	// +optional
-	CommonLabels map[string]string `json:"commonLabels,omitempty"`
+	Discriminator string `json:"discriminator,omitempty"`
 
 	// +optional
 	RawTarget *string `json:"rawTarget,omitempty"`
