@@ -15,7 +15,7 @@ The Flux Kluctl Controller can currently be either installed via Kustomize or vi
 You can install the Flux Kluctl Controller by running the following command:
 
 ```sh
-kustomize build "https://github.com/kluctl/flux-kluctl-controller/config/install?ref=v0.13.1" | kubectl apply -f-
+kustomize build "https://github.com/kluctl/flux-kluctl-controller/config/install?ref=v0.14.0" | kubectl apply -f-
 ```
 
 ## Helm
