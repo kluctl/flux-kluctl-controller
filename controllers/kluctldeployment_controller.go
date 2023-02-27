@@ -309,12 +309,14 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		}
 
 		if needValidate {
+			timer := prometheus.NewTimer(metrics2.NewKluctlValidateDuration(obj.ObjectMeta.Namespace, obj.ObjectMeta.Name))
 			validateResult, err := pt.kluctlValidate(ctx, targetContext)
 			kluctlv1.SetValidateResult(obj, pp.sourceRevision, validateResult, objectsHash, err)
 			if err != nil {
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.ValidateFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
+			timer.ObserveDuration()
 		}
 		metrics2.NewKluctlNumberOfImages(obj.Namespace, obj.Name).Add(float64(numberOfSeenImages))
 		return nil
