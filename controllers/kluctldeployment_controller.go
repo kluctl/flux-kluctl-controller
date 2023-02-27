@@ -553,8 +553,12 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 	if obj.Spec.DryRun {
 		dryRunEnabled = 1.0
 	}
+	//If not set, it defaults to interval
+	if obj.Spec.DeployInterval == nil {
+		deploymentInterval = obj.Spec.Interval.Seconds()
+	}
 	//Deployment interval of never defaults to zero
-	if !obj.Spec.DeployInterval.Never {
+	if obj.Spec.DeployInterval != nil && !obj.Spec.DeployInterval.Never {
 		deploymentInterval = obj.Spec.DeployInterval.Duration.Seconds()
 	}
 
