@@ -12,6 +12,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
+	metrics2 "github.com/kluctl/flux-kluctl-controller/internal/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	project "github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -19,6 +20,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/prometheus/client_golang/prometheus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -208,6 +210,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	ctx context.Context,
 	obj *kluctlv1.KluctlDeployment,
 	source *kluctlv1.ProjectSource) (*ctrl.Result, string, error) {
+
+	r.exportDeploymentObjectToProm(obj)
 
 	pp, err := prepareProject(ctx, r, obj, source)
 	if err != nil {
@@ -538,4 +542,27 @@ func (r *KluctlDeploymentReconciler) calcObjectsHash(targetContext *project.Targ
 		panic(err)
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.KluctlDeployment) {
+	pruneEnabled := 0.0
+	dryRunEnabled := 0.0
+	deploymentInterval := 0.0
+
+	if obj.Spec.Prune {
+		pruneEnabled = 1.0
+	}
+	if obj.Spec.DryRun {
+		dryRunEnabled = 1.0
+	}
+	//Deployment interval of never defaults to zero
+	if !obj.Spec.DeployInterval.Never {
+		deploymentInterval = obj.Spec.DeployInterval.Duration.Seconds()
+	}
+
+	//Export as Prometheus metric
+	metrics2.NewKluctlPruneEnabled(obj.Namespace, obj.Name).Add(pruneEnabled)
+	metrics2.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Add(dryRunEnabled)
+	metrics2.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Add(deploymentInterval)
+	metrics2.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL, obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Add(0.0)
 }
