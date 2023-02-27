@@ -12,7 +12,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
-	metrics2 "github.com/kluctl/flux-kluctl-controller/internal/metrics"
+	internal_metrics "github.com/kluctl/flux-kluctl-controller/internal/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	project "github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -329,11 +329,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	finalStatus, reason := r.buildFinalStatus(obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
 		setReadinessWithRevision(obj, metav1.ConditionFalse, reason, finalStatus, pp.sourceRevision)
-		metrics2.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Add(0.0))
+		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Add(0.0)
 		return &ctrlResult, pp.sourceRevision, fmt.Errorf(finalStatus)
 	}
 	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.sourceRevision)
-	metrics2.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Add(1.0)
+	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Add(1.0)
 	return &ctrlResult, pp.sourceRevision, nil
 }
 
@@ -559,8 +559,8 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 	}
 
 	//Export as Prometheus metric
-	metrics2.NewKluctlPruneEnabled(obj.Namespace, obj.Name).Add(pruneEnabled)
-	metrics2.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Add(dryRunEnabled)
-	metrics2.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Add(deploymentInterval)
-	metrics2.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL, obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Add(0.0)
+	internal_metrics.NewKluctlPruneEnabled(obj.Namespace, obj.Name).Add(pruneEnabled)
+	internal_metrics.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Add(dryRunEnabled)
+	internal_metrics.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Add(deploymentInterval)
+	internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL, obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Add(0.0)
 }
