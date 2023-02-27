@@ -20,7 +20,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"github.com/prometheus/client_golang/prometheus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -231,7 +230,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		obj.Status.SetRawTarget(targetContext.Target)
 
 		objectsHash := r.calcObjectsHash(targetContext)
-		numberOfSeenImages := 0
 		needDeploy := false
 		needPrune := false
 		needValidate := false
@@ -276,7 +274,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if needDeploy {
 			// deploy the kluctl project
 			var deployResult *types.CommandResult
-			timer := prometheus.NewTimer(metrics2.NewKluctlDeploymentDuration(obj.ObjectMeta.Namespace, obj.ObjectMeta.Name, obj.Spec.DeployMode))
 			if obj.Spec.DeployMode == kluctlv1.KluctlDeployModeFull {
 				deployResult, err = pt.kluctlDeploy(ctx, targetContext)
 			} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
@@ -291,12 +288,9 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
-			timer.ObserveDuration()
-			numberOfSeenImages = len(deployResult.SeenImages)
 		}
 
 		if needPrune {
-			timer := prometheus.NewTimer(metrics2.NewKluctlPruneDuration(obj.ObjectMeta.Namespace, obj.ObjectMeta.Name))
 			// run garbage collection for stale objects that do not have pruning disabled
 			pruneResult, err := pt.kluctlPrune(ctx, targetContext)
 			kluctlv1.SetPruneResult(obj, pp.sourceRevision, pruneResult, objectsHash, err)
@@ -304,21 +298,16 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
-			timer.ObserveDuration()
-			numberOfSeenImages = len(pruneResult.SeenImages)
 		}
 
 		if needValidate {
-			timer := prometheus.NewTimer(metrics2.NewKluctlValidateDuration(obj.ObjectMeta.Namespace, obj.ObjectMeta.Name))
 			validateResult, err := pt.kluctlValidate(ctx, targetContext)
 			kluctlv1.SetValidateResult(obj, pp.sourceRevision, validateResult, objectsHash, err)
 			if err != nil {
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.ValidateFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
-			timer.ObserveDuration()
 		}
-		metrics2.NewKluctlNumberOfImages(obj.Namespace, obj.Name).Add(float64(numberOfSeenImages))
 		return nil
 	})
 	obj.Status.ObservedGeneration = obj.GetGeneration()
