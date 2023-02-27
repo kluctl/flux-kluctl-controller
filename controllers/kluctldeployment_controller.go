@@ -296,6 +296,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		}
 
 		if needPrune {
+			timer := prometheus.NewTimer(metrics2.NewKluctlPruneDuration(obj.ObjectMeta.Namespace, obj.ObjectMeta.Name))
 			// run garbage collection for stale objects that do not have pruning disabled
 			pruneResult, err := pt.kluctlPrune(ctx, targetContext)
 			kluctlv1.SetPruneResult(obj, pp.sourceRevision, pruneResult, objectsHash, err)
@@ -303,6 +304,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
+			timer.ObserveDuration()
 			numberOfSeenImages = len(pruneResult.SeenImages)
 		}
 
