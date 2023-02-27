@@ -276,6 +276,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if needDeploy {
 			// deploy the kluctl project
 			var deployResult *types.CommandResult
+			timer := prometheus.NewTimer(metrics2.NewKluctlDeploymentDuration(obj.ObjectMeta.Namespace, obj.ObjectMeta.Name, obj.Spec.DeployMode))
 			if obj.Spec.DeployMode == kluctlv1.KluctlDeployModeFull {
 				deployResult, err = pt.kluctlDeploy(ctx, targetContext)
 			} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
@@ -290,6 +291,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
+			timer.ObserveDuration()
 			numberOfSeenImages = len(deployResult.SeenImages)
 		}
 
