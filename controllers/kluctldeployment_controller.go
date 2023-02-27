@@ -329,11 +329,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	finalStatus, reason := r.buildFinalStatus(obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
 		setReadinessWithRevision(obj, metav1.ConditionFalse, reason, finalStatus, pp.sourceRevision)
-		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Add(0.0)
+		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
 		return &ctrlResult, pp.sourceRevision, fmt.Errorf(finalStatus)
 	}
 	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.sourceRevision)
-	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Add(1.0)
+	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(1.0)
 	return &ctrlResult, pp.sourceRevision, nil
 }
 
@@ -563,8 +563,8 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 	}
 
 	//Export as Prometheus metric
-	internal_metrics.NewKluctlPruneEnabled(obj.Namespace, obj.Name).Add(pruneEnabled)
-	internal_metrics.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Add(dryRunEnabled)
-	internal_metrics.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Add(deploymentInterval)
-	internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL, obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Add(0.0)
+	internal_metrics.NewKluctlPruneEnabled(obj.Namespace, obj.Name).Set(pruneEnabled)
+	internal_metrics.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Set(dryRunEnabled)
+	internal_metrics.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Set(deploymentInterval)
+	internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL, obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
 }

@@ -752,7 +752,7 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K, nil)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
-	internal_metrics.NewKluctlNumberOfImages(pt.pp.obj.Namespace, pt.pp.obj.Name).Add(float64(len(cmdResult.SeenImages)))
+	internal_metrics.NewKluctlNumberOfImages(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(len(cmdResult.SeenImages)))
 	return cmdResult, err
 }
 
@@ -763,7 +763,7 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images")
-	internal_metrics.NewKluctlNumberOfImages(pt.pp.obj.Namespace, pt.pp.obj.Name).Add(float64(len(cmdResult.SeenImages)))
+	internal_metrics.NewKluctlNumberOfImages(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(len(cmdResult.SeenImages)))
 	return cmdResult, err
 }
 
@@ -777,7 +777,7 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	}
 	cmdResult, err := pt.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "prune")
-	internal_metrics.NewKluctlNumberOfImages(pt.pp.obj.Namespace, pt.pp.obj.Name).Add(float64(len(cmdResult.SeenImages)))
+	internal_metrics.NewKluctlNumberOfImages(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(len(cmdResult.SeenImages)))
 	return cmdResult, err
 }
 

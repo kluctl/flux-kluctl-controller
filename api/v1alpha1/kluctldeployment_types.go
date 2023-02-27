@@ -488,13 +488,13 @@ func SetDeployResult(k *KluctlDeployment, revision string, result *types.Command
 		}
 	}
 	numberOfChangedObjects := len(k.Status.LastDeployResult.ParseResult().ChangedObjects)
-	internal_metrics.NewKluctlNumberOfChanges(k.Namespace, k.Name).Add(float64(numberOfChangedObjects))
+	internal_metrics.NewKluctlNumberOfChanges(k.Namespace, k.Name).Set(float64(numberOfChangedObjects))
 	numberOfOrphanObjects := len(k.Status.LastDeployResult.ParseResult().OrphanObjects)
-	internal_metrics.NewKluctlNumberOfOrphanObjects(k.Namespace, k.Name).Add(float64(numberOfOrphanObjects))
+	internal_metrics.NewKluctlNumberOfOrphanObjects(k.Namespace, k.Name).Set(float64(numberOfOrphanObjects))
 	numberOfWarnings := len(k.Status.LastDeployResult.ParseResult().Warnings)
-	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "deploy").Add(float64(numberOfWarnings))
+	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "deploy").Set(float64(numberOfWarnings))
 	numberOfErrors := len(k.Status.LastDeployResult.ParseResult().Errors)
-	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "deploy").Add(float64(numberOfErrors))
+	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "deploy").Set(float64(numberOfErrors))
 }
 
 func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
@@ -520,11 +520,11 @@ func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandR
 		}
 	}
 	numberOfDeletedObjects := len(k.Status.LastDeployResult.ParseResult().DeletedObjects)
-	internal_metrics.NewKluctlNumberOfDeletedObjects(k.Namespace, k.Name).Add(float64(numberOfDeletedObjects))
+	internal_metrics.NewKluctlNumberOfDeletedObjects(k.Namespace, k.Name).Set(float64(numberOfDeletedObjects))
 	numberOfWarnings := len(k.Status.LastDeployResult.ParseResult().Warnings)
-	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "prune").Add(float64(numberOfWarnings))
+	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "prune").Set(float64(numberOfWarnings))
 	numberOfErrors := len(k.Status.LastDeployResult.ParseResult().Errors)
-	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "prune").Add(float64(numberOfErrors))
+	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "prune").Set(float64(numberOfErrors))
 }
 
 func SetValidateResult(k *KluctlDeployment, revision string, result *types.ValidateResult, objectHash string, err error) {
@@ -550,11 +550,11 @@ func SetValidateResult(k *KluctlDeployment, revision string, result *types.Valid
 		}
 	}
 	numberOfOrphanObjects := len(k.Status.LastDeployResult.ParseResult().OrphanObjects)
-	internal_metrics.NewKluctlNumberOfOrphanObjects(k.Namespace, k.Name).Add(float64(numberOfOrphanObjects))
+	internal_metrics.NewKluctlNumberOfOrphanObjects(k.Namespace, k.Name).Set(float64(numberOfOrphanObjects))
 	numberOfWarnings := len(k.Status.LastDeployResult.ParseResult().Warnings)
-	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "validate").Add(float64(numberOfWarnings))
+	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "validate").Set(float64(numberOfWarnings))
 	numberOfErrors := len(k.Status.LastDeployResult.ParseResult().Errors)
-	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "validate").Add(float64(numberOfErrors))
+	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "validate").Set(float64(numberOfErrors))
 }
 
 //+kubebuilder:object:root=true
