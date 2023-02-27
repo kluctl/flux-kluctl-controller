@@ -340,10 +340,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	finalStatus, reason := r.buildFinalStatus(obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
 		setReadinessWithRevision(obj, metav1.ConditionFalse, reason, finalStatus, pp.sourceRevision)
+		metrics2.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Add(0.0))
 		return &ctrlResult, pp.sourceRevision, fmt.Errorf(finalStatus)
 	}
 	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.sourceRevision)
-
+	metrics2.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Add(1.0)
 	return &ctrlResult, pp.sourceRevision, nil
 }
 
