@@ -231,7 +231,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		obj.Status.SetRawTarget(targetContext.Target)
 
 		objectsHash := r.calcObjectsHash(targetContext)
-
+		numberOfSeenImages := 0
 		needDeploy := false
 		needPrune := false
 		needValidate := false
@@ -290,6 +290,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.DeployFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
+			numberOfSeenImages = len(deployResult.SeenImages)
 		}
 
 		if needPrune {
@@ -300,6 +301,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PruneFailedReason, err.Error(), pp.sourceRevision)
 				return nil
 			}
+			numberOfSeenImages = len(pruneResult.SeenImages)
 		}
 
 		if needValidate {
@@ -310,7 +312,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				return nil
 			}
 		}
-
+		metrics2.NewKluctlNumberOfImages(obj.Namespace, obj.Name).Add(float64(numberOfSeenImages))
 		return nil
 	})
 	obj.Status.ObservedGeneration = obj.GetGeneration()
