@@ -12,17 +12,8 @@ weight: 20
 
 | Metrics name                | Type      | Description                                                                           |
 |-----------------------------|-----------|---------------------------------------------------------------------------------------|
-| deployment_duration_seconds | Histogram | How long a single deployment takes in seconds.                                        |
 | deployment_interval_seconds | Gauge     | The configured deployment interval of a single deployment.                            |
 | dry_run_enabled             | Gauge     | Is dry-run enabled for a single deployment.                                           |
 | last_object_status          | Gauge     | Last object status of a single deployment. Zero means failure and one means success.  |
-| number_of_changes           | Gauge     | How many things has been changed by a single deployment.                              |
-| number_of_deleted_objects   | Gauge     | How many things has been deleted by a single deployment.                              |
-| number_of_errors            | Gauge     | How many errors are related to a single deployment.                                   |
-| number_of_images            | Gauge     | Number of images of a single deployment.                                              |
-| number_of_orphan_objects    | Gauge     | How many orphans are related to a single deployment.                                  |
-| number_of_warnings          | Gauge     | How many warnings are related to a single deployment.                                 |
-| prune_duration_seconds      | Histogram | How long a single prune takes in seconds.                                             |
 | prune_enabled               | Gauge     | Is pruning enabled for a single deployment.                                           |
 | source_spec                 | Gauge     | The configured source spec of a single deployment exported via labels.                |
-| validate_duration_seconds   | Histogram | How long a single validate takes in seconds.                                          |
