@@ -692,7 +692,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	log := ctrl.LoggerFrom(ctx)
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
-
+	defer pt.exportCommandResultMetricsToProm(cmdResult, commandName)
 	if cmdErr != nil {
 		pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return cmdErr
@@ -831,4 +831,17 @@ func (pt *preparedTarget) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluste
 	}
 
 	return utils2.DeleteObjects(ctx, k, refs, false)
+}
+
+func (pt *preparedTarget) exportCommandResultMetricsToProm(cmdResult *types2.CommandResult, commandName string) {
+	numberOfDeletedObjects := len(cmdResult.DeletedObjects)
+	internal_metrics.NewKluctlNumberOfDeletedObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfDeletedObjects))
+	numberOfChangedObjects := len(cmdResult.ChangedObjects)
+	internal_metrics.NewKluctlNumberOfChanges(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfChangedObjects))
+	numberOfOrphanObjects := len(cmdResult.OrphanObjects)
+	internal_metrics.NewKluctlNumberOfOrphanObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfOrphanObjects))
+	numberOfWarnings := len(cmdResult.Warnings)
+	internal_metrics.NewKluctlNumberOfWarnings(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(numberOfWarnings))
+	numberOfErrors := len(cmdResult.Errors)
+	internal_metrics.NewKluctlNumberOfErrors(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(numberOfErrors))
 }

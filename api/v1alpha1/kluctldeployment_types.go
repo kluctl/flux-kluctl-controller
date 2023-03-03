@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"github.com/fluxcd/pkg/apis/meta"
-	internal_metrics "github.com/kluctl/flux-kluctl-controller/internal/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -487,14 +486,6 @@ func SetDeployResult(k *KluctlDeployment, revision string, result *types.Command
 			k.Status.LastDeployResult.RawResult = &raw
 		}
 	}
-	numberOfChangedObjects := len(k.Status.LastDeployResult.ParseResult().ChangedObjects)
-	internal_metrics.NewKluctlNumberOfChanges(k.Namespace, k.Name).Set(float64(numberOfChangedObjects))
-	numberOfOrphanObjects := len(k.Status.LastDeployResult.ParseResult().OrphanObjects)
-	internal_metrics.NewKluctlNumberOfOrphanObjects(k.Namespace, k.Name).Set(float64(numberOfOrphanObjects))
-	numberOfWarnings := len(k.Status.LastDeployResult.ParseResult().Warnings)
-	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "deploy").Set(float64(numberOfWarnings))
-	numberOfErrors := len(k.Status.LastDeployResult.ParseResult().Errors)
-	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "deploy").Set(float64(numberOfErrors))
 }
 
 func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
@@ -519,12 +510,6 @@ func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandR
 			k.Status.LastPruneResult.RawResult = &raw
 		}
 	}
-	numberOfDeletedObjects := len(k.Status.LastDeployResult.ParseResult().DeletedObjects)
-	internal_metrics.NewKluctlNumberOfDeletedObjects(k.Namespace, k.Name).Set(float64(numberOfDeletedObjects))
-	numberOfWarnings := len(k.Status.LastDeployResult.ParseResult().Warnings)
-	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "prune").Set(float64(numberOfWarnings))
-	numberOfErrors := len(k.Status.LastDeployResult.ParseResult().Errors)
-	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "prune").Set(float64(numberOfErrors))
 }
 
 func SetValidateResult(k *KluctlDeployment, revision string, result *types.ValidateResult, objectHash string, err error) {
@@ -549,12 +534,6 @@ func SetValidateResult(k *KluctlDeployment, revision string, result *types.Valid
 			k.Status.LastValidateResult.RawResult = &raw
 		}
 	}
-	numberOfOrphanObjects := len(k.Status.LastDeployResult.ParseResult().OrphanObjects)
-	internal_metrics.NewKluctlNumberOfOrphanObjects(k.Namespace, k.Name).Set(float64(numberOfOrphanObjects))
-	numberOfWarnings := len(k.Status.LastDeployResult.ParseResult().Warnings)
-	internal_metrics.NewKluctlNumberOfWarnings(k.Namespace, k.Name, "validate").Set(float64(numberOfWarnings))
-	numberOfErrors := len(k.Status.LastDeployResult.ParseResult().Errors)
-	internal_metrics.NewKluctlNumberOfErrors(k.Namespace, k.Name, "validate").Set(float64(numberOfErrors))
 }
 
 //+kubebuilder:object:root=true
