@@ -797,6 +797,9 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 		return nil, nil
 	}
 
+	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeleteDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
+	defer timer.ObserveDuration()
+
 	cmd := commands.NewDeleteCommand(discriminator, nil)
 
 	restConfig, err := pt.buildRestConfig(ctx)

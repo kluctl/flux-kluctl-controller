@@ -13,6 +13,7 @@ const (
 	DryRunEnabledKey      = "dry_run_enabled"
 	LastObjectStatusKey   = "last_object_status"
 	PruneEnabledKey       = "prune_enabled"
+	DeleteEnabledKey      = "delete_enabled"
 	SourceSpecKey         = "source_spec"
 )
 
@@ -41,6 +42,12 @@ var (
 		Help:      "Is pruning enabled for a single deployment.",
 	}, []string{"namespace", "name"})
 
+	deleteEnabled = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: KluctlDeploymentControllerSubsystem,
+		Name:      DeleteEnabledKey,
+		Help:      "Is delete enabled for a single deployment.",
+	}, []string{"namespace", "name"})
+
 	sourceSpec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      SourceSpecKey,
@@ -53,6 +60,7 @@ func init() {
 	metrics.Registry.MustRegister(dryRunEnabled)
 	metrics.Registry.MustRegister(lastObjectStatus)
 	metrics.Registry.MustRegister(pruneEnabled)
+	metrics.Registry.MustRegister(deleteEnabled)
 	metrics.Registry.MustRegister(sourceSpec)
 }
 
@@ -70,6 +78,10 @@ func NewKluctlLastObjectStatus(namespace string, name string) prometheus.Gauge {
 
 func NewKluctlPruneEnabled(namespace string, name string) prometheus.Gauge {
 	return pruneEnabled.WithLabelValues(namespace, name)
+}
+
+func NewKluctlDeleteEnabled(namespace string, name string) prometheus.Gauge {
+	return deleteEnabled.WithLabelValues(namespace, name)
 }
 
 func NewKluctlSourceSpec(namespace string, name string, url string, path string, ref string) prometheus.Gauge {

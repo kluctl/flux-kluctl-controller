@@ -546,11 +546,15 @@ func (r *KluctlDeploymentReconciler) calcObjectsHash(targetContext *project.Targ
 
 func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.KluctlDeployment) {
 	pruneEnabled := 0.0
+	deleteEnabled := 0.0
 	dryRunEnabled := 0.0
 	deploymentInterval := 0.0
 
 	if obj.Spec.Prune {
 		pruneEnabled = 1.0
+	}
+	if obj.Spec.Delete {
+		deleteEnabled = 1.0
 	}
 	if obj.Spec.DryRun {
 		dryRunEnabled = 1.0
@@ -566,6 +570,7 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 
 	//Export as Prometheus metric
 	internal_metrics.NewKluctlPruneEnabled(obj.Namespace, obj.Name).Set(pruneEnabled)
+	internal_metrics.NewKluctlDeleteEnabled(obj.Namespace, obj.Name).Set(deleteEnabled)
 	internal_metrics.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Set(dryRunEnabled)
 	internal_metrics.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Set(deploymentInterval)
 	internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL, obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)

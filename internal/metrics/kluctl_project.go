@@ -16,6 +16,7 @@ const (
 	NumberOfOrphanObjectsKey  = "number_of_orphan_objects"
 	NumberOfWarningsKey       = "number_of_warnings"
 	PruneDurationKey          = "prune_duration_seconds"
+	DeleteDurationKey         = "delete_duration_seconds"
 	ValidateDurationKey       = "validate_duration_seconds"
 )
 
@@ -68,6 +69,12 @@ var (
 		Help:      "How long a single prune takes in seconds.",
 	}, []string{"namespace", "name"})
 
+	deleteDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Subsystem: KluctlDeploymentControllerSubsystem,
+		Name:      DeleteDurationKey,
+		Help:      "How long a single delete takes in seconds.",
+	}, []string{"namespace", "name"})
+
 	validateDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      ValidateDurationKey,
@@ -84,6 +91,7 @@ func init() {
 	metrics.Registry.MustRegister(numberOfOrphanObjects)
 	metrics.Registry.MustRegister(numberOfWarnings)
 	metrics.Registry.MustRegister(pruneDuration)
+	metrics.Registry.MustRegister(deleteDuration)
 	metrics.Registry.MustRegister(validateDuration)
 }
 
@@ -117,6 +125,10 @@ func NewKluctlNumberOfWarnings(namespace string, name string, action string) pro
 
 func NewKluctlPruneDuration(namespace string, name string) prometheus.Observer {
 	return pruneDuration.WithLabelValues(namespace, name)
+}
+
+func NewKluctlDeleteDuration(namespace string, name string) prometheus.Observer {
+	return deleteDuration.WithLabelValues(namespace, name)
 }
 
 func NewKluctlValidateDuration(namespace string, name string) prometheus.Observer {
