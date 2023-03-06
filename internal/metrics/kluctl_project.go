@@ -6,8 +6,6 @@ import (
 )
 
 const (
-	KluctlProjectControllerSubsystem = "kluctlprojects"
-
 	DeploymentDurationKey     = "deployment_duration_seconds"
 	NumberOfChangesKey        = "number_of_changes"
 	NumberOfDeletedObjectsKey = "number_of_deleted_objects"
@@ -28,19 +26,19 @@ var (
 	}, []string{"namespace", "name", "mode"})
 
 	numberOfChanges = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: KluctlProjectControllerSubsystem,
+		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      NumberOfChangesKey,
 		Help:      "How many things has been changed by a single project.",
 	}, []string{"namespace", "name"})
 
 	numberOfDeletedObjects = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: KluctlProjectControllerSubsystem,
+		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      NumberOfDeletedObjectsKey,
 		Help:      "How many things has been deleted by a single project.",
 	}, []string{"namespace", "name"})
 
 	numberOfErrors = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: KluctlProjectControllerSubsystem,
+		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      NumberOfErrorsKey,
 		Help:      "How many errors are related to a single project.",
 	}, []string{"namespace", "name", "action"})
@@ -52,13 +50,13 @@ var (
 	}, []string{"namespace", "name"})
 
 	numberOfOrphanObjects = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: KluctlProjectControllerSubsystem,
+		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      NumberOfOrphanObjectsKey,
 		Help:      "How many orphans are related to a single project.",
 	}, []string{"namespace", "name"})
 
 	numberOfWarnings = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Subsystem: KluctlProjectControllerSubsystem,
+		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      NumberOfWarningsKey,
 		Help:      "How many warnings are related to a single project.",
 	}, []string{"namespace", "name", "action"})

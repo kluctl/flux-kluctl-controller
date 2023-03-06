@@ -45,7 +45,7 @@ var (
 	deleteEnabled = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      DeleteEnabledKey,
-		Help:      "Is delete enabled for a single deployment.",
+		Help:      "Is deletion enabled for a single deployment.",
 	}, []string{"namespace", "name"})
 
 	sourceSpec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
