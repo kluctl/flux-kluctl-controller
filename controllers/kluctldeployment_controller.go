@@ -169,7 +169,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// reconcile kluctlDeployment by applying the latest revision
 	patch := client.MergeFrom(obj.DeepCopy())
 	ctrlResult, sourceRevision, reconcileErr := r.doReconcile(ctx, obj, source)
-	if err := r.Status().Patch(ctx, obj, patch); err != nil {
+	if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
 
