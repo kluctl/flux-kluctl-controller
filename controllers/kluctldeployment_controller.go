@@ -46,6 +46,7 @@ type KluctlDeploymentReconciler struct {
 	statusManager         string
 	NoCrossNamespaceRefs  bool
 	DefaultServiceAccount string
+	DryRun                bool
 
 	SshPool *ssh_pool.SshPool
 }

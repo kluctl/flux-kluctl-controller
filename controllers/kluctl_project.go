@@ -659,7 +659,7 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 		inclusion := pt.buildInclusion()
 
 		props := kluctl_project.TargetContextParams{
-			DryRun:          pt.pp.obj.Spec.DryRun,
+			DryRun:          pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
 			Images:          images,
 			Inclusion:       inclusion,
 			HelmCredentials: helmCredentials,
@@ -792,7 +792,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	if err != nil {
 		return nil, err
 	}
-	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.pp.obj.Spec.DryRun)
+	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun)
 	if err != nil {
 		return nil, err
 	}
