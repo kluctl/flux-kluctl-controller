@@ -116,7 +116,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			msg := fmt.Sprintf("Source '%s' not found", obj.Spec.SourceRef)
 			patch := client.MergeFrom(obj.DeepCopy())
 			setReadiness(obj, metav1.ConditionFalse, kluctlv1.ArtifactFailedReason, msg)
-			if err := r.Status().Patch(ctx, obj, patch); err != nil {
+			if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
 			r.recordReadiness(ctx, obj)
@@ -128,7 +128,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if acl.IsAccessDenied(err) {
 			patch := client.MergeFrom(obj.DeepCopy())
 			setReadiness(obj, metav1.ConditionFalse, apiacl.AccessDeniedReason, err.Error())
-			if err := r.Status().Patch(ctx, obj, patch); err != nil {
+			if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
 			log.Error(err, "access denied to cross-namespace source")
@@ -154,7 +154,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if obj.Status.ObservedGeneration == 0 {
 		patch := client.MergeFrom(obj.DeepCopy())
 		setReadiness(obj, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
-		if err := r.Status().Patch(ctx, obj, patch); err != nil {
+		if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
 
