@@ -47,6 +47,7 @@ type KluctlDeploymentReconciler struct {
 	statusManager         string
 	NoCrossNamespaceRefs  bool
 	DefaultServiceAccount string
+	DryRun                bool
 
 	SshPool *ssh_pool.SshPool
 }
@@ -116,7 +117,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			msg := fmt.Sprintf("Source '%s' not found", obj.Spec.SourceRef)
 			patch := client.MergeFrom(obj.DeepCopy())
 			setReadiness(obj, metav1.ConditionFalse, kluctlv1.ArtifactFailedReason, msg)
-			if err := r.Status().Patch(ctx, obj, patch); err != nil {
+			if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
 			r.recordReadiness(ctx, obj)
@@ -128,7 +129,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if acl.IsAccessDenied(err) {
 			patch := client.MergeFrom(obj.DeepCopy())
 			setReadiness(obj, metav1.ConditionFalse, apiacl.AccessDeniedReason, err.Error())
-			if err := r.Status().Patch(ctx, obj, patch); err != nil {
+			if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 				return ctrl.Result{Requeue: true}, err
 			}
 			log.Error(err, "access denied to cross-namespace source")
@@ -154,7 +155,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if obj.Status.ObservedGeneration == 0 {
 		patch := client.MergeFrom(obj.DeepCopy())
 		setReadiness(obj, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
-		if err := r.Status().Patch(ctx, obj, patch); err != nil {
+		if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 			return ctrl.Result{Requeue: true}, err
 		}
 
@@ -169,7 +170,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// reconcile kluctlDeployment by applying the latest revision
 	patch := client.MergeFrom(obj.DeepCopy())
 	ctrlResult, sourceRevision, reconcileErr := r.doReconcile(ctx, obj, source)
-	if err := r.Status().Patch(ctx, obj, patch); err != nil {
+	if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
 
@@ -480,8 +481,9 @@ func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1
 	r.recordReadiness(ctx, obj)
 
 	// Remove our finalizer from the list and update it
+	patch := client.MergeFrom(obj.DeepCopy())
 	controllerutil.RemoveFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer)
-	if err := r.Update(ctx, obj, client.FieldOwner(r.statusManager)); err != nil {
+	if err := r.Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -492,7 +494,7 @@ func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1
 func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctlv1.KluctlDeployment) {
 	log := ctrl.LoggerFrom(ctx)
 
-	if !obj.Spec.Prune || obj.Spec.Suspend {
+	if !obj.Spec.Delete || obj.Spec.Suspend {
 		return
 	}
 

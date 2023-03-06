@@ -569,8 +569,8 @@ github.com/kluctl/go-embed-python v0.0.0-3.10.9-20230206-2 h1:K96SwIr8MzBQ3kFFz2
 github.com/kluctl/go-embed-python v0.0.0-3.10.9-20230206-2/go.mod h1:vzngsPshNKUtq0gxkYQKNJafrcH7Qy7Qt6yGNt7JmQI=
 github.com/kluctl/go-jinja2 v0.0.0-20230206202229-6e5a9f576647 h1:H7qN4RcRsFX6OuKn2La0ueu0nSFE9uPI/AMcgF5fXi8=
 github.com/kluctl/go-jinja2 v0.0.0-20230206202229-6e5a9f576647/go.mod h1:oGEuC0taLwg20ORdSN7cdrN4rook79mJJ01QZIU858U=
-github.com/kluctl/kluctl/v2 v2.19.0 h1:DnLNgUdPnSNqSHgXUEcWOubukBfzaJ3GHCWrq2TOYc0=
-github.com/kluctl/kluctl/v2 v2.19.0/go.mod h1:j8u9D0NNgkRsVLqDDH2ct+5SzkrsG5pQvJzTjfiYNHM=
+github.com/kluctl/kluctl/v2 v2.19.3-0.20230306161204-69731cfd9f2f h1:0C54BBwbxt+LISYVlToI7Cz6tohO2I0x6BZ7SkRgvZA=
+github.com/kluctl/kluctl/v2 v2.19.3-0.20230306161204-69731cfd9f2f/go.mod h1:j8u9D0NNgkRsVLqDDH2ct+5SzkrsG5pQvJzTjfiYNHM=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kortschak/utter v1.0.1/go.mod h1:vSmSjbyrlKjjsL71193LmzBOKgwePk9DH6uFaWHIInc=
 github.com/kr/fs v0.1.0/go.mod h1:FFnZGqtBN9Gxj7eW1uZ42v5BccTP0vu6NEaFoC2HwRg=

@@ -76,6 +76,7 @@ func main() {
 		watchAllNamespaces    bool
 		httpRetry             int
 		defaultServiceAccount string
+		dryRun                bool
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -85,6 +86,7 @@ func main() {
 		"Watch for custom resources in all namespaces, if set to false it will only watch the runtime namespace.")
 	flag.IntVar(&httpRetry, "http-retry", 9, "The maximum number of retries when failing to fetch artifacts over HTTP.")
 	flag.StringVar(&defaultServiceAccount, "default-service-account", "", "Default service account used for impersonation.")
+	flag.BoolVar(&dryRun, "dry-run", false, "Run all deployments in dryRun=true mode.")
 
 	clientOptions.BindFlags(flag.CommandLine)
 	logOptions.BindFlags(flag.CommandLine)
@@ -136,6 +138,7 @@ func main() {
 	r := controllers.KluctlDeploymentReconciler{
 		ControllerName:        controllerName,
 		DefaultServiceAccount: defaultServiceAccount,
+		DryRun:                dryRun,
 		RestConfig:            restConfig,
 		Client:                mgr.GetClient(),
 		ClientSet:             clientSet,

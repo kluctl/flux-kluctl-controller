@@ -661,7 +661,7 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 		inclusion := pt.buildInclusion()
 
 		props := kluctl_project.TargetContextParams{
-			DryRun:          pt.pp.obj.Spec.DryRun,
+			DryRun:          pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
 			Images:          images,
 			Inclusion:       inclusion,
 			HelmCredentials: helmCredentials,
@@ -766,9 +766,14 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 }
 
 func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
-	timer := prometheus.NewTimer(internal_metrics.NewKluctlPruneDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
+	if !pt.pp.obj.Spec.Prune {
+		return nil, nil
+	}
+
+  timer := prometheus.NewTimer(internal_metrics.NewKluctlPruneDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
-	cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext.DeploymentCollection)
+
+  cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext.DeploymentCollection)
 	refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
 	if err != nil {
 		return nil, err
@@ -788,7 +793,7 @@ func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *klu
 }
 
 func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string) (*types2.CommandResult, error) {
-	if !pt.pp.obj.Spec.Prune {
+	if !pt.pp.obj.Spec.Delete {
 		return nil, nil
 	}
 
@@ -802,7 +807,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	if err != nil {
 		return nil, err
 	}
-	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.pp.obj.Spec.DryRun)
+	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun)
 	if err != nil {
 		return nil, err
 	}

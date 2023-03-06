@@ -98,6 +98,11 @@ spec:
                 required:
                 - provider
                 type: object
+              delete:
+                default: false
+                description: Delete enables deletion of the specified target when
+                  the KluctlDeployment object gets deleted.
+                type: boolean
               deployInterval:
                 description: DeployInterval specifies the interval at which to deploy
                   the KluctlDeployment. It defaults to the Interval value, meaning

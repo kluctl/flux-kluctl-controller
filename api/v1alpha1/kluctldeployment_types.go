@@ -247,6 +247,11 @@ type KluctlDeploymentSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Prune bool `json:"prune,omitempty"`
+
+	// Delete enables deletion of the specified target when the KluctlDeployment object gets deleted.
+	// +kubebuilder:default:=false
+	// +optional
+	Delete bool `json:"delete,omitempty"`
 }
 
 // GetRetryInterval returns the retry interval

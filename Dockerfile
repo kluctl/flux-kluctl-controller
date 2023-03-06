@@ -9,4 +9,6 @@ RUN apt update && apt install git -y && rm -rf /var/lib/apt/lists/*
 COPY manager /manager
 USER 65532:65532
 
+ENV HELM_CACHE_HOME=/tmp/helm-cache
+
 ENTRYPOINT ["/manager"]

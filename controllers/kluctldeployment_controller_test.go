@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -349,4 +350,245 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 				return true
 			}, timeout, time.Second).Should(BeTrue())
 		})*/
+}
+
+func TestKluctlDeploymentReconciler_Prune(t *testing.T) {
+	g := NewWithT(t)
+	namespace := "kluctl-prune-" + randStringRunes(5)
+
+	p := test_utils.NewTestProject(t)
+	p.UpdateTarget("target1", nil)
+
+	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
+		{Name: "cm1.yaml", Content: uo.FromStringMust(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm1
+  namespace: "{{ args.namespace }}"
+data:
+  k1: v1
+`)},
+	}, nil)
+	p.AddKustomizeDeployment("d2", []test_utils.KustomizeResource{
+		{Name: "cm2.yaml", Content: uo.FromStringMust(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm2
+  namespace: "{{ args.namespace }}"
+data:
+  k1: v1
+`)},
+	}, nil)
+
+	err := createNamespace(namespace)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	kluctlDeploymentKey := types.NamespacedName{
+		Name:      "kluctl-prune-" + randStringRunes(5),
+		Namespace: namespace,
+	}
+	kluctlDeployment := &kluctlv1.KluctlDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kluctlDeploymentKey.Name,
+			Namespace: kluctlDeploymentKey.Namespace,
+		},
+		Spec: kluctlv1.KluctlDeploymentSpec{
+			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Timeout:  &metav1.Duration{Duration: timeout},
+			Target:   utils.StrPtr("target1"),
+			Args: runtime.RawExtension{
+				Raw: []byte(fmt.Sprintf(`{"namespace": "%s"}`, namespace)),
+			},
+			Source: &kluctlv1.ProjectSource{
+				URL: p.GitUrl(),
+			},
+			// disable it first
+			Prune: false,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.TODO(), kluctlDeployment)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kluctlv1.KluctlDeployment
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kluctlDeployment), &obj)
+		if obj.Status.LastDeployResult == nil {
+			return false
+		}
+		return obj.Status.LastDeployResult.Revision == getHeadRevision(t, p)
+	}, timeout, time.Second).Should(BeTrue())
+
+	cm := &corev1.ConfigMap{}
+
+	t.Run("cm1 and cm2 got deployed", func(t *testing.T) {
+		err := k8sClient.Get(context.TODO(), client.ObjectKey{
+			Name:      "cm1",
+			Namespace: namespace,
+		}, cm)
+		g.Expect(err).To(Succeed())
+		err = k8sClient.Get(context.TODO(), client.ObjectKey{
+			Name:      "cm2",
+			Namespace: namespace,
+		}, cm)
+		g.Expect(err).To(Succeed())
+	})
+
+	p.UpdateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
+		_ = o.RemoveNestedField("deployments", 1)
+		return nil
+	})
+
+	g.Eventually(func() bool {
+		var obj kluctlv1.KluctlDeployment
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kluctlDeployment), &obj)
+		if obj.Status.LastDeployResult == nil {
+			return false
+		}
+		return obj.Status.LastDeployResult.Revision == getHeadRevision(t, p)
+	}, timeout, time.Second).Should(BeTrue())
+
+	t.Run("cm1 and cm2 were not deleted", func(t *testing.T) {
+		err := k8sClient.Get(context.TODO(), client.ObjectKey{
+			Name:      "cm1",
+			Namespace: namespace,
+		}, cm)
+		g.Expect(err).To(Succeed())
+		err = k8sClient.Get(context.TODO(), client.ObjectKey{
+			Name:      "cm2",
+			Namespace: namespace,
+		}, cm)
+		g.Expect(err).To(Succeed())
+	})
+
+	g.Expect(k8sClient.Get(context.TODO(), kluctlDeploymentKey, kluctlDeployment)).To(Succeed())
+	kluctlDeployment.Spec.Prune = true
+
+	g.Expect(k8sClient.Update(context.TODO(), kluctlDeployment)).To(Succeed())
+	g.Eventually(func() bool {
+		var obj kluctlv1.KluctlDeployment
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kluctlDeployment), &obj)
+		if obj.Status.LastDeployResult == nil {
+			return false
+		}
+		return obj.Status.ObservedGeneration == obj.Generation && obj.Status.LastDeployResult.Revision == getHeadRevision(t, p)
+	}, timeout, time.Second).Should(BeTrue())
+
+	t.Run("cm1 did not get deleted and cm2 got deleted", func(t *testing.T) {
+		err := k8sClient.Get(context.TODO(), client.ObjectKey{
+			Name:      "cm1",
+			Namespace: namespace,
+		}, cm)
+		g.Expect(err).To(Succeed())
+		err = k8sClient.Get(context.TODO(), client.ObjectKey{
+			Name:      "cm2",
+			Namespace: namespace,
+		}, cm)
+		g.Expect(err).To(MatchError("configmaps \"cm2\" not found"))
+	})
+}
+
+func doTestDelete(t *testing.T, delete bool) {
+	g := NewWithT(t)
+	namespace := "kluctl-delete-" + randStringRunes(5)
+
+	p := test_utils.NewTestProject(t)
+	p.UpdateTarget("target1", nil)
+
+	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
+		{Name: "cm1.yaml", Content: uo.FromStringMust(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm1
+  namespace: "{{ args.namespace }}"
+data:
+  k1: v1
+`)},
+	}, nil)
+
+	err := createNamespace(namespace)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to create test namespace")
+
+	kluctlDeploymentKey := types.NamespacedName{
+		Name:      "kluctl-delete-" + randStringRunes(5),
+		Namespace: namespace,
+	}
+	kluctlDeployment := &kluctlv1.KluctlDeployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kluctlDeploymentKey.Name,
+			Namespace: kluctlDeploymentKey.Namespace,
+		},
+		Spec: kluctlv1.KluctlDeploymentSpec{
+			Interval: metav1.Duration{Duration: reconciliationInterval},
+			Timeout:  &metav1.Duration{Duration: timeout},
+			Target:   utils.StrPtr("target1"),
+			Args: runtime.RawExtension{
+				Raw: []byte(fmt.Sprintf(`{"namespace": "%s"}`, namespace)),
+			},
+			Source: &kluctlv1.ProjectSource{
+				URL: p.GitUrl(),
+			},
+			Delete: delete,
+		},
+	}
+
+	g.Expect(k8sClient.Create(context.TODO(), kluctlDeployment)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kluctlv1.KluctlDeployment
+		_ = k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kluctlDeployment), &obj)
+		if obj.Status.LastDeployResult == nil {
+			return false
+		}
+		return obj.Status.LastDeployResult.Revision == getHeadRevision(t, p)
+	}, timeout, time.Second).Should(BeTrue())
+
+	cm := &corev1.ConfigMap{}
+
+	t.Run("cm1 got deployed", func(t *testing.T) {
+		err := k8sClient.Get(context.TODO(), client.ObjectKey{
+			Name:      "cm1",
+			Namespace: namespace,
+		}, cm)
+		g.Expect(err).To(Succeed())
+	})
+
+	g.Expect(k8sClient.Delete(context.TODO(), kluctlDeployment)).To(Succeed())
+
+	g.Eventually(func() bool {
+		var obj kluctlv1.KluctlDeployment
+		err := k8sClient.Get(context.Background(), client.ObjectKeyFromObject(kluctlDeployment), &obj)
+		if err == nil {
+			return false
+		}
+		if !errors.IsNotFound(err) {
+			return false
+		}
+		return true
+	}, timeout, time.Second).Should(BeTrue())
+
+	if delete {
+		t.Run("cm1 was deleted", func(t *testing.T) {
+			err := k8sClient.Get(context.TODO(), client.ObjectKey{
+				Name:      "cm1",
+				Namespace: namespace,
+			}, cm)
+			g.Expect(err).To(MatchError("configmaps \"cm1\" not found"))
+		})
+	} else {
+		t.Run("cm1 was not deleted", func(t *testing.T) {
+			err := k8sClient.Get(context.TODO(), client.ObjectKey{
+				Name:      "cm1",
+				Namespace: namespace,
+			}, cm)
+			g.Expect(err).To(Succeed())
+		})
+	}
+}
+
+func TestKluctlDeploymentReconciler_Delete_True(t *testing.T) {
+	doTestDelete(t, true)
+}
+
+func TestKluctlDeploymentReconciler_Delete_False(t *testing.T) {
+	doTestDelete(t, false)
 }
