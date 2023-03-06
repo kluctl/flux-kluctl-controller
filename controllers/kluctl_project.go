@@ -760,6 +760,10 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 }
 
 func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
+	if !pt.pp.obj.Spec.Prune {
+		return nil, nil
+	}
+
 	cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext.DeploymentCollection)
 	refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
 	if err != nil {
@@ -778,7 +782,7 @@ func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *klu
 }
 
 func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string) (*types2.CommandResult, error) {
-	if !pt.pp.obj.Spec.Prune {
+	if !pt.pp.obj.Spec.Delete {
 		return nil, nil
 	}
 

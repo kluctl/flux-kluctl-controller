@@ -860,6 +860,18 @@ bool
 <p>Prune enables pruning after deploying.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>delete</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Delete enables deletion of the specified target when the KluctlDeployment object gets deleted.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -1384,6 +1396,18 @@ bool
 <td>
 <em>(Optional)</em>
 <p>Prune enables pruning after deploying.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>delete</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Delete enables deletion of the specified target when the KluctlDeployment object gets deleted.</p>
 </td>
 </tr>
 </tbody>

@@ -29,12 +29,16 @@ spec:
   target: prod
   context: default
   prune: true
+  delete: true
 ```
 
 In the above example a KluctlDeployment is being created that defines the deployment based on the Kluctl project.
 
 The deployment is performed every 5 minutes. It will deploy the `prod`
 [target](https://kluctl.io/docs/reference/kluctl-project/targets/) and then prune orphaned objects afterwards.
+
+When the KluctlDeployment gets deleted, `delete: true` will cause the controller to actually delete the target
+resources.
 
 It uses the `default` context provided by the default service account and thus overrides the context specified in the
 target definition.
@@ -114,6 +118,11 @@ spec:
 
 To enable pruning, set `spec.prune` to `true`. This will cause the controller to run `kluctl prune` after each
 successful deployment.
+
+### delete
+
+To enable deletion, set `spec.delete` to `true`. This will cause the controller to run `kluctl delete` when the
+KluctlDeployment gets deleted.
 
 ### args
 `spec.args` is an object representing [arguments](https://kluctl.io/docs/reference/deployments/deployment-yml/#args)

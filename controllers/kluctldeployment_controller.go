@@ -479,8 +479,9 @@ func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1
 	r.recordReadiness(ctx, obj)
 
 	// Remove our finalizer from the list and update it
+	patch := client.MergeFrom(obj.DeepCopy())
 	controllerutil.RemoveFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer)
-	if err := r.Update(ctx, obj, client.FieldOwner(r.statusManager)); err != nil {
+	if err := r.Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -491,7 +492,7 @@ func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1
 func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctlv1.KluctlDeployment) {
 	log := ctrl.LoggerFrom(ctx)
 
-	if !obj.Spec.Prune || obj.Spec.Suspend {
+	if !obj.Spec.Delete || obj.Spec.Suspend {
 		return
 	}
 
