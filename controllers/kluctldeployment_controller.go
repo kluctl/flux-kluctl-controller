@@ -12,6 +12,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
+	internal_metrics "github.com/kluctl/flux-kluctl-controller/internal/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	project "github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -210,6 +211,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	obj *kluctlv1.KluctlDeployment,
 	source *kluctlv1.ProjectSource) (*ctrl.Result, string, error) {
 
+	r.exportDeploymentObjectToProm(obj)
+
 	pp, err := prepareProject(ctx, r, obj, source)
 	if err != nil {
 		setReadinessWithRevision(obj, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, err.Error(), "")
@@ -228,7 +231,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		obj.Status.SetRawTarget(targetContext.Target)
 
 		objectsHash := r.calcObjectsHash(targetContext)
-
 		needDeploy := false
 		needPrune := false
 		needValidate := false
@@ -307,7 +309,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				return nil
 			}
 		}
-
 		return nil
 	})
 	obj.Status.ObservedGeneration = obj.GetGeneration()
@@ -329,10 +330,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	finalStatus, reason := r.buildFinalStatus(obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
 		setReadinessWithRevision(obj, metav1.ConditionFalse, reason, finalStatus, pp.sourceRevision)
+		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
 		return &ctrlResult, pp.sourceRevision, fmt.Errorf(finalStatus)
 	}
 	setReadinessWithRevision(obj, metav1.ConditionTrue, reason, finalStatus, pp.sourceRevision)
-
+	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(1.0)
 	return &ctrlResult, pp.sourceRevision, nil
 }
 
@@ -540,4 +542,31 @@ func (r *KluctlDeploymentReconciler) calcObjectsHash(targetContext *project.Targ
 		panic(err)
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.KluctlDeployment) {
+	pruneEnabled := 0.0
+	dryRunEnabled := 0.0
+	deploymentInterval := 0.0
+
+	if obj.Spec.Prune {
+		pruneEnabled = 1.0
+	}
+	if obj.Spec.DryRun {
+		dryRunEnabled = 1.0
+	}
+	//If not set, it defaults to interval
+	if obj.Spec.DeployInterval == nil {
+		deploymentInterval = obj.Spec.Interval.Seconds()
+	}
+	//Deployment interval of never defaults to zero
+	if obj.Spec.DeployInterval != nil && !obj.Spec.DeployInterval.Never {
+		deploymentInterval = obj.Spec.DeployInterval.Duration.Seconds()
+	}
+
+	//Export as Prometheus metric
+	internal_metrics.NewKluctlPruneEnabled(obj.Namespace, obj.Name).Set(pruneEnabled)
+	internal_metrics.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Set(dryRunEnabled)
+	internal_metrics.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Set(deploymentInterval)
+	internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL, obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
 }

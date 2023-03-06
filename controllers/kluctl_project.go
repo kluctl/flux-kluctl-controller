@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	internal_metrics "github.com/kluctl/flux-kluctl-controller/internal/metrics"
 	"github.com/kluctl/flux-kluctl-controller/internal/sops"
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
@@ -12,6 +13,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/prometheus/client_golang/prometheus"
 	"helm.sh/helm/v3/pkg/repo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -690,7 +692,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	log := ctrl.LoggerFrom(ctx)
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
-
+	defer pt.exportCommandResultMetricsToProm(cmdResult, commandName)
 	if cmdErr != nil {
 		pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return cmdErr
@@ -738,6 +740,8 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 }
 
 func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
+	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
+	defer timer.ObserveDuration()
 	cmd := commands.NewDeployCommand(targetContext.Target.Discriminator, targetContext.DeploymentCollection)
 	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
 	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
@@ -752,6 +756,8 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 }
 
 func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
+	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
+	defer timer.ObserveDuration()
 	cmd := commands.NewPokeImagesCommand(targetContext.DeploymentCollection)
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
@@ -764,7 +770,10 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 		return nil, nil
 	}
 
-	cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext.DeploymentCollection)
+  timer := prometheus.NewTimer(internal_metrics.NewKluctlPruneDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
+	defer timer.ObserveDuration()
+
+  cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext.DeploymentCollection)
 	refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
 	if err != nil {
 		return nil, err
@@ -775,6 +784,8 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 }
 
 func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.ValidateResult, error) {
+	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
+	defer timer.ObserveDuration()
 	cmd := commands.NewValidateCommand(ctx, targetContext.Target.Discriminator, targetContext.DeploymentCollection)
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
@@ -822,4 +833,19 @@ func (pt *preparedTarget) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluste
 	}
 
 	return utils2.DeleteObjects(ctx, k, refs, false)
+}
+
+func (pt *preparedTarget) exportCommandResultMetricsToProm(cmdResult *types2.CommandResult, commandName string) {
+	numberOfDeletedObjects := len(cmdResult.DeletedObjects)
+	internal_metrics.NewKluctlNumberOfDeletedObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfDeletedObjects))
+	numberOfChangedObjects := len(cmdResult.ChangedObjects)
+	internal_metrics.NewKluctlNumberOfChanges(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfChangedObjects))
+	numberOfOrphanObjects := len(cmdResult.OrphanObjects)
+	internal_metrics.NewKluctlNumberOfOrphanObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfOrphanObjects))
+	numberOfWarnings := len(cmdResult.Warnings)
+	internal_metrics.NewKluctlNumberOfWarnings(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(numberOfWarnings))
+	numberOfErrors := len(cmdResult.Errors)
+	internal_metrics.NewKluctlNumberOfErrors(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(numberOfErrors))
+	numberOfImages := len(cmdResult.SeenImages)
+	internal_metrics.NewKluctlNumberOfImages(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfImages))
 }

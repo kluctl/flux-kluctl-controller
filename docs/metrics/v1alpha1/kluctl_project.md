@@ -1,0 +1,23 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
+---
+title: Metrics of the KluctlProject
+linkTitle: KluctlProject Metrics
+description: KluctlProject documentation
+weight: 20
+---
+-->
+
+# Exported Metrics References
+
+| Metrics name                | Type      | Description                                                                           |
+|-----------------------------|-----------|---------------------------------------------------------------------------------------|
+| deployment_duration_seconds | Histogram | How long a single deployment takes in seconds.                                        |
+| number_of_changes           | Gauge     | How many things has been changed by a single deployment.                              |
+| number_of_deleted_objects   | Gauge     | How many things has been deleted by a single deployment.                              |
+| number_of_errors            | Gauge     | How many errors are related to a single deployment.                                   |
+| number_of_images            | Gauge     | Number of images of a single deployment.                                              |
+| number_of_orphan_objects    | Gauge     | How many orphans are related to a single deployment.                                  |
+| number_of_warnings          | Gauge     | How many warnings are related to a single deployment.                                 |
+| prune_duration_seconds      | Histogram | How long a single prune takes in seconds.                                             |
+| validate_duration_seconds   | Histogram | How long a single validate takes in seconds.                                          |
