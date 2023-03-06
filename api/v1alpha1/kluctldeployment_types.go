@@ -543,6 +543,7 @@ func SetValidateResult(k *KluctlDeployment, revision string, result *types.Valid
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="DryRun",type="boolean",JSONPath=".spec.dryRun",description=""
 //+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.time",description=""
 //+kubebuilder:printcolumn:name="Pruned",type="date",JSONPath=".status.lastPruneResult.time",description=""
 //+kubebuilder:printcolumn:name="Validated",type="date",JSONPath=".status.lastValidateResult.time",description=""

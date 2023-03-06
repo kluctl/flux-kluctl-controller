@@ -17,6 +17,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.dryRun
+      name: DryRun
+      type: boolean
     - jsonPath: .status.lastDeployResult.time
       name: Deployed
       type: date
