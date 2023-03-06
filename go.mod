@@ -17,7 +17,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.24.0
 	github.com/fluxcd/source-controller/api v0.32.1
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	github.com/kluctl/kluctl/v2 v2.19.2
+	github.com/kluctl/kluctl/v2 v2.19.3-0.20230306161204-69731cfd9f2f
 	github.com/onsi/gomega v1.26.0
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
