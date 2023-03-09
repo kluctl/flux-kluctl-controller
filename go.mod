@@ -13,18 +13,18 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/pkg/apis/acl v0.1.0
-	github.com/fluxcd/pkg/apis/meta v0.18.0
+	github.com/fluxcd/pkg/apis/meta v0.19.1
 	github.com/fluxcd/pkg/runtime v0.24.0
-	github.com/fluxcd/source-controller/api v0.32.1
+	github.com/fluxcd/source-controller/api v0.36.0
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/kluctl/kluctl/v2 v2.19.3-0.20230306161204-69731cfd9f2f
 	github.com/onsi/gomega v1.26.0
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
 	k8s.io/api v0.26.1
-	k8s.io/apimachinery v0.26.1
+	k8s.io/apimachinery v0.26.2
 	k8s.io/client-go v0.26.1
-	sigs.k8s.io/controller-runtime v0.14.4
+	sigs.k8s.io/controller-runtime v0.14.5
 )
 
 //replace github.com/kluctl/kluctl/v2 => /Users/ablock/go/src/github.com/kluctl/kluctl
@@ -157,7 +157,7 @@ require (
 	go.uber.org/multierr v1.9.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
-	golang.org/x/net v0.6.0
+	golang.org/x/net v0.7.0
 	golang.org/x/oauth2 v0.3.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
