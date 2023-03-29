@@ -315,7 +315,7 @@ github.com/fluxcd/pkg/apis/meta.LocalObjectReference
 <td>
 <p>SecretRef holds the name of a secret that contains the Helm credentials.
 The secret must either contain the fields <code>credentialsId</code> which refers to the credentialsId
-found in <a href="https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories">https://kluctl.io/docs/reference/deployments/helm/#private-chart-repositories</a> or an <code>url</code> used
+found in <a href="https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-chart-repositories">https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-chart-repositories</a> or an <code>url</code> used
 to match the credentials found in Kluctl projects helm-chart.yaml files.
 The secret can either container basic authentication credentials via <code>username</code> and <code>password</code> or
 TLS authentication via <code>certFile</code> and <code>keyFile</code>. <code>caFile</code> can be specified to override the CA to use while

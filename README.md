@@ -20,11 +20,11 @@ and/or complex multi-env and multi-cluster deployments. It is designed in a way 
 co-existence of CLI centered DevOps and automation, for example in the form of GitOps/flux.
 
 This means that you can continue doing local development of your deployments and test them from your local machine,
-for example by regularly running [kluctl diff](https://kluctl.io/docs/reference/commands/diff/). When you believe
+for example by regularly running [kluctl diff](https://kluctl.io/docs/kluctl/reference/commands/diff/). When you believe
 you're done with your work, you can then commit your changes to Git and let the Flux Kluctl Controller do the
 actual deployment.
 
-You could also have a dedicated [target](https://kluctl.io/docs/reference/kluctl-project/targets/)
+You could also have a dedicated [target](https://kluctl.io/docs/kluctl/reference/kluctl-project/targets/)
 that you solely use for local development and deployment testing and then let the Flux Kluctl Controller handle
 the deployments to the real (e.g. pre-prod or prod) targets.
 
@@ -45,9 +45,9 @@ Installation instructions can be found [here](./docs/install.md)
 The reconciliation process can be defined with a Kubernetes custom resource
 that describes a pipeline such as:
 - **fetch** root kluctl project from source-controller (Git repository or S3 bucket)
-- **deploy** the specified target via [kluctl deploy](https://kluctl.io/docs/reference/commands/deploy/)
-- **prune** orphaned objects via [kluctl prune](https://kluctl.io/docs/reference/commands/prune/)
-- **validate** the deployment status via [kluctl validate](https://kluctl.io/docs/reference/commands/validate/)
+- **deploy** the specified target via [kluctl deploy](https://kluctl.io/docs/kluctl/reference/commands/deploy/)
+- **prune** orphaned objects via [kluctl prune](https://kluctl.io/docs/kluctl/reference/commands/prune/)
+- **validate** the deployment status via [kluctl validate](https://kluctl.io/docs/kluctl/reference/commands/validate/)
 - **alert** if something went wrong
 - **notify** if the cluster state changed
 

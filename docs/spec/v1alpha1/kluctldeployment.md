@@ -10,8 +10,8 @@ weight: 20
 
 # KluctlDeployment
 
-The `KluctlDeployment` API defines a deployment of a [target](https://kluctl.io/docs/reference/kluctl-project/targets/)
-from a [Kluctl Project](https://kluctl.io/docs/reference/kluctl-project/).
+The `KluctlDeployment` API defines a deployment of a [target](https://kluctl.io/docs/kluctl/reference/kluctl-project/targets/)
+from a [Kluctl Project](https://kluctl.io/docs/kluctl/reference/kluctl-project/).
 
 ## Example
 
@@ -35,7 +35,7 @@ spec:
 In the above example a KluctlDeployment is being created that defines the deployment based on the Kluctl project.
 
 The deployment is performed every 5 minutes. It will deploy the `prod`
-[target](https://kluctl.io/docs/reference/kluctl-project/targets/) and then prune orphaned objects afterwards.
+[target](https://kluctl.io/docs/kluctl/reference/kluctl-project/targets/) and then prune orphaned objects afterwards.
 
 When the KluctlDeployment gets deleted, `delete: true` will cause the controller to actually delete the target
 resources.
@@ -79,7 +79,7 @@ See [Reconciliation](#reconciliation).
 
 ### target
 `spec.target` specifies the target to be deployed. It must exist in the Kluctl projects
-[kluctl.yaml targets](https://kluctl.io/docs/reference/kluctl-project/targets/) list.
+[kluctl.yaml targets](https://kluctl.io/docs/kluctl/reference/kluctl-project/targets/) list.
 
 This field is optional and can be omitted if the referenced Kluctl project allows deployments without targets.
 
@@ -94,7 +94,7 @@ This field is optional and can be omitted if the referenced Kluctl project allow
 ### deployMode
 By default, the operator will perform a full deployment, which is equivalent to using the `kluctl deploy` command.
 As an alternative, the controller can be instructed to only perform a `kluctl poke-images` command. Please
-see https://kluctl.io/docs/reference/commands/poke-images/ for details on the command. To do so, set `spec.deployMode`
+see https://kluctl.io/docs/kluctl/reference/commands/poke-images/ for details on the command. To do so, set `spec.deployMode`
 field to `poke-images`.
 
 Example:
@@ -125,7 +125,7 @@ To enable deletion, set `spec.delete` to `true`. This will cause the controller 
 KluctlDeployment gets deleted.
 
 ### args
-`spec.args` is an object representing [arguments](https://kluctl.io/docs/reference/deployments/deployment-yml/#args)
+`spec.args` is an object representing [arguments](https://kluctl.io/docs/kluctl/reference/kluctl-project/#args)
 passed to the deployment. Example:
 
 ```yaml
@@ -153,7 +153,7 @@ The above example is equivalent to calling `kluctl deploy -t prod -a arg1=value1
 
 ### images
 `spec.images` specifies a list of fixed images to be used by
-[`image.get_image(...)`](https://kluctl.io/docs/reference/deployments/images/#imagesget_image). Example:
+[`image.get_image(...)`](https://kluctl.io/docs/kluctl/reference/deployments/images/#imagesget_image). Example:
 
 ```
 apiVersion: flux.kluctl.io/v1alpha1
@@ -180,7 +180,7 @@ The above example will cause the `images.get_image("nginx")` invocations of the 
 to return `registry.gitlab.com/my-org/my-repo/image:1.2.3`.
 
 The fixed images provided here take precedence over the ones provided in the
-[target definition](https://kluctl.io/docs/reference/kluctl-project/targets/#images).
+[target definition](https://kluctl.io/docs/kluctl/reference/kluctl-project/targets/#images).
 
 `spec.images` is equivalent to calling `kluctl deploy -t prod --fixed-image=nginx:example-namespace:Deployment/example=nginx:1.21.6 ...`
 and to `kluctl deploy -t prod --fixed-images-file=fixed-images.yaml` with `fixed-images.yaml` containing:
@@ -194,9 +194,6 @@ images:
 - image: registry.gitlab.com/my-org/my-repo/image
   resultImage: registry.gitlab.com/my-org/my-repo/image:1.2.3
 ```
-
-It is advised to use [dynamic targets](https://kluctl.io/docs/reference/kluctl-project/targets/dynamic-targets/)
-instead of providing images directly in the ´KluctlDeployment` object.
 
 ### dryRun
 `spec.dryRun` is a boolean value that turns the deployment into a dry-run deployment. This is equivalent to calling
@@ -265,7 +262,7 @@ handles impersonation, with the difference that a kubeconfig with a "default" co
 
 `spec.kubeConfig` will simply load the kubeconfig from `data.value` of the specified secret.
 
-Kluctl [targets](https://kluctl.io/docs/reference/kluctl-project/targets/) specify a context name that is expected to
+Kluctl [targets](https://kluctl.io/docs/kluctl/reference/kluctl-project/targets/) specify a context name that is expected to
 be present in the kubeconfig while deploying. As the context found in the generated kubeconfig does not necessarily
 have the correct name, `spec.renameContexts` allows to rename contexts to the desired names. This is especially useful
 when using service account based kubeconfigs, as these always have the same context with the name "default".
@@ -374,8 +371,8 @@ stringData:
 
 ## Helm Repository authentication
 
-Kluctl allows to [integrate Helm Charts](https://kluctl.io/docs/reference/deployments/helm/) in two different ways.
-One is to [pre-pull charts](https://kluctl.io/docs/reference/commands/helm-pull/) and put them into version control,
+Kluctl allows to [integrate Helm Charts](https://kluctl.io/docs/kluctl/reference/deployments/helm/) in two different ways.
+One is to [pre-pull charts](https://kluctl.io/docs/kluctl/reference/commands/helm-pull/) and put them into version control,
 making it unnecessary to pull them at deploy time. This option also means that you don't have to take any special care
 on the controller side.
 
@@ -444,7 +441,7 @@ This will pass the credentials to all requests, even if the hostname changes.
 
 ## Secrets Decryption
 
-Kluctl offers a [SOPS Integration](https://kluctl.io/docs/reference/deployments/sops/) that allows to use encrypted
+Kluctl offers a [SOPS Integration](https://kluctl.io/docs/kluctl/reference/deployments/sops/) that allows to use encrypted
 manifests and variable sources in Kluctl deployments. Decryption by the controller is also supported and currently
 mirrors how the [Secrets Decryption configuration](https://fluxcd.io/flux/components/kustomize/kustomization/#secrets-decryption)
 of the Flux Kustomize Controller. To configure it in the `KluctlDeployment`, simply set the `decryption` field in the
