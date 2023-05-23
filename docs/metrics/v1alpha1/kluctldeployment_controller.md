@@ -13,8 +13,8 @@ weight: 20
 | Metrics name                | Type      | Description                                                                          |
 |-----------------------------|-----------|--------------------------------------------------------------------------------------|
 | deployment_duration_seconds | Histogram | How long a single deployment takes in seconds.                                       |
-| number_of_changes           | Gauge     | How many things has been changed by a single deployment.                             |
-| number_of_deleted_objects   | Gauge     | How many things has been deleted by a single deployment.                             |
+| number_of_changed_objects   | Gauge     | How many objects have been changed by a single deployment.                           |
+| number_of_deleted_objects   | Gauge     | How many objects have been deleted by a single deployment.                           |
 | number_of_errors            | Gauge     | How many errors are related to a single deployment.                                  |
 | number_of_images            | Gauge     | Number of images of a single deployment.                                             |
 | number_of_orphan_objects    | Gauge     | How many orphans are related to a single deployment.                                 |
