@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -424,12 +425,12 @@ type LastValidateResult struct {
 	Error string `json:"error"`
 }
 
-func (r *LastCommandResult) ParseResult() *types.CommandResult {
+func (r *LastCommandResult) ParseResult() *result.CommandResult {
 	if r == nil || r.RawResult == nil {
 		return nil
 	}
 
-	var ret types.CommandResult
+	var ret result.CommandResult
 	err := yaml.ReadYamlString(*r.RawResult, &ret)
 	if err != nil {
 		return nil
@@ -437,12 +438,12 @@ func (r *LastCommandResult) ParseResult() *types.CommandResult {
 	return &ret
 }
 
-func (r *LastValidateResult) ParseResult() *types.ValidateResult {
+func (r *LastValidateResult) ParseResult() *result.ValidateResult {
 	if r == nil || r.RawResult == nil {
 		return nil
 	}
 
-	var ret types.ValidateResult
+	var ret result.ValidateResult
 	err := yaml.ReadYamlString(*r.RawResult, &ret)
 	if err != nil {
 		return nil
@@ -469,7 +470,7 @@ func (d *KluctlDeploymentStatus) ParseRawTarget() *types.Target {
 	return &ret
 }
 
-func SetDeployResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
+func SetDeployResult(k *KluctlDeployment, revision string, result *result.CommandResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
@@ -493,7 +494,7 @@ func SetDeployResult(k *KluctlDeployment, revision string, result *types.Command
 	}
 }
 
-func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandResult, objectHash string, err error) {
+func SetPruneResult(k *KluctlDeployment, revision string, result *result.CommandResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()
@@ -517,7 +518,7 @@ func SetPruneResult(k *KluctlDeployment, revision string, result *types.CommandR
 	}
 }
 
-func SetValidateResult(k *KluctlDeployment, revision string, result *types.ValidateResult, objectHash string, err error) {
+func SetValidateResult(k *KluctlDeployment, revision string, result *result.ValidateResult, objectHash string, err error) {
 	errStr := ""
 	if err != nil {
 		errStr = err.Error()

@@ -12,12 +12,12 @@ import (
 	"github.com/fluxcd/pkg/runtime/metrics"
 	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
-	internal_metrics "github.com/kluctl/flux-kluctl-controller/internal/metrics"
+	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	project "github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -228,7 +228,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	err = pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		obj.Status.Discriminator = targetContext.Target.Discriminator
-		obj.Status.SetRawTarget(targetContext.Target)
+		obj.Status.SetRawTarget(&targetContext.Target)
 
 		objectsHash := r.calcObjectsHash(targetContext)
 		needDeploy := false
@@ -274,7 +274,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 		if needDeploy {
 			// deploy the kluctl project
-			var deployResult *types.CommandResult
+			var deployResult *result.CommandResult
 			if obj.Spec.DeployMode == kluctlv1.KluctlDeployModeFull {
 				deployResult, err = pt.kluctlDeploy(ctx, targetContext)
 			} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {

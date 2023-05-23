@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	internal_metrics "github.com/kluctl/flux-kluctl-controller/internal/metrics"
 	"github.com/kluctl/flux-kluctl-controller/internal/sops"
+	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/diff"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/prometheus/client_golang/prometheus"
 	"helm.sh/helm/v3/pkg/repo"
@@ -28,7 +28,6 @@ import (
 	kluctlv1 "github.com/kluctl/flux-kluctl-controller/api/v1alpha1"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
@@ -98,7 +97,7 @@ func prepareProject(ctx context.Context,
 	}
 
 	if source != nil {
-		gitUrl, err := git_url.Parse(source.URL)
+		gitUrl, err := types2.ParseGitUrl(source.URL)
 		if err != nil {
 			return nil, err
 		}
@@ -362,12 +361,7 @@ func (pt *preparedTarget) buildRegistryHelper(ctx context.Context) (*registries.
 }
 
 func (pt *preparedTarget) buildImages(ctx context.Context) (*deployment.Images, error) {
-	rh, err := pt.buildRegistryHelper(ctx)
-	if err != nil {
-		return nil, err
-	}
-	offline := !pt.pp.obj.Spec.UpdateImages
-	images, err := deployment.NewImages(rh, pt.pp.obj.Spec.UpdateImages, offline)
+	images, err := deployment.NewImages()
 	if err != nil {
 		return nil, err
 	}
@@ -630,20 +624,6 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 	return cb(p)
 }
 
-func (pp *preparedProject) listTargets(ctx context.Context) ([]*types2.Target, error) {
-	var ret []*types2.Target
-	err := pp.withKluctlProject(ctx, nil, func(p *kluctl_project.LoadedKluctlProject) error {
-		for _, x := range p.DynamicTargets {
-			ret = append(ret, x.Target)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
 func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(targetContext *kluctl_project.TargetContext) error) error {
 	return pt.pp.withKluctlProject(ctx, pt, func(p *kluctl_project.LoadedKluctlProject) error {
 		renderOutputDir, err := os.MkdirTemp(pt.pp.tmpDir, "render-")
@@ -688,61 +668,62 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 	})
 }
 
-func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *types2.CommandResult, commandName string) error {
+func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string) error {
 	log := ctrl.LoggerFrom(ctx)
 
+	summary := cmdResult.BuildSummary()
+	cmdResult.Objects = nil
+
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
-	defer pt.exportCommandResultMetricsToProm(cmdResult, commandName)
+	defer pt.exportCommandResultMetricsToProm(summary, commandName)
 	if cmdErr != nil {
 		pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return cmdErr
 	}
 
-	kluctlv1.RemoveObjectsFromCommandResult(cmdResult)
 	obfuscator := diff.Obfuscator{}
-
-	for _, c := range cmdResult.ChangedObjects {
-		obfuscator.Obfuscate(c.Ref, c.Changes)
+	err := obfuscator.ObfuscateResult(cmdResult)
+	if err != nil {
+		return err
 	}
 
 	msg := fmt.Sprintf("%s succeeded.", commandName)
-	if len(cmdResult.NewObjects) != 0 {
-		msg += fmt.Sprintf(" %d new objects.", len(cmdResult.NewObjects))
+	if summary.NewObjects != 0 {
+		msg += fmt.Sprintf(" %d new objects.", summary.NewObjects)
 	}
-	if len(cmdResult.ChangedObjects) != 0 {
-		msg += fmt.Sprintf(" %d changed objects.", len(cmdResult.ChangedObjects))
+	if summary.ChangedObjects != 0 {
+		msg += fmt.Sprintf(" %d changed objects.", summary.ChangedObjects)
 	}
-	if len(cmdResult.HookObjects) != 0 {
-		msg += fmt.Sprintf(" %d hooks run.", len(cmdResult.HookObjects))
+	if summary.AppliedHookObjects != 0 {
+		msg += fmt.Sprintf(" %d hooks run.", summary.AppliedHookObjects)
 	}
-	if len(cmdResult.DeletedObjects) != 0 {
-		msg += fmt.Sprintf(" %d deleted objects.", len(cmdResult.DeletedObjects))
+	if summary.DeletedObjects != 0 {
+		msg += fmt.Sprintf(" %d deleted objects.", summary.DeletedObjects)
 	}
-	if len(cmdResult.OrphanObjects) != 0 {
-		msg += fmt.Sprintf(" %d orphan objects.", len(cmdResult.OrphanObjects))
+	if summary.OrphanObjects != 0 {
+		msg += fmt.Sprintf(" %d orphan objects.", summary.OrphanObjects)
 	}
-	if len(cmdResult.Errors) != 0 {
-		msg += fmt.Sprintf(" %d errors.", len(cmdResult.Errors))
+	if summary.Errors != 0 {
+		msg += fmt.Sprintf(" %d errors.", summary.Errors)
 	}
-	if len(cmdResult.Warnings) != 0 {
-		msg += fmt.Sprintf(" %d warnings.", len(cmdResult.Warnings))
+	if summary.Warnings != 0 {
+		msg += fmt.Sprintf(" %d warnings.", summary.Warnings)
 	}
 
 	warning := false
-	var err error
-	if len(cmdResult.Errors) != 0 {
+	if summary.Errors != 0 {
 		warning = true
-		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))
+		err = fmt.Errorf("%s failed with %d errors", commandName, summary.Errors)
 	}
 	pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, warning, msg, nil)
 
 	return err
 }
 
-func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
-	cmd := commands.NewDeployCommand(targetContext.Target.Discriminator, targetContext.DeploymentCollection)
+	cmd := commands.NewDeployCommand(targetContext)
 	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
 	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
 	cmd.ForceReplaceOnError = pt.pp.obj.Spec.ForceReplaceOnError
@@ -750,22 +731,22 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	cmd.ReadinessTimeout = time.Minute * 10
 	cmd.NoWait = pt.pp.obj.Spec.NoWait
 
-	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K, nil)
+	cmdResult, err := cmd.Run(nil)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
+func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
-	cmd := commands.NewPokeImagesCommand(targetContext.DeploymentCollection)
+	cmd := commands.NewPokeImagesCommand(targetContext)
 
-	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
+	cmdResult, err := cmd.Run()
 	err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images")
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.CommandResult, error) {
+func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
 	if !pt.pp.obj.Spec.Prune {
 		return nil, nil
 	}
@@ -773,26 +754,28 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlPruneDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
-	cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext.DeploymentCollection)
-	refs, err := cmd.Run(ctx, targetContext.SharedContext.K)
+	cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext)
+	cmdResult, err := cmd.Run(func(refs []k8s.ObjectRef) error {
+		pt.printDeletedRefs(ctx, refs)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	cmdResult, err := pt.doDeleteObjects(ctx, targetContext.SharedContext.K, refs)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "prune")
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext) (*types2.ValidateResult, error) {
+func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext) (*result.ValidateResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
-	cmd := commands.NewValidateCommand(ctx, targetContext.Target.Discriminator, targetContext.DeploymentCollection)
+	cmd := commands.NewValidateCommand(ctx, targetContext.Target.Discriminator, targetContext.DeploymentCollection, nil)
 
 	cmdResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string) (*types2.CommandResult, error) {
+func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string) (*result.CommandResult, error) {
 	if !pt.pp.obj.Spec.Delete {
 		return nil, nil
 	}
@@ -800,7 +783,9 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeleteDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
-	cmd := commands.NewDeleteCommand(discriminator, nil)
+	inclusion := pt.buildInclusion()
+
+	cmd := commands.NewDeleteCommand(discriminator, nil, inclusion)
 
 	restConfig, err := pt.buildRestConfig(ctx)
 	if err != nil {
@@ -815,16 +800,18 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 		return nil, err
 	}
 
-	refs, err := cmd.Run(ctx, k)
+	cmdResult, err := cmd.Run(ctx, k, func(refs []k8s.ObjectRef) error {
+		pt.printDeletedRefs(ctx, refs)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	cmdResult, err := pt.doDeleteObjects(ctx, k, refs)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "delete")
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluster, refs []k8s.ObjectRef) (*types2.CommandResult, error) {
+func (pt *preparedTarget) printDeletedRefs(ctx context.Context, refs []k8s.ObjectRef) {
 	log := ctrl.LoggerFrom(ctx)
 
 	var refStrs []string
@@ -834,21 +821,16 @@ func (pt *preparedTarget) doDeleteObjects(ctx context.Context, k *k8s2.K8sCluste
 	if len(refStrs) != 0 {
 		log.Info(fmt.Sprintf("deleting (without waiting): %s", strings.Join(refStrs, ", ")))
 	}
-
-	return utils2.DeleteObjects(ctx, k, refs, false)
 }
-
-func (pt *preparedTarget) exportCommandResultMetricsToProm(cmdResult *types2.CommandResult, commandName string) {
-	numberOfDeletedObjects := len(cmdResult.DeletedObjects)
+func (pt *preparedTarget) exportCommandResultMetricsToProm(summary *result.CommandResultSummary, commandName string) {
+	numberOfDeletedObjects := summary.DeletedObjects
 	internal_metrics.NewKluctlNumberOfDeletedObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfDeletedObjects))
-	numberOfChangedObjects := len(cmdResult.ChangedObjects)
-	internal_metrics.NewKluctlNumberOfChanges(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfChangedObjects))
-	numberOfOrphanObjects := len(cmdResult.OrphanObjects)
+	numberOfChangedObjects := summary.ChangedObjects
+	internal_metrics.NewKluctlNumberOfChangedObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfChangedObjects))
+	numberOfOrphanObjects := summary.OrphanObjects
 	internal_metrics.NewKluctlNumberOfOrphanObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfOrphanObjects))
-	numberOfWarnings := len(cmdResult.Warnings)
+	numberOfWarnings := summary.Warnings
 	internal_metrics.NewKluctlNumberOfWarnings(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(numberOfWarnings))
-	numberOfErrors := len(cmdResult.Errors)
+	numberOfErrors := summary.Errors
 	internal_metrics.NewKluctlNumberOfErrors(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(numberOfErrors))
-	numberOfImages := len(cmdResult.SeenImages)
-	internal_metrics.NewKluctlNumberOfImages(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfImages))
 }
