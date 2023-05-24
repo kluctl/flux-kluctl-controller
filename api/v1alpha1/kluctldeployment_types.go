@@ -382,6 +382,11 @@ type KluctlDeploymentStatus struct {
 
 	// +optional
 	RawTarget *string `json:"rawTarget,omitempty"`
+
+	// ReadyForMigration is used to signal the new controller that this object is handled by a legacy controller version
+	// that will honor the existence of KluctlDeployment objects from the gitops.kluctl.io group.
+	// +optional
+	ReadyForMigration *bool `json:"readyForMigration,omitempty"`
 }
 
 type ReconcileResultBase struct {

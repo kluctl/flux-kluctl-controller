@@ -22,7 +22,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	kuberecorder "k8s.io/client-go/tools/record"
@@ -61,6 +63,8 @@ type KluctlDeploymentReconcilerOpts struct {
 // +kubebuilder:rbac:groups=flux.kluctl.io,resources=kluctldeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=flux.kluctl.io,resources=kluctldeployments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=flux.kluctl.io,resources=kluctldeployments/finalizers,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=gitops.kluctl.io,resources=kluctldeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=gitops.kluctl.io,resources=kluctldeployments/status,verbs=get
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets;gitrepositories,verbs=get;list;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=buckets/status;gitrepositories/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;serviceaccounts,verbs=get;list;watch
@@ -104,9 +108,20 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.finalize(ctx, obj)
 	}
 
+	if obj.Status.ReadyForMigration == nil || !*obj.Status.ReadyForMigration {
+		log.V(1).Info("Setting status.readyForMigration=true")
+		x := true
+		obj.Status.ReadyForMigration = &x
+	}
+
 	// Return early if the KluctlDeployment is suspended.
 	if obj.Spec.Suspend {
 		log.Info("Reconciliation is suspended for this object")
+		return ctrl.Result{}, nil
+	}
+
+	if r.checkNewGitOpsObjectExistence(ctx, obj) {
+		log.V(1).Info("Skipping reconciliation due to new version of KluctlDeployment being present")
 		return ctrl.Result{}, nil
 	}
 
@@ -497,6 +512,10 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 	if !obj.Spec.Delete || obj.Spec.Suspend {
 		return
 	}
+	if r.checkNewGitOpsObjectExistence(ctx, obj) {
+		log.V(1).Info("Skipping finalization due to new version of KluctlDeployment being present")
+		return
+	}
 
 	if obj.Status.Discriminator == "" {
 		log.V(1).Info("No discriminator set, skipping deletion")
@@ -517,6 +536,25 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 	}
 
 	_, _ = pt.kluctlDelete(ctx, obj.Status.Discriminator)
+}
+
+func (r *KluctlDeploymentReconciler) checkNewGitOpsObjectExistence(ctx context.Context, obj *kluctlv1.KluctlDeployment) bool {
+	rm, err := r.RESTMapper().RESTMapping(schema.GroupKind{
+		Group: "gitops.kluctl.io",
+		Kind:  "KluctlDeployment",
+	})
+	if err != nil {
+		return false
+	}
+
+	var obj2 unstructured.Unstructured
+	obj2.SetGroupVersionKind(rm.GroupVersionKind)
+
+	err = r.Get(ctx, client.ObjectKeyFromObject(obj), &obj2)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func (r *KluctlDeploymentReconciler) calcObjectsHash(targetContext *project.TargetContext) string {

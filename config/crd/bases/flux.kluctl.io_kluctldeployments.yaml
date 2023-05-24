@@ -639,6 +639,12 @@ spec:
                 type: integer
               rawTarget:
                 type: string
+              readyForMigration:
+                description: ReadyForMigration is used to signal the new controller
+                  that this object is handled by a legacy controller version that
+                  will honor the existence of KluctlDeployment objects from the gitops.kluctl.io
+                  group.
+                type: boolean
             type: object
         type: object
     served: true

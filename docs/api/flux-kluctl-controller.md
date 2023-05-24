@@ -1560,6 +1560,19 @@ string
 <em>(Optional)</em>
 </td>
 </tr>
+<tr>
+<td>
+<code>readyForMigration</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ReadyForMigration is used to signal the new controller that this object is handled by a legacy controller version
+that will honor the existence of KluctlDeployment objects from the gitops.kluctl.io group.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
