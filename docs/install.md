@@ -9,6 +9,13 @@ weight: 10
 
 # Installation
 
+> ⚠️**The flux-kluctl-controller is deprecated**⚠️
+>
+> Please migrate to the new [Kluctl Controller](https://kluctl.io/docs/kluctl/reference/gitops/)
+>
+> The migration guide can be found [here](https://kluctl.io/docs/kluctl/reference/gitops/migration/)
+
+
 The Flux Kluctl Controller can currently be either installed via Kustomize or via Helm.
 
 ## kustomize
@@ -19,6 +26,12 @@ kustomize build "https://github.com/kluctl/flux-kluctl-controller/config/install
 ```
 
 ## Helm
+
+> ⚠️**The flux-kluctl-controller is deprecated**⚠️
+>
+> New Helm Charts will not be released!
+
+
 A Helm Chart for the controller is also available [here](https://github.com/kluctl/charts/tree/main/charts/flux-kluctl-controller).
 To install the controller via Helm, run:
 ```shell

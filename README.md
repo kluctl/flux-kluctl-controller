@@ -1,19 +1,27 @@
 <!-- This comment is uncommented when auto-synced to www-kluctl.io
 
 ---
-title: "Flux Kluctl Controller"
-linkTitle: "Flux Kluctl Controller"
+title: "Flux Kluctl Controller (deprecated)"
+linkTitle: "Flux Kluctl Controller (deprecated)"
 description: "Flux Kluctl Controller documentation."
-weight: 200
+weight: 2000
 ---
 -->
 
-# Flux Kluctl Controller
+# Flux Kluctl Controller (deprecated)
+
+> ⚠️**The flux-kluctl-controller is deprecated**⚠️
+>
+> Please migrate to the new [Kluctl Controller](https://kluctl.io/docs/kluctl/reference/gitops/)
+>
+> The migration guide can be found [here](https://kluctl.io/docs/kluctl/reference/gitops/migration/)
 
 The Flux Kluctl Controller is a Kubernetes operator, specialized in running 
 continuous delivery pipelines for infrastructure defined with [kluctl](https://kluctl.io).
 
 ## Motivation
+
+> ⚠️**The flux-kluctl-controller is deprecated**⚠️
 
 [kluctl](https://kluctl.io) is a tool that allows you to declare and manage small, large, simple
 and/or complex multi-env and multi-cluster deployments. It is designed in a way that allows seamless
@@ -38,9 +46,13 @@ repositories.
 
 ## Installation
 
+> ⚠️**The flux-kluctl-controller is deprecated**⚠️
+
 Installation instructions can be found [here](./docs/install.md)
 
 ## Design
+
+> ⚠️**The flux-kluctl-controller is deprecated**⚠️
 
 The reconciliation process can be defined with a Kubernetes custom resource
 that describes a pipeline such as:
@@ -67,6 +79,8 @@ that specifies a webhook address, and a group of pipelines to be monitored.
 The API design of the controller can be found at [kluctldeployment.flux.kluctl.io/v1beta1](v1alpha1/README.md).
 
 ## Example
+
+> ⚠️**The flux-kluctl-controller is deprecated**⚠️
 
 After installing flux-kluctl-controller, we can create a Kluctl deployment that automatically deploys the
 [Microservices Demo](https://kluctl.io/docs/guides/tutorials/microservices-demo/3-templating-and-multi-env/).
