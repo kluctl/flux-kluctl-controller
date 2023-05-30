@@ -671,6 +671,7 @@ func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(t
 func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string) error {
 	log := ctrl.LoggerFrom(ctx)
 
+	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
 	summary := cmdResult.BuildSummary()
 	cmdResult.Objects = nil
 
