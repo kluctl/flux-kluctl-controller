@@ -109,7 +109,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if obj.Status.ReadyForMigration == nil || !*obj.Status.ReadyForMigration {
-		log.V(1).Info("Setting status.readyForMigration=true")
+		log.Info("Setting status.readyForMigration=true")
 		x := true
 		patch := client.MergeFrom(obj.DeepCopy())
 		obj.Status.ReadyForMigration = &x
@@ -125,7 +125,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if r.checkNewGitOpsObjectExistence(ctx, obj) {
-		log.V(1).Info("Skipping reconciliation due to new version of KluctlDeployment being present")
+		log.Info("Skipping reconciliation due to new version of KluctlDeployment being present")
 		return ctrl.Result{}, nil
 	}
 
