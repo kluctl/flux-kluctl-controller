@@ -111,7 +111,11 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if obj.Status.ReadyForMigration == nil || !*obj.Status.ReadyForMigration {
 		log.V(1).Info("Setting status.readyForMigration=true")
 		x := true
+		patch := client.MergeFrom(obj.DeepCopy())
 		obj.Status.ReadyForMigration = &x
+		if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.statusManager)); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
 	}
 
 	// Return early if the KluctlDeployment is suspended.
