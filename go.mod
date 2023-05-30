@@ -17,7 +17,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.37.0
 	github.com/fluxcd/source-controller/api v0.36.1
 	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/kluctl/kluctl/v2 v2.19.1-0.20230524090309-b292ea24bb10
+	github.com/kluctl/kluctl/v2 v2.19.1-0.20230530124255-adea0679900f
 	github.com/onsi/gomega v1.27.7
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
@@ -95,7 +95,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
-	github.com/imdario/mergo v0.3.15 // indirect
+	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
@@ -126,7 +126,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/ohler55/ojg v1.18.5 // indirect
+	github.com/ohler55/ojg v1.18.6 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -217,6 +217,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/go-git/go-git/v5 v5.7.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
@@ -229,7 +230,7 @@ require (
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hashicorp/vault/api v1.9.1 // indirect
+	github.com/hashicorp/vault/api v1.9.2 // indirect
 	github.com/kluctl/go-embed-python v0.0.0-3.10.9-20230206-2 // indirect
 	github.com/kluctl/go-jinja2 v0.0.0-20230428103343-a832225dc94c // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
@@ -260,6 +261,5 @@ require (
 	golang.org/x/tools v0.9.1 // indirect
 	google.golang.org/api v0.114.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	sigs.k8s.io/cli-utils v0.34.0 // indirect
 )

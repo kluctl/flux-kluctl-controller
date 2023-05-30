@@ -754,7 +754,7 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlPruneDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
-	cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext)
+	cmd := commands.NewPruneCommand(targetContext.Target.Discriminator, targetContext, false)
 	cmdResult, err := cmd.Run(func(refs []k8s.ObjectRef) error {
 		pt.printDeletedRefs(ctx, refs)
 		return nil
@@ -785,7 +785,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 
 	inclusion := pt.buildInclusion()
 
-	cmd := commands.NewDeleteCommand(discriminator, nil, inclusion)
+	cmd := commands.NewDeleteCommand(discriminator, nil, inclusion, false)
 
 	restConfig, err := pt.buildRestConfig(ctx)
 	if err != nil {
