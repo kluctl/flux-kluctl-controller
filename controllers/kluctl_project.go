@@ -674,6 +674,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
 	summary := cmdResult.BuildSummary()
 	cmdResult.Objects = nil
+	cmdResult.Deployment = nil
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
 	defer pt.exportCommandResultMetricsToProm(summary, commandName)
