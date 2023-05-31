@@ -46,7 +46,7 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-goreleaser-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-goreleaser-${{ hashFiles('**/go.sum') }}-1
           restore-keys: |
             ${{ runner.os }}-goreleaser-
       - name: Generate release artifacts
