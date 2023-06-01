@@ -14,7 +14,7 @@ require (
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/pkg/apis/acl v0.1.0
 	github.com/fluxcd/pkg/apis/meta v1.1.0
-	github.com/fluxcd/pkg/runtime v0.37.0
+	github.com/fluxcd/pkg/runtime v0.38.1
 	github.com/fluxcd/source-controller/api v0.36.1
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/kluctl/kluctl/v2 v2.20.3
