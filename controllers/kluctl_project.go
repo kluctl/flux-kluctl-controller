@@ -705,17 +705,17 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	if summary.OrphanObjects != 0 {
 		msg += fmt.Sprintf(" %d orphan objects.", summary.OrphanObjects)
 	}
-	if summary.Errors != 0 {
-		msg += fmt.Sprintf(" %d errors.", summary.Errors)
+	if len(summary.Errors) != 0 {
+		msg += fmt.Sprintf(" %d errors.", len(summary.Errors))
 	}
-	if summary.Warnings != 0 {
-		msg += fmt.Sprintf(" %d warnings.", summary.Warnings)
+	if len(summary.Warnings) != 0 {
+		msg += fmt.Sprintf(" %d warnings.", len(summary.Warnings))
 	}
 
 	warning := false
-	if summary.Errors != 0 {
+	if len(summary.Errors) != 0 {
 		warning = true
-		err = fmt.Errorf("%s failed with %d errors", commandName, summary.Errors)
+		err = fmt.Errorf("%s failed with %d errors", commandName, len(summary.Errors))
 	}
 	pt.pp.r.event(ctx, pt.pp.obj, pt.pp.sourceRevision, warning, msg, nil)
 
@@ -832,7 +832,7 @@ func (pt *preparedTarget) exportCommandResultMetricsToProm(summary *result.Comma
 	numberOfOrphanObjects := summary.OrphanObjects
 	internal_metrics.NewKluctlNumberOfOrphanObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(numberOfOrphanObjects))
 	numberOfWarnings := summary.Warnings
-	internal_metrics.NewKluctlNumberOfWarnings(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(numberOfWarnings))
+	internal_metrics.NewKluctlNumberOfWarnings(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(len(numberOfWarnings)))
 	numberOfErrors := summary.Errors
-	internal_metrics.NewKluctlNumberOfErrors(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(numberOfErrors))
+	internal_metrics.NewKluctlNumberOfErrors(pt.pp.obj.Namespace, pt.pp.obj.Name, commandName).Set(float64(len(numberOfErrors)))
 }

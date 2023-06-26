@@ -17,7 +17,7 @@ require (
 	github.com/fluxcd/pkg/runtime v0.37.0
 	github.com/fluxcd/source-controller/api v0.36.1
 	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/kluctl/kluctl/v2 v2.20.3
+	github.com/kluctl/kluctl/v2 v2.20.6
 	github.com/onsi/gomega v1.27.7
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
@@ -233,7 +233,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/vault/api v1.9.2 // indirect
 	github.com/kluctl/go-embed-python v0.0.0-3.10.9-20230206-2 // indirect
-	github.com/kluctl/go-jinja2 v0.0.0-20230428103343-a832225dc94c // indirect
+	github.com/kluctl/go-jinja2 v0.0.0-20230625212202-e9c395af7587 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
