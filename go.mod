@@ -18,7 +18,7 @@ require (
 	github.com/fluxcd/source-controller/api v0.36.1
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/kluctl/kluctl/v2 v2.20.7
-	github.com/onsi/gomega v1.27.7
+	github.com/onsi/gomega v1.27.8
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
 	k8s.io/api v0.27.2
