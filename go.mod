@@ -13,17 +13,17 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/fluxcd/pkg/apis/acl v0.1.0
-	github.com/fluxcd/pkg/apis/meta v1.1.0
-	github.com/fluxcd/pkg/runtime v0.37.0
+	github.com/fluxcd/pkg/apis/meta v1.1.1
+	github.com/fluxcd/pkg/runtime v0.39.0
 	github.com/fluxcd/source-controller/api v0.36.1
-	github.com/hashicorp/go-retryablehttp v0.7.2
+	github.com/hashicorp/go-retryablehttp v0.7.4
 	github.com/kluctl/kluctl/v2 v2.20.7
-	github.com/onsi/gomega v1.27.7
+	github.com/onsi/gomega v1.27.8
 	github.com/spf13/pflag v1.0.5
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
-	k8s.io/api v0.27.2
-	k8s.io/apimachinery v0.27.2
-	k8s.io/client-go v0.27.2
+	k8s.io/api v0.27.3
+	k8s.io/apimachinery v0.27.3
+	k8s.io/client-go v0.27.3
 	sigs.k8s.io/controller-runtime v0.15.0
 )
 
@@ -131,10 +131,10 @@ require (
 	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.15.1
+	github.com/prometheus/client_golang v1.16.0
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/r3labs/diff/v2 v2.15.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rubenv/sql-migrate v1.3.1 // indirect
@@ -172,10 +172,10 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.12.0
-	k8s.io/apiextensions-apiserver v0.27.2 // indirect
-	k8s.io/apiserver v0.27.2 // indirect
+	k8s.io/apiextensions-apiserver v0.27.3 // indirect
+	k8s.io/apiserver v0.27.3 // indirect
 	k8s.io/cli-runtime v0.27.1 // indirect
-	k8s.io/component-base v0.27.2 // indirect
+	k8s.io/component-base v0.27.3 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	k8s.io/kubectl v0.27.1 // indirect
